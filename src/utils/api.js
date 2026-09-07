@@ -93,10 +93,15 @@ export const api = {
 
   completeProfile: async (payload) => {
     // payload: { idToken, firstName, lastName, email }
-    return request('/api/novare/auth/complete-profile', {
+    const data = await request('/api/novare/auth/complete-profile', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+
+    if (data.success && data.token) {
+      setStoredAuth(data.token, data.refreshToken, data.data || {});
+    }
+    return data;
   },
 
   // Registrations
