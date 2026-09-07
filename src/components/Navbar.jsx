@@ -93,6 +93,27 @@ export default function Navbar({
           </button>
 
           <div className="nav-actions">
+            {/* Download App Action */}
+            <button
+              className="nav-cta-secondary"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                if (onOpenDownloadModal) onOpenDownloadModal();
+              }}
+              title="Download Arenova Mobile App"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: '700',
+                background: 'rgba(184, 255, 61, 0.15)',
+                borderColor: 'rgba(184, 255, 61, 0.4)',
+                marginRight: '10px'
+              }}
+            >
+              📲 App
+            </button>
+
             {authObj?.token ? (
               <>
                 <button

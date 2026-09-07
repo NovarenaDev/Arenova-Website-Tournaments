@@ -6,7 +6,8 @@ export default function UserDashboard({
   authObj,
   onSignOut,
   onBrowseTournaments,
-  onUpdateAuth
+  onUpdateAuth,
+  onOpenDownloadModal
 }) {
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -82,9 +83,25 @@ export default function UserDashboard({
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" onClick={onBrowseTournaments}>
                 Browse Tournaments
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={onOpenDownloadModal}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(184, 255, 61, 0.15)',
+                  borderColor: 'rgba(184, 255, 61, 0.5)',
+                  color: 'var(--ink)',
+                  fontWeight: '700'
+                }}
+              >
+                📲 Download App
               </button>
               <button className="btn btn-danger" onClick={onSignOut} style={{ padding: '10px 18px', fontSize: '13px' }}>
                 Sign Out

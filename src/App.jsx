@@ -10,6 +10,7 @@ import VenuesPage from './pages/VenuesPage';
 import ContactPage from './pages/ContactPage';
 import LegalPage from './pages/LegalPage';
 import UserDashboard from './components/TournamentBooking/UserDashboard';
+import DownloadAppModal from './components/DownloadAppModal';
 import { api, getStoredAuth, clearStoredAuth } from './utils/api';
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
   const [legalDocType, setLegalDocType] = useState('privacy');
   const [authObj, setAuthObj] = useState(getStoredAuth());
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [tournaments, setTournaments] = useState([]);
   const [loadingTournaments, setLoadingTournaments] = useState(false);
 
@@ -77,6 +79,7 @@ export default function App() {
         onOpenAuth={() => setShowAuthModal(true)}
         onOpenDashboard={handleOpenDashboard}
         onSignOut={handleSignOut}
+        onOpenDownloadModal={() => setShowDownloadModal(true)}
       />
 
       <div style={{ flex: 1 }}>
@@ -125,6 +128,7 @@ export default function App() {
             onUpdateAuth={(updatedUser) => {
               setAuthObj({ ...authObj, user: updatedUser });
             }}
+            onOpenDownloadModal={() => setShowDownloadModal(true)}
           />
         )}
       </div>
@@ -138,6 +142,11 @@ export default function App() {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onAuthSuccess={handleAuthSuccess}
+      />
+
+      <DownloadAppModal
+        isOpen={showDownloadModal}
+        onClose={() => setShowDownloadModal(false)}
       />
     </div>
   );
