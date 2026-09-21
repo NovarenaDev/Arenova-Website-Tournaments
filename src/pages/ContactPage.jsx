@@ -119,7 +119,7 @@ export default function ContactPage() {
 
             <div className="contact-item">
               <span>Registered Entity</span>
-              <b>Novarena Technologies Private Limited</b>
+              <b>Novarena Technologies LLP</b>
             </div>
 
             <p className="notice">

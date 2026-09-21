@@ -8,7 +8,8 @@ export default function Navbar({
   authObj,
   onOpenAuth,
   onOpenDashboard,
-  onSignOut
+  onSignOut,
+  onOpenDownloadModal
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoSrc, setLogoSrc] = useState(defaultLogo);
