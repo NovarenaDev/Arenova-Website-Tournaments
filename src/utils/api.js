@@ -1,4 +1,5 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://16.112.182.86';
+
 
 // Local storage helpers for auth state
 const STORAGE_KEYS = {

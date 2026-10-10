@@ -7,10 +7,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://arenova-backend-production-3192.up.railway.app',
+        target: 'http://16.112.182.86',
         changeOrigin: true,
         secure: false,
       }
     }
   }
 })
+
