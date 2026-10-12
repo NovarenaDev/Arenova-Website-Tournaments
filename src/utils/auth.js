@@ -17,7 +17,7 @@ export const signInWithToken = async (idToken) => {
 
 export const completeUserProfile = async (idToken, firstName, lastName, email) => {
   try {
-    const data = await api.completeProfile({ idToken, firstName, lastName, email });
+    const data = await api.updateUserProfile({ firstName, lastName, email });
     return data;
   } catch (error) {
     console.error("Profile completion failed:", error);

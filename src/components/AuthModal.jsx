@@ -1,704 +1,834 @@
 import React, { useState, useEffect } from 'react';
-import {
-  auth,
-  isFirebaseConfigured,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail
-} from '../utils/firebase';
-import { signInWithToken, completeUserProfile } from '../utils/auth';
-import { getStoredAuth, setStoredAuth } from '../utils/api';
+import { api, getStoredAuth } from '../utils/api';
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
-  const [authStep, setAuthStep] = useState('login'); // 'login', 'otp', 'complete'
-  const [loginMethod, setLoginMethod] = useState('phone'); // 'phone' or 'email'
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otpCode, setOtpCode] = useState('');
+  // Mode: 'login' | 'register'
+  const [authMode, setAuthMode] = useState('login');
+  // Method: 'phone' | 'email'
+  const [authMethod, setAuthMethod] = useState('phone');
+  // Step: 'credentials' | 'otp'
+  const [authStep, setAuthStep] = useState('credentials');
 
-  // Email state
+  // Form Fields
+  const [role, setRole] = useState('player'); // 'player' | 'parent'
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [emailMode, setEmailMode] = useState('signin'); // 'signin' or 'signup'
+  const [otp, setOtp] = useState('');
 
-  const [activeToken, setActiveToken] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState(null);
-  const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', email: '' });
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState('');
+  // UI state
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
 
-  // Reset modal state when opened/closed
+  // Reset state when modal is opened or closed
   useEffect(() => {
     if (isOpen) {
-      setAuthStep('login');
-      setLoginMethod('phone');
-      setEmailMode('signin');
-      setPhoneNumber('');
-      setOtpCode('');
-      setEmail('');
-      setPassword('');
-      setAuthError('');
+      setAuthStep('credentials');
+      setErrorMsg('');
       setSuccessMsg('');
-      setAuthLoading(false);
+      setOtp('');
+      setLoading(false);
     }
   }, [isOpen]);
 
-  // Recaptcha Verifier initialization for Firebase Phone Auth
+  // Resend OTP countdown timer
   useEffect(() => {
-    if (isFirebaseConfigured && isOpen && authStep === 'login' && loginMethod === 'phone' && auth) {
-      const timer = setTimeout(() => {
-        try {
-          if (!window.recaptchaVerifier) {
-            window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-              size: 'invisible',
-              callback: () => {}
-            });
-          }
-        } catch (e) {
-          console.error('Recaptcha initialization error:', e);
-        }
-      }, 300);
-
-      return () => clearTimeout(timer);
+    if (resendTimer > 0) {
+      const interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(interval);
     }
-    return () => {
-      if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-          window.recaptchaVerifier = null;
-        } catch {}
-      }
-    };
-  }, [isOpen, authStep, loginMethod]);
+  }, [resendTimer]);
 
   if (!isOpen) return null;
 
-  // Direct continue with verified mobile session
-  const handleProceedWithVerifiedSession = () => {
-    const authData = getStoredAuth();
-    if (authData?.token) {
-      if (profileForm.firstName.trim()) {
-        const updatedUser = {
-          ...(authData.user || {}),
-          firstName: profileForm.firstName.trim(),
-          lastName: profileForm.lastName.trim() || authData.user?.lastName || '',
-          email: profileForm.email.trim() || authData.user?.email || email.trim() || '',
-          phone: authData.user?.phone || (phoneNumber ? `+91${phoneNumber.slice(-10)}` : '')
-        };
-        setStoredAuth(authData.token, authData.refreshToken, updatedUser);
-        onAuthSuccess({ ...authData, user: updatedUser });
-      } else {
-        onAuthSuccess(authData);
+  // Helper to format 10-digit Indian phone to E.164 (+91XXXXXXXXXX)
+  const formatPhoneNumber = (raw) => {
+    const digits = raw.trim().replace(/\D/g, '');
+    if (digits.length === 10) return `+91${digits}`;
+    if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+    if (raw.startsWith('+')) return raw.trim();
+    return `+91${digits.slice(-10)}`;
+  };
+
+  const handleModeSwitch = (newMode) => {
+    setAuthMode(newMode);
+    setAuthStep('credentials');
+    setErrorMsg('');
+    setSuccessMsg('');
+    setOtp('');
+  };
+
+  const handleMethodSwitch = (newMethod) => {
+    setAuthMethod(newMethod);
+    setAuthStep('credentials');
+    setErrorMsg('');
+    setSuccessMsg('');
+    setOtp('');
+  };
+
+  // Step 1: Submit Initial Form (Login or Register Step 1)
+  const handleSubmitInitial = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    // --- REGISTRATION FLOW ---
+    if (authMode === 'register') {
+      if (!firstName.trim() || !lastName.trim()) {
+        setErrorMsg('Please enter your First Name and Last Name.');
+        return;
       }
-      onClose();
-    } else {
-      setAuthStep('login');
+
+      if (authMethod === 'email') {
+        if (!email.trim() || !email.includes('@')) {
+          setErrorMsg('Please enter a valid email address.');
+          return;
+        }
+        if (!password || password.length < 6) {
+          setErrorMsg('Password must be at least 6 characters.');
+          return;
+        }
+        const cleanPhone = phone.trim().replace(/\D/g, '');
+        if (cleanPhone.length < 10) {
+          setErrorMsg('Please enter a valid 10-digit mobile number.');
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const formattedPhone = formatPhoneNumber(phone);
+          const res = await api.registerEmail({
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            role,
+            phone: formattedPhone,
+            email: email.trim(),
+            password
+          });
+          setSuccessMsg(res?.message || 'Verification code sent to your email.');
+          setAuthStep('otp');
+          setResendTimer(30);
+        } catch (err) {
+          if (err.message?.includes('emailService') || err.message?.includes('sendEmail')) {
+            setErrorMsg('Server notice: Email sending is currently disabled on the server. Please switch to "Mobile OTP" to register and create your account instantly.');
+          } else {
+            setErrorMsg(err.message || 'Registration failed. Please check your details.');
+          }
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // Phone Registration: Step 1 (Send OTP)
+        const cleanPhone = phone.trim().replace(/\D/g, '');
+        if (cleanPhone.length < 10) {
+          setErrorMsg('Please enter a valid 10-digit mobile number.');
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const formattedPhone = formatPhoneNumber(phone);
+          const res = await api.sendPhoneOtp(formattedPhone);
+          setSuccessMsg(res?.message || 'Verification code sent via SMS.');
+          setAuthStep('otp');
+          setResendTimer(30);
+        } catch (err) {
+          setErrorMsg(err.message || 'Failed to send OTP to this phone number.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
+
+    // --- LOGIN FLOW ---
+    if (authMode === 'login') {
+      if (authMethod === 'email') {
+        if (!email.trim() || !email.includes('@')) {
+          setErrorMsg('Please enter a valid email address.');
+          return;
+        }
+        if (!password) {
+          setErrorMsg('Please enter your password.');
+          return;
+        }
+
+        setLoading(true);
+        try {
+          await api.loginEmail(email.trim(), password);
+          const authData = getStoredAuth();
+          onAuthSuccess(authData);
+          onClose();
+        } catch (err) {
+          setErrorMsg(err.message || 'Invalid credentials. Please check email and password.');
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // Phone Login: Step 1 (Send OTP)
+        const cleanPhone = phone.trim().replace(/\D/g, '');
+        if (cleanPhone.length < 10) {
+          setErrorMsg('Please enter a valid 10-digit mobile number.');
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const formattedPhone = formatPhoneNumber(phone);
+          const res = await api.sendPhoneOtp(formattedPhone);
+          setSuccessMsg(res?.message || 'Verification code sent via SMS.');
+          setAuthStep('otp');
+          setResendTimer(30);
+        } catch (err) {
+          setErrorMsg(err.message || 'Failed to send OTP to this phone number.');
+        } finally {
+          setLoading(false);
+        }
+      }
     }
   };
 
-  // Step 1A: Send SMS OTP via Firebase
-  const handleSendOtp = async (e) => {
+  // Step 2: Submit OTP Verification
+  const handleSubmitOtp = async (e) => {
     e.preventDefault();
-    const cleanPhone = phoneNumber.trim().replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
-      setAuthError('Please enter a valid 10-digit mobile number.');
+    const cleanOtp = otp.trim().replace(/\D/g, '');
+    if (cleanOtp.length < 4) {
+      setErrorMsg('Please enter the verification code.');
       return;
     }
 
-    setAuthLoading(true);
-    setAuthError('');
-    setSuccessMsg('');
+    setLoading(true);
+    setErrorMsg('');
 
     try {
-      const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : `+91${cleanPhone.slice(-10)}`;
-      const verifier = window.recaptchaVerifier;
-      if (!verifier) {
-        throw new Error('reCAPTCHA verification not ready. Please close and reopen the sign-in modal.');
-      }
-      // Send real SMS code using Firebase Phone Auth
-      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, verifier);
-      setConfirmationResult(confirmation);
-      setAuthStep('otp');
-    } catch (err) {
-      console.error('Firebase send OTP error:', err);
-      setAuthError(err.message || 'Failed to send OTP code. Please verify your phone number.');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // Step 1B: Email Authentication via Firebase
-  const handleEmailAuth = async (e) => {
-    e.preventDefault();
-    const cleanEmail = email.trim();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      setAuthError('Please enter a valid email address.');
-      return;
-    }
-    if (!password || password.length < 6) {
-      setAuthError('Password must be at least 6 characters long.');
-      return;
-    }
-
-    setAuthLoading(true);
-    setAuthError('');
-    setSuccessMsg('');
-
-    try {
-      let userCredential;
-      if (emailMode === 'signin') {
-        userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
+      if (authMode === 'register') {
+        if (authMethod === 'email') {
+          // Verify Email OTP
+          await api.verifyEmailOtp(email.trim(), cleanOtp);
+        } else {
+          // Verify Phone OTP with registration profile payload
+          const formattedPhone = formatPhoneNumber(phone);
+          await api.verifyPhoneOtp({
+            phone: formattedPhone,
+            otp: cleanOtp,
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            role
+          });
+        }
       } else {
-        userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
-      }
-
-      const firebaseUser = userCredential.user;
-      const idToken = await firebaseUser.getIdToken();
-      setActiveToken(idToken);
-
-      // Sync with Backend API (/api/novare/auth/sync)
-      const result = await signInWithToken(idToken);
-      const authData = getStoredAuth();
-
-      console.log('Email backend sync result:', result);
-
-      const isExistingUser = !result?.isNewUser || result?.data?.firstName || result?.user?.firstName;
-
-      if (!isExistingUser) {
-        setProfileForm({
-          firstName: result?.user?.firstName || result?.data?.firstName || '',
-          lastName: result?.user?.lastName || result?.data?.lastName || '',
-          email: cleanEmail
+        // Login via Phone: verify phone OTP only
+        const formattedPhone = formatPhoneNumber(phone);
+        await api.verifyPhoneOtp({
+          phone: formattedPhone,
+          otp: cleanOtp
         });
-        setAuthStep('complete');
-      } else {
-        onAuthSuccess(authData);
-        onClose();
       }
-    } catch (err) {
-      console.error('Email auth error:', err);
-      let errorText = err.message || 'Authentication failed.';
-
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        errorText = 'Invalid email or password. Please verify your credentials or click Create Account.';
-      } else if (err.code === 'auth/wrong-password') {
-        errorText = 'Incorrect password. Please check your password or click Forgot Password.';
-      } else if (err.code === 'auth/email-already-in-use') {
-        errorText = 'An account with this email already exists. Please switch to Sign In.';
-      } else if (err.code === 'auth/invalid-email') {
-        errorText = 'Invalid email address format.';
-      } else if (err.code === 'auth/weak-password') {
-        errorText = 'Password is too weak. Please use at least 6 characters.';
-      }
-
-      setAuthError(errorText);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // Handle Forgot Password
-  const handleForgotPassword = async () => {
-    const cleanEmail = email.trim();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      setAuthError('Please enter your email address above to receive reset instructions.');
-      return;
-    }
-
-    setAuthLoading(true);
-    setAuthError('');
-    setSuccessMsg('');
-
-    try {
-      await sendPasswordResetEmail(auth, cleanEmail);
-      setSuccessMsg(`Password reset instructions sent to ${cleanEmail}.`);
-    } catch (err) {
-      console.error('Password reset error:', err);
-      setAuthError(err.message || 'Failed to send password reset email. Please try again.');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // Step 2: Verify OTP & Sync with Backend API
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    if (!otpCode || otpCode.trim().length < 6) {
-      setAuthError('Please enter the 6-digit verification code received on your phone.');
-      return;
-    }
-
-    setAuthLoading(true);
-    setAuthError('');
-
-    try {
-      if (!confirmationResult) {
-        throw new Error('No active verification session. Please request a new OTP code.');
-      }
-
-      // 1. Verify OTP with Firebase
-      const verifyRes = await confirmationResult.confirm(otpCode.trim());
-      const user = verifyRes.user;
-      const idToken = await user.getIdToken();
-      setActiveToken(idToken);
-
-      // 2. Sync with Backend API (/api/novare/auth/sync)
-      const result = await signInWithToken(idToken);
-      const authData = getStoredAuth();
-
-      console.log('Backend sync result:', result);
-
-      // 3. Require profile completion if user is brand new AND has no name in database
-      const isExistingUser = !result?.isNewUser || result?.data?.firstName || result?.user?.firstName;
-
-      if (!isExistingUser) {
-        setAuthStep('complete');
-      } else {
-        onAuthSuccess(authData);
-        onClose();
-      }
-    } catch (err) {
-      console.error('OTP verification error:', err);
-      setAuthError(err.message || 'Invalid verification code. Please check and re-enter.');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // Step 3: Complete Profile for new users
-  const handleCompleteProfile = async (e) => {
-    e.preventDefault();
-    if (!profileForm.firstName.trim()) {
-      setAuthError('Please enter your first name.');
-      return;
-    }
-
-    setAuthLoading(true);
-    setAuthError('');
-
-    try {
-      // 1. Submit real user profile to backend (/api/novare/auth/complete-profile)
-      await completeUserProfile(
-        activeToken,
-        profileForm.firstName.trim(),
-        profileForm.lastName.trim(),
-        profileForm.email.trim() || email.trim()
-      );
 
       const authData = getStoredAuth();
       onAuthSuccess(authData);
       onClose();
     } catch (err) {
-      console.warn('Complete profile notice:', err);
-      const errorMsg = err.message || '';
-
-      if (
-        errorMsg.toLowerCase().includes('already in use') ||
-        errorMsg.toLowerCase().includes('duplicate') ||
-        errorMsg.toLowerCase().includes('exists')
-      ) {
-        handleProceedWithVerifiedSession();
-      } else {
-        setAuthError(errorMsg || 'Failed to complete profile. Please try again.');
-      }
+      setErrorMsg(err.message || 'Verification failed. Please check the code and try again.');
     } finally {
-      setAuthLoading(false);
+      setLoading(false);
+    }
+  };
+
+  // Resend OTP handler
+  const handleResendOtp = async () => {
+    if (resendTimer > 0 || loading) return;
+    setErrorMsg('');
+    setSuccessMsg('');
+    setLoading(true);
+
+    try {
+      if (authMethod === 'email') {
+        const formattedPhone = formatPhoneNumber(phone);
+        await api.registerEmail({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          role,
+          phone: formattedPhone,
+          email: email.trim(),
+          password
+        });
+        setSuccessMsg('A new verification code has been sent to your email.');
+      } else {
+        const formattedPhone = formatPhoneNumber(phone);
+        await api.sendPhoneOtp(formattedPhone);
+        setSuccessMsg('A new verification code has been sent to your phone.');
+      }
+      setResendTimer(30);
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to resend code. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose} aria-label="Close modal">
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        background: 'rgba(16, 17, 20, 0.65)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+        overflowY: 'auto'
+      }}
+    >
+      <div
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: '490px',
+          width: '100%',
+          padding: '36px',
+          position: 'relative'
+        }}
+      >
+        {/* Close Button */}
+        <button className="modal-close" onClick={onClose} aria-label="Close">
           ✕
         </button>
 
-        {/* Firebase Recaptcha Container */}
-        <div id="recaptcha-container"></div>
+        {/* Header / Brand */}
+        <div style={{ marginBottom: '22px' }}>
+          <div className="eyebrow" style={{ display: 'inline-block', marginBottom: '8px' }}>
+            ARENOVA IDENTITY
+          </div>
+          <h2
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '26px',
+              margin: '0 0 6px',
+              color: 'var(--ink)'
+            }}
+          >
+            {authStep === 'otp'
+              ? 'Enter Verification Code'
+              : authMode === 'register'
+              ? 'Create Athlete Profile'
+              : 'Sign In to Arenova'}
+          </h2>
+          <p style={{ color: 'var(--muted)', fontSize: '14px', margin: 0, lineHeight: '1.5' }}>
+            {authStep === 'otp'
+              ? authMethod === 'email'
+                ? `Enter the 6-digit code sent to ${email}`
+                : `Enter the 6-digit code sent to ${phone}`
+              : authMode === 'register'
+              ? 'Register as a Player or Parent for tournament registrations & bookings.'
+              : 'Access your tournament passes, bookings, and dashboard.'}
+          </p>
+        </div>
 
-        {/* Step 1: Sign In Options (Phone or Email) */}
-        {authStep === 'login' && (
-          <div>
-            <div className="eyebrow">ATHLETE SIGN IN</div>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '26px', marginBottom: '8px' }}>
-              Welcome to Arenova
-            </h2>
-            <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '18px' }}>
-              Choose your preferred sign-in method to continue.
-            </p>
-
-            {/* Login Method Tabs */}
-            <div style={{
-              display: 'flex',
-              background: '#f4f5f6',
-              padding: '4px',
-              borderRadius: '12px',
-              marginBottom: '20px',
-              border: '1px solid #dfe1e5',
-              gap: '4px'
-            }}>
+        {/* Global Error & Success Alerts */}
+        {errorMsg && (
+          <div
+            style={{
+              background: '#fee2e2',
+              border: '1px solid #fca5a5',
+              color: '#b91c1c',
+              padding: '11px 14px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              marginBottom: '16px',
+              lineHeight: '1.4'
+            }}
+          >
+            <div>{errorMsg}</div>
+            {errorMsg.includes('Mobile OTP') && (
               <button
                 type="button"
-                onClick={() => { setLoginMethod('phone'); setAuthError(''); setSuccessMsg(''); }}
+                onClick={() => {
+                  setAuthMethod('phone');
+                  setErrorMsg('');
+                }}
+                className="btn btn-primary"
+                style={{
+                  marginTop: '10px',
+                  padding: '8px 16px',
+                  fontSize: '12px',
+                  borderRadius: '7px'
+                }}
+              >
+                Switch to Mobile OTP Registration →
+              </button>
+            )}
+          </div>
+        )}
+        {successMsg && (
+          <div
+            style={{
+              background: '#eef2e7',
+              border: '1px solid #cce2b8',
+              color: '#3b5a10',
+              padding: '11px 14px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              marginBottom: '16px',
+              lineHeight: '1.4'
+            }}
+          >
+            {successMsg}
+          </div>
+        )}
+
+        {/* STEP 1: CREDENTIALS (LOGIN / REGISTER) */}
+        {authStep === 'credentials' && (
+          <div>
+            {/* Mode Switch (Sign In vs Register) Tabs */}
+            <div
+              style={{
+                display: 'flex',
+                background: 'var(--soft)',
+                borderRadius: '12px',
+                padding: '4px',
+                marginBottom: '16px',
+                border: '1px solid var(--line)',
+                gap: '4px'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('login')}
                 style={{
                   flex: 1,
-                  padding: '10px 14px',
-                  borderRadius: '8px',
+                  padding: '9px 12px',
+                  borderRadius: '9px',
                   border: 'none',
-                  fontWeight: '700',
                   fontSize: '13px',
+                  fontWeight: '700',
                   cursor: 'pointer',
-                  background: loginMethod === 'phone' ? '#fff' : 'transparent',
-                  color: loginMethod === 'phone' ? 'var(--ink)' : 'var(--muted)',
-                  boxShadow: loginMethod === 'phone' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
-                  transition: 'all 0.2s ease'
+                  background: authMode === 'login' ? '#ffffff' : 'transparent',
+                  color: authMode === 'login' ? 'var(--ink)' : 'var(--muted)',
+                  boxShadow: authMode === 'login' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s'
+                }}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('register')}
+                style={{
+                  flex: 1,
+                  padding: '9px 12px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  background: authMode === 'register' ? '#ffffff' : 'transparent',
+                  color: authMode === 'register' ? 'var(--ink)' : 'var(--muted)',
+                  boxShadow: authMode === 'register' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s'
+                }}
+              >
+                Create Account
+              </button>
+            </div>
+
+            {/* Method Switch (Phone vs Email) */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '8px',
+                marginBottom: '18px'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => handleMethodSwitch('phone')}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '9px',
+                  border: authMethod === 'phone' ? '1.5px solid var(--ink)' : '1px solid var(--line)',
+                  background: authMethod === 'phone' ? 'var(--soft)' : '#ffffff',
+                  color: authMethod === 'phone' ? 'var(--ink)' : 'var(--muted)',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
                 }}
               >
                 📱 Mobile OTP
               </button>
               <button
                 type="button"
-                onClick={() => { setLoginMethod('email'); setAuthError(''); setSuccessMsg(''); }}
+                onClick={() => handleMethodSwitch('email')}
                 style={{
                   flex: 1,
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontWeight: '700',
+                  padding: '8px 12px',
+                  borderRadius: '9px',
+                  border: authMethod === 'email' ? '1.5px solid var(--ink)' : '1px solid var(--line)',
+                  background: authMethod === 'email' ? 'var(--soft)' : '#ffffff',
+                  color: authMethod === 'email' ? 'var(--ink)' : 'var(--muted)',
                   fontSize: '13px',
+                  fontWeight: '700',
                   cursor: 'pointer',
-                  background: loginMethod === 'email' ? '#fff' : 'transparent',
-                  color: loginMethod === 'email' ? 'var(--ink)' : 'var(--muted)',
-                  boxShadow: loginMethod === 'email' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
-                  transition: 'all 0.2s ease'
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
                 }}
               >
                 ✉️ Email Address
               </button>
             </div>
 
-            {authError && <div className="form-message error" style={{ marginBottom: '16px' }}>{authError}</div>}
-            {successMsg && <div className="form-message success" style={{ marginBottom: '16px' }}>{successMsg}</div>}
+            {/* FORM */}
+            <form onSubmit={handleSubmitInitial} style={{ display: 'grid', gap: '14px' }}>
+              {/* Registration Upfront Profile Fields */}
+              {authMode === 'register' && (
+                <>
+                  {/* Role Selector: Player vs Parent */}
+                  <div>
+                    <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--ink)', display: 'block', marginBottom: '6px' }}>
+                      Registering As:
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setRole('player')}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: role === 'player' ? '2px solid var(--ink)' : '1px solid var(--line)',
+                          background: role === 'player' ? 'var(--soft)' : '#ffffff',
+                          color: 'var(--ink)',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        <div style={{ fontSize: '14px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          ⚡ Player
+                          {role === 'player' && (
+                            <span
+                              style={{
+                                background: 'var(--accent)',
+                                color: 'var(--ink)',
+                                fontSize: '10px',
+                                fontWeight: '800',
+                                padding: '2px 6px',
+                                borderRadius: '4px'
+                              }}
+                            >
+                              Selected
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '3px' }}>
+                          Compete & Book
+                        </div>
+                      </button>
 
-            {/* Option A: Mobile Number Form */}
-            {loginMethod === 'phone' ? (
-              <form onSubmit={handleSendOtp} style={{ display: 'grid', gap: '16px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setRole('parent')}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: role === 'parent' ? '2px solid var(--ink)' : '1px solid var(--line)',
+                          background: role === 'parent' ? 'var(--soft)' : '#ffffff',
+                          color: 'var(--ink)',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        <div style={{ fontSize: '14px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          👨‍👧 Parent
+                          {role === 'parent' && (
+                            <span
+                              style={{
+                                background: 'var(--accent)',
+                                color: 'var(--ink)',
+                                fontSize: '10px',
+                                fontWeight: '800',
+                                padding: '2px 6px',
+                                borderRadius: '4px'
+                              }}
+                            >
+                              Selected
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '3px' }}>
+                          For Child Athlete
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Name Inputs */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--ink)', display: 'block', marginBottom: '4px' }}>
+                        First Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Rahul"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '11px 12px',
+                          borderRadius: '9px',
+                          background: 'var(--soft)',
+                          border: '1px solid var(--line)',
+                          color: 'var(--ink)',
+                          fontSize: '14px',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--ink)', display: 'block', marginBottom: '4px' }}>
+                        Last Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Sharma"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '11px 12px',
+                          borderRadius: '9px',
+                          background: 'var(--soft)',
+                          border: '1px solid var(--line)',
+                          color: 'var(--ink)',
+                          fontSize: '14px',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* PHONE INPUT (Used in Phone Login, Phone Register, and Email Register) */}
+              {(authMethod === 'phone' || (authMode === 'register' && authMethod === 'email')) && (
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--ink)', display: 'block', marginBottom: '4px' }}>
                     Mobile Number *
                   </label>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <span style={{
-                      padding: '12px 14px',
-                      background: '#f4f5f6',
-                      border: '1px solid #dfe1e5',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      fontWeight: '700',
-                      color: '#555'
-                    }}>
+                    <span
+                      style={{
+                        padding: '11px 14px',
+                        background: 'var(--soft)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '9px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        color: 'var(--muted)'
+                      }}
+                    >
                       +91
                     </span>
                     <input
                       type="tel"
                       required
-                      autoFocus
-                      placeholder="Enter 10-digit mobile number"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="9876543210"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                       style={{
                         flex: 1,
-                        padding: '12px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid #dfe1e5',
-                        fontSize: '15px'
+                        padding: '11px 12px',
+                        borderRadius: '9px',
+                        background: 'var(--soft)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--ink)',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
                       }}
                     />
                   </div>
                 </div>
+              )}
 
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={authLoading}
-                  style={{ width: '100%', padding: '14px', fontSize: '15px', marginTop: '6px' }}
-                >
-                  {authLoading ? 'Sending SMS OTP...' : 'Send Verification Code (SMS) →'}
-                </button>
-              </form>
-            ) : (
-              /* Option B: Email & Password Form */
-              <form onSubmit={handleEmailAuth} style={{ display: 'grid', gap: '16px' }}>
-                <div>
-                  <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    autoFocus
-                    placeholder="name@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid #dfe1e5',
-                      fontSize: '15px'
-                    }}
-                  />
-                </div>
+              {/* EMAIL & PASSWORD INPUTS */}
+              {authMethod === 'email' && (
+                <>
+                  <div>
+                    <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--ink)', display: 'block', marginBottom: '4px' }}>
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="rahul@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '11px 12px',
+                        borderRadius: '9px',
+                        background: 'var(--soft)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--ink)',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
 
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: '700' }}>
+                  <div>
+                    <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--ink)', display: 'block', marginBottom: '4px' }}>
                       Password *
                     </label>
-                    {emailMode === 'signin' && (
-                      <button
-                        type="button"
-                        onClick={handleForgotPassword}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#0066ff',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          padding: 0,
-                          fontWeight: '600'
-                        }}
-                      >
-                        Forgot password?
-                      </button>
-                    )}
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '11px 12px',
+                        borderRadius: '9px',
+                        background: 'var(--soft)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--ink)',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
                   </div>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid #dfe1e5',
-                      fontSize: '15px'
-                    }}
-                  />
-                </div>
+                </>
+              )}
 
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={authLoading}
-                  style={{ width: '100%', padding: '14px', fontSize: '15px', marginTop: '6px' }}
-                >
-                  {authLoading
-                    ? (emailMode === 'signin' ? 'Signing In...' : 'Creating Account...')
-                    : (emailMode === 'signin' ? 'Sign In with Email →' : 'Create Account →')
-                  }
-                </button>
-
-                <div style={{ textAlign: 'center', fontSize: '13px', marginTop: '4px', color: 'var(--muted)' }}>
-                  {emailMode === 'signin' ? (
-                    <span>
-                      Don't have an account?{' '}
-                      <button
-                        type="button"
-                        onClick={() => { setEmailMode('signup'); setAuthError(''); setSuccessMsg(''); }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#0066ff',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          padding: 0
-                        }}
-                      >
-                        Create Account
-                      </button>
-                    </span>
-                  ) : (
-                    <span>
-                      Already have an account?{' '}
-                      <button
-                        type="button"
-                        onClick={() => { setEmailMode('signin'); setAuthError(''); setSuccessMsg(''); }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#0066ff',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          padding: 0
-                        }}
-                      >
-                        Sign In
-                      </button>
-                    </span>
-                  )}
-                </div>
-              </form>
-            )}
+              {/* Action Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn btn-primary"
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  marginTop: '6px'
+                }}
+              >
+                {loading
+                  ? 'Processing...'
+                  : authMode === 'register'
+                  ? authMethod === 'email'
+                    ? 'Create Account & Send Email OTP →'
+                    : 'Send Verification Code (SMS) →'
+                  : authMethod === 'email'
+                  ? 'Sign In →'
+                  : 'Send Login OTP →'}
+              </button>
+            </form>
           </div>
         )}
 
-        {/* Step 2: OTP Verification */}
+        {/* STEP 2: OTP VERIFICATION */}
         {authStep === 'otp' && (
-          <div>
-            <div className="eyebrow">VERIFY CODE</div>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '26px', marginBottom: '8px' }}>
-              Enter Verification Code
-            </h2>
-            <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '20px' }}>
-              We sent a 6-digit SMS code to <strong>+91 {phoneNumber.slice(-10)}</strong>.
-            </p>
+          <form onSubmit={handleSubmitOtp} style={{ display: 'grid', gap: '16px' }}>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--ink)', display: 'block', marginBottom: '6px' }}>
+                6-Digit Verification Code *
+              </label>
+              <input
+                type="text"
+                required
+                autoFocus
+                maxLength={6}
+                placeholder="123456"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  borderRadius: '10px',
+                  background: 'var(--soft)',
+                  border: '2px solid var(--ink)',
+                  color: 'var(--ink)',
+                  fontSize: '22px',
+                  letterSpacing: '6px',
+                  textAlign: 'center',
+                  fontWeight: '800',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
 
-            {authError && <div className="form-message error" style={{ marginBottom: '16px' }}>{authError}</div>}
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-primary"
+              style={{
+                width: '100%',
+                padding: '14px',
+                fontSize: '14px',
+                fontWeight: '700'
+              }}
+            >
+              {loading ? 'Verifying...' : 'Verify & Continue →'}
+            </button>
 
-            <form onSubmit={handleVerifyOtp} style={{ display: 'grid', gap: '16px' }}>
-              <div>
-                <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
-                  6-Digit Verification Code *
-                </label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  maxLength={6}
-                  placeholder="• • • • • •"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    borderRadius: '8px',
-                    border: '1px solid #dfe1e5',
-                    fontSize: '22px',
-                    textAlign: 'center',
-                    letterSpacing: '8px',
-                    fontWeight: 'bold'
-                  }}
-                />
-              </div>
-
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
               <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={authLoading}
-                style={{ width: '100%', padding: '14px', fontSize: '15px' }}
+                type="button"
+                onClick={() => setAuthStep('credentials')}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--muted)',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
               >
-                {authLoading ? 'Verifying OTP with Server...' : 'Verify Code & Sign In →'}
+                ← Back / Change {authMethod === 'email' ? 'Email' : 'Number'}
               </button>
 
               <button
                 type="button"
-                className="link-btn"
-                onClick={() => setAuthStep('login')}
-                style={{ textAlign: 'center', justifyContent: 'center', fontSize: '13px', color: 'var(--muted)', marginTop: '4px' }}
+                disabled={resendTimer > 0 || loading}
+                onClick={handleResendOtp}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: resendTimer > 0 ? 'var(--muted)' : 'var(--ink)',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: resendTimer > 0 ? 'default' : 'pointer'
+                }}
               >
-                ← Back to Sign In
+                {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
               </button>
-            </form>
-          </div>
-        )}
-
-        {/* Step 3: Profile Completion (Only for Brand New Users) */}
-        {authStep === 'complete' && (
-          <div>
-            <div className="eyebrow">COMPLETE PROFILE</div>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '26px', marginBottom: '8px' }}>
-              Set Up Your Athlete Profile
-            </h2>
-            <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '20px' }}>
-              Please enter your name and email. This will be associated with your tournament entries.
-            </p>
-
-            {authError && <div className="form-message error" style={{ marginBottom: '16px' }}>{authError}</div>}
-
-            <form onSubmit={handleCompleteProfile} style={{ display: 'grid', gap: '14px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
-                    First Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={profileForm.firstName}
-                    onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
-                    placeholder="First name"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: '1px solid #dfe1e5'
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    value={profileForm.lastName}
-                    onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
-                    placeholder="Last name"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: '1px solid #dfe1e5'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={profileForm.email}
-                  onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                  placeholder="your.email@example.com"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '1px solid #dfe1e5'
-                  }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={authLoading}
-                style={{ width: '100%', padding: '14px', fontSize: '15px', marginTop: '6px' }}
-              >
-                {authLoading ? 'Saving Profile...' : 'Complete Profile & Continue →'}
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handleProceedWithVerifiedSession}
-                style={{ width: '100%', padding: '12px', fontSize: '13px', marginTop: '4px' }}
-              >
-                Continue With Verified Session →
-              </button>
-            </form>
-          </div>
+            </div>
+          </form>
         )}
       </div>
     </div>
   );
 }
-

@@ -19,7 +19,14 @@ export const getStoredAuth = () => {
 export const setStoredAuth = (token, refreshToken, user) => {
   if (token) localStorage.setItem(STORAGE_KEYS.TOKEN, token);
   if (refreshToken) localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
-  if (user) localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+  if (user) {
+    const normalizedUser = {
+      ...user,
+      firstName: user.firstName || (user.name ? user.name.split(' ')[0] : ''),
+      lastName: user.lastName || (user.name ? user.name.split(' ').slice(1).join(' ') : ''),
+    };
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(normalizedUser));
+  }
 };
 
 export const clearStoredAuth = () => {
@@ -31,7 +38,7 @@ export const clearStoredAuth = () => {
 // Helper for fetch with Authorization headers
 const request = async (endpoint, options = {}) => {
   const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
-  const isAuthEndpoint = endpoint.includes('/auth/sync') || endpoint.includes('/auth/complete-profile');
+  const isAuthEndpoint = endpoint.startsWith('/api/auth/') || endpoint.includes('/auth/sync') || endpoint.includes('/auth/complete-profile');
   const isPublicGet = (options.method || 'GET').toUpperCase() === 'GET' && !endpoint.includes('/registrations');
   
   const method = (options.method || 'GET').toUpperCase();
@@ -79,7 +86,77 @@ export const api = {
     return request(`/api/novare/tournaments/${id}`);
   },
 
-  // Authentication
+  // Player & Parent Authentication (Unified Identity System)
+  registerEmail: async ({ firstName, lastName, role, phone, email, password }) => {
+    return request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ firstName, lastName, role, phone, email, password }),
+    });
+  },
+
+  verifyEmailOtp: async (email, otp) => {
+    const data = await request('/api/auth/verify-email-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
+    if (data.success && data.token) {
+      setStoredAuth(data.token, data.refreshToken, data.data || {});
+    }
+    return data;
+  },
+
+  sendPhoneOtp: async (phone) => {
+    return request('/api/auth/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    });
+  },
+
+  verifyPhoneOtp: async (payload) => {
+    // payload: { phone, otp } OR { phone, otp, firstName, lastName, role }
+    const data = await request('/api/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (data.success && data.token) {
+      setStoredAuth(data.token, data.refreshToken, data.data || {});
+    }
+    return data;
+  },
+
+  loginEmail: async (email, password) => {
+    const data = await request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    if (data.success && data.token) {
+      setStoredAuth(data.token, data.refreshToken, data.data || {});
+    }
+    return data;
+  },
+
+  updateUserProfile: async (profileData) => {
+    // profileData: { firstName, lastName, email }
+    const data = await request('/api/users/me', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+    if (data.success && data.data) {
+      const currentAuth = getStoredAuth();
+      const updatedUser = {
+        ...(currentAuth.user || {}),
+        ...data.data,
+        firstName: data.data.firstName || (data.data.name ? data.data.name.split(' ')[0] : profileData.firstName),
+        lastName: data.data.lastName || (data.data.name ? data.data.name.split(' ').slice(1).join(' ') : profileData.lastName),
+        email: data.data.email || profileData.email,
+        name: data.data.name || `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim()
+      };
+      setStoredAuth(currentAuth.token, currentAuth.refreshToken, updatedUser);
+    }
+    return data;
+  },
+
+  // Legacy fallback
   syncUser: async (idToken) => {
     const data = await request('/api/novare/auth/sync', {
       method: 'POST',

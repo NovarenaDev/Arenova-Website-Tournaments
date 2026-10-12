@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TournamentList from '../components/TournamentBooking/TournamentList';
 import TournamentDetails from '../components/TournamentBooking/TournamentDetails';
 import RegistrationFlow from '../components/TournamentBooking/RegistrationFlow';
@@ -18,6 +18,7 @@ export default function TournamentsPage({
 
   // Payment modal state
   const [paymentData, setPaymentData] = useState(null);
+  const [pendingRegister, setPendingRegister] = useState(false);
 
   const handleSelectTournament = (tournament) => {
     setSelectedTournament(tournament);
@@ -27,12 +28,22 @@ export default function TournamentsPage({
 
   const handleProceedRegistration = () => {
     if (!authObj?.token) {
+      setPendingRegister(true);
       onRequireAuth();
       return;
     }
     setSubView('register');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Automatically continue to registration once authenticated
+  useEffect(() => {
+    if (authObj?.token && pendingRegister) {
+      setPendingRegister(false);
+      setSubView('register');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [authObj, pendingRegister]);
 
   const handleSuccessRegistration = (registration, order, fee) => {
     setPaymentData({

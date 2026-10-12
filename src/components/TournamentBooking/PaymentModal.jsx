@@ -14,6 +14,7 @@ export default function PaymentModal({
   const [statusMessage, setStatusMessage] = useState('');
   const [paymentError, setPaymentError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [policyConsent, setPolicyConsent] = useState(false);
 
   // Accurate backend amount resolution (in INR)
   let amount = 500;
@@ -45,6 +46,10 @@ export default function PaymentModal({
 
   // Launch official Razorpay Checkout Screen
   const handleLaunchRazorpay = async () => {
+    if (!policyConsent) {
+      setPaymentError('Please read and agree to the Terms & Conditions, Privacy Policy, and Refund & Cancellation Policy before proceeding.');
+      return;
+    }
     setPaymentError('');
     setIsProcessing(true);
     setStatusMessage('Initializing Razorpay Checkout...');
@@ -150,14 +155,30 @@ export default function PaymentModal({
 
             <div style={{
               background: 'var(--soft)',
-              padding: '18px 22px',
+              padding: '18px 20px',
               borderRadius: '14px',
               border: '1px solid var(--line)',
-              marginBottom: '20px'
+              marginBottom: '16px'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
+                <span style={{ color: 'var(--muted)' }}>Service:</span>
+                <strong style={{ textAlign: 'right' }}>Tournament Registration</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
+                <span style={{ color: 'var(--muted)' }}>Event / Venue:</span>
+                <span style={{ fontWeight: '600', textAlign: 'right', maxWidth: '60%' }}>
+                  {tournament?.venue || tournament?.location || 'Designated Arenova Arena'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
                 <span style={{ color: 'var(--muted)' }}>Category:</span>
                 <strong>{registration?.categoryName || 'Open Category'}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
+                <span style={{ color: 'var(--muted)' }}>Date & Schedule:</span>
+                <span style={{ textAlign: 'right' }}>
+                  {tournament?.startDate ? new Date(tournament.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : (tournament?.date || 'As per tournament schedule')}
+                </span>
               </div>
               {order?.id && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '12px' }}>
@@ -166,9 +187,47 @@ export default function PaymentModal({
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--line)', paddingTop: '10px', marginTop: '10px' }}>
-                <span style={{ fontSize: '15px', fontWeight: '600' }}>Amount to Pay:</span>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '600' }}>Total Amount (INR):</div>
+                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Inclusive of all taxes & charges</div>
+                </div>
                 <strong style={{ fontSize: '24px', color: 'var(--ink)' }}>₹{amount}</strong>
               </div>
+            </div>
+
+            <div style={{
+              background: '#f8f9fa',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              fontSize: '12px',
+              color: 'var(--muted)',
+              marginBottom: '16px',
+              lineHeight: '1.45',
+              border: '1px solid var(--line)'
+            }}>
+              <strong style={{ color: 'var(--ink)' }}>Cancellation Terms:</strong> Eligible for refund as per published Refund & Cancellation Policy prior to tournament registration deadline. Post-deadline fees are non-refundable.
+            </div>
+
+            {/* Mandatory Policy Acceptance Checkbox (Unticked by default) */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '13px', lineHeight: '1.45', cursor: 'pointer', color: 'var(--ink)' }}>
+                <input
+                  type="checkbox"
+                  id="checkout-policy-consent"
+                  checked={policyConsent}
+                  onChange={(e) => {
+                    setPolicyConsent(e.target.checked);
+                    if (paymentError) setPaymentError('');
+                  }}
+                  style={{ marginTop: '3px', cursor: 'pointer', accentColor: '#101114' }}
+                />
+                <span>
+                  I have read and agree to the{' '}
+                  <a href="/terms-and-conditions" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', fontWeight: 600, color: 'inherit' }}>Terms & Conditions</a>,{' '}
+                  <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', fontWeight: 600, color: 'inherit' }}>Privacy Policy</a>, and{' '}
+                  <a href="/refund-cancellation-policy" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', fontWeight: 600, color: 'inherit' }}>Refund & Cancellation Policy</a>.
+                </span>
+              </label>
             </div>
 
             {paymentError && (
@@ -192,18 +251,21 @@ export default function PaymentModal({
                   type="button"
                   className="btn btn-primary"
                   onClick={handleLaunchRazorpay}
+                  disabled={!policyConsent}
                   style={{
                     width: '100%',
                     padding: '16px',
                     fontSize: '15px',
-                    background: '#101114',
+                    background: policyConsent ? '#101114' : '#888',
+                    cursor: policyConsent ? 'pointer' : 'not-allowed',
+                    opacity: policyConsent ? 1 : 0.65,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '10px'
                   }}
                 >
-                  <span>Pay ₹{amount} with Razorpay</span>
+                  <span>Pay ₹{amount} INR with Razorpay</span>
                   <span>→</span>
                 </button>
 
@@ -212,7 +274,7 @@ export default function PaymentModal({
                   <span>•</span>
                   <span>UPI / Cards / NetBanking</span>
                   <span>•</span>
-                  <span>Test Key Integrated</span>
+                  <span>Razorpay Verified</span>
                 </div>
               </div>
             )}

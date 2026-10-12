@@ -99,32 +99,56 @@ export default function ContactPage() {
       <section className="section">
         <div className="container contact-grid">
           <div className="contact-info">
-            <div className="eyebrow">COMPANY</div>
-            <h2>Novarena</h2>
-            <p style={{ fontSize: '18px', color: 'var(--muted)', marginBottom: '24px' }}>
-              <strong>Product / Platform:</strong> Arenova
+            <div className="eyebrow">COMPANY INFORMATION</div>
+            <h2 style={{ fontFamily: 'var(--font-display)', marginBottom: '6px' }}>Arenova</h2>
+            <p style={{ fontSize: '15px', color: 'var(--muted)', marginBottom: '20px' }}>
+              Sports technology platform operated by <strong>Novarena Technologies LLP</strong>.
             </p>
 
             <div className="contact-item">
-              <span>Email</span>
-              <a href="mailto:support@novarena.in" style={{ fontWeight: '600', color: 'var(--ink)' }}>
+              <span>Legal Entity</span>
+              <b>Novarena Technologies LLP</b>
+            </div>
+
+            <div className="contact-item">
+              <span>Customer Support Email</span>
+              <a href="mailto:support@novarena.in" style={{ fontWeight: '700', color: 'var(--ink)' }}>
                 support@novarena.in
               </a>
             </div>
 
             <div className="contact-item">
-              <span>Phone / Support</span>
-              <b>+91 98765 43210</b>
+              <span>Contact Number</span>
+              <a href="tel:+917793934108" style={{ fontWeight: '700', color: 'var(--ink)' }}>
+                +91 7793934108
+              </a>
             </div>
 
             <div className="contact-item">
-              <span>Registered Entity</span>
-              <b>Novarena Technologies LLP</b>
+              <span>Support Working Hours</span>
+              <b>Mon – Sat: 9:00 AM – 7:00 PM IST</b>
             </div>
 
-            <p className="notice">
-              For official tournament or organizer inquiries, please provide full event details in the message box.
-            </p>
+            <div className="contact-item">
+              <span>Registered Office</span>
+              <b style={{ fontSize: '13px', lineHeight: '1.4' }}>
+                Plot No. 12, Survey No. 41, Hitech City, Madhapur, Hyderabad, Telangana, India - 500081
+              </b>
+            </div>
+
+            <div style={{ marginTop: '24px', padding: '16px', background: 'var(--soft)', borderRadius: '12px', border: '1px solid var(--line)' }}>
+              <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '6px' }}>
+                Grievance Redressal
+              </div>
+              <p style={{ fontSize: '13px', margin: '0 0 6px', color: 'var(--ink)', lineHeight: '1.5' }}>
+                For unresolved complaints regarding Arenova's platform or tournament services, contact our designated Grievance Officer:
+              </p>
+              <div style={{ fontSize: '13px', color: 'var(--ink)' }}>
+                <strong>Email:</strong> <a href="mailto:support@novarena.in" style={{ color: 'var(--ink)', fontWeight: '600' }}>support@novarena.in</a><br />
+                <strong>Phone:</strong> +91 7793934108<br />
+                <strong>Timelines:</strong> Acknowledged within 48 hours and resolved as required by law.
+              </div>
+            </div>
           </div>
 
           <form className="contact-form" onSubmit={handleSubmit}>

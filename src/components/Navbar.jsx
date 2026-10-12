@@ -31,7 +31,8 @@ export default function Navbar({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const userName = authObj?.user?.firstName || (authObj?.user?.phone ? authObj.user.phone.slice(-4) : null);
+  const userName = authObj?.user?.firstName || authObj?.user?.name || (authObj?.user?.phone ? authObj.user.phone.slice(-4) : null);
+  const userRole = authObj?.user?.role;
 
   return (
     <header className="site-header">
@@ -124,8 +125,27 @@ export default function Navbar({
                     onOpenDashboard();
                   }}
                   title="View my registrations & profile"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 >
-                  👤 {userName ? `Hi, ${userName}` : 'Dashboard'}
+                  <span>👤</span>
+                  <span>{userName ? `Hi, ${userName}` : 'Dashboard'}</span>
+                  {userRole && (
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: '800',
+                        textTransform: 'uppercase',
+                        background: 'var(--soft)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--ink)',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        marginLeft: '4px'
+                      }}
+                    >
+                      {userRole}
+                    </span>
+                  )}
                 </button>
                 <button
                   className="nav-cta"

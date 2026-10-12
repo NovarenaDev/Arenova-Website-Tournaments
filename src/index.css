@@ -1205,19 +1205,23 @@ img {
 }
 
 /* ==================== MODALS & POPUPS ==================== */
-.modal-overlay {
+.modal-overlay,
+.modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
-  background: rgba(16, 17, 20, 0.6);
-  backdrop-filter: blur(8px);
-  display: grid;
-  place-items: center;
+  z-index: 99999;
+  background: rgba(8, 11, 18, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 20px;
   overflow-y: auto;
 }
 
-.modal-content {
+.modal-content,
+.modal-card {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -1225,7 +1229,8 @@ img {
   width: 100%;
   padding: 36px;
   position: relative;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.35);
+  margin: auto;
 }
 
 .modal-close {

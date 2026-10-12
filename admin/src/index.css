@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #f9fafb !important;
+    color: #111827 !important;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+}
+
+@layer utilities {
+  .sidebar-item { @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 cursor-pointer; }
+  .sidebar-item-active { @apply bg-[#F05A22]/10 text-[#F05A22] !important; }
+  .sidebar-item-inactive { @apply text-[#4b5563] hover:bg-[#f3f4f6] hover:text-[#111827] !important; }
+  .stat-card { @apply bg-white border border-[#e5e7eb] rounded-xl p-5 shadow-sm text-[#111827] !important; }
+  .table-row { @apply border-b border-[#e5e7eb] hover:bg-[#f9fafb] transition-colors !important; }
+  .badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border; }
+  .badge-green  { @apply bg-emerald-500/10 text-emerald-600 border-emerald-500/25; }
+  .badge-amber  { @apply bg-amber-500/10  text-amber-600  border-amber-500/25; }
+  .badge-red    { @apply bg-red-500/10    text-red-600    border-red-500/25; }
+  .badge-blue   { @apply bg-blue-500/10   text-blue-600   border-blue-500/25; }
+  .badge-purple { @apply bg-purple-500/10 text-purple-600 border-purple-500/25; }
+  .badge-gray   { @apply bg-[#f3f4f6] text-[#4b5563] border-[#e5e7eb]; }
+  
+  .btn-primary  { @apply bg-[#FFF0E6] hover:bg-[#FFE0CC] text-[#F05A22] border border-[#FFD2B8] font-bold rounded-lg px-4 py-2 text-sm transition-colors !important; }
+  .btn-outline  { @apply border border-[#e5e7eb] text-[#4b5563] hover:bg-[#f3f4f6] hover:text-[#111827] rounded-lg px-4 py-2 text-sm transition-colors !important; }
+  .btn-danger   { @apply border border-red-500/25 text-red-500 hover:bg-red-500/10 rounded-lg px-4 py-2 text-sm transition-colors !important; }
+  .input-field  { @apply w-full bg-white border border-[#e5e7eb] rounded-lg px-3 py-2.5 text-sm text-[#111827] placeholder-[#9ca3af] focus:outline-none focus:border-[#F05A22] transition-colors !important; }
+  .card { @apply bg-white border border-[#e5e7eb] rounded-xl shadow-sm !important; }
+}
+
+/* Global Overrides to force clean Light Theme */
+.bg-\[\#0e0f11\], .bg-\[\#101114\], .bg-\[\#141518\], .bg-\[\#1a1c20\], div[class*="bg-[#0e0f11]"], div[class*="bg-[#141518]"] {
+  background-color: #ffffff !important;
+}
+
+aside.bg-\[\#2d2d2d\], aside, div[class*="bg-[#2d2d2d]"] {
+  background-color: #ffffff !important;
+  border-right: 1px solid #e5e7eb !important;
+}
+
+header.bg-\[\#141518\], header, div[class*="bg-[#141518]"] {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Text & Border Color Fixes */
+.text-white, p.text-white, span.text-white, h2.text-white, h3.text-white, h4.text-white, h5.text-white, h6.text-white {
+  color: #111827 !important;
+}
+
+p.text-\[\#9ba3af\], span.text-\[\#9ba3af\], label.text-\[\#9ba3af\] {
+  color: #4b5563 !important;
+}
+
+.text-\[\#5c6370\] {
+  color: #6b7280 !important;
+}
+
+.border-\[\#2e3139\], .border-\[\#3d3d3d\] {
+  border-color: #e5e7eb !important;
+}
+
+/* Modal Backdrops & Overlays */
+.bg-black\/70 {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+.bg-opacity-80 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Login Page specific panel override */
+.login-panel {
+  background: linear-gradient(145deg, #1B2B6B 0%, #0f1d4d 50%, #0c1538 100%) !important;
+}
+
+/* Sub-card tables context backgrounds */
+.bg-\[\#0e0f11\] {
+  background-color: #f9fafb !important;
+}
+
+tr, td, th {
+  border-color: #e5e7eb !important;
+}
+
+.text-\[\#F05A22\] {
+  color: #F05A22 !important;
+}
+
+/* ProgressBar gray track background */
+.bg-\[\#21242a\] {
+  background-color: #e5e7eb !important;
+}

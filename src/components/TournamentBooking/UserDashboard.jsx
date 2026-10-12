@@ -13,8 +13,8 @@ export default function UserDashboard({
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('registrations'); // 'registrations' or 'profile'
   const [profileForm, setProfileForm] = useState({
-    firstName: authObj?.user?.firstName || '',
-    lastName: authObj?.user?.lastName || '',
+    firstName: authObj?.user?.firstName || (authObj?.user?.name ? authObj.user.name.split(' ')[0] : ''),
+    lastName: authObj?.user?.lastName || (authObj?.user?.name ? authObj.user.name.split(' ').slice(1).join(' ') : ''),
     email: authObj?.user?.email || ''
   });
   const [savingProfile, setSavingProfile] = useState(false);
@@ -25,6 +25,16 @@ export default function UserDashboard({
   useEffect(() => {
     fetchRegistrations();
   }, []);
+
+  useEffect(() => {
+    if (authObj?.user) {
+      setProfileForm({
+        firstName: authObj.user.firstName || (authObj.user.name ? authObj.user.name.split(' ')[0] : ''),
+        lastName: authObj.user.lastName || (authObj.user.name ? authObj.user.name.split(' ').slice(1).join(' ') : ''),
+        email: authObj.user.email || ''
+      });
+    }
+  }, [authObj]);
 
   const fetchRegistrations = async () => {
     setLoading(true);
@@ -47,16 +57,17 @@ export default function UserDashboard({
       const token = authObj?.token || localStorage.getItem('arenova_auth_token');
       await completeUserProfile(
         token,
-        profileForm.firstName,
-        profileForm.lastName,
-        profileForm.email
+        profileForm.firstName.trim(),
+        profileForm.lastName.trim(),
+        profileForm.email.trim()
       );
 
       const updatedUser = {
         ...authObj?.user,
-        firstName: profileForm.firstName,
-        lastName: profileForm.lastName,
-        email: profileForm.email
+        firstName: profileForm.firstName.trim(),
+        lastName: profileForm.lastName.trim(),
+        email: profileForm.email.trim(),
+        name: `${profileForm.firstName.trim()} ${profileForm.lastName.trim()}`.trim()
       };
 
       onUpdateAuth(updatedUser);
@@ -78,8 +89,24 @@ export default function UserDashboard({
               <h1 style={{ fontSize: 'clamp(36px, 5vw, 52px)', margin: '0 0 8px' }}>
                 My Dashboard
               </h1>
-              <p style={{ margin: 0 }}>
-                Logged in as <strong>+91 {authObj?.user?.phone ? authObj.user.phone.slice(-10) : 'Verified'}</strong>
+              <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span>Logged in as <strong>{authObj?.user?.name || (authObj?.user?.phone ? `+91 ${authObj.user.phone.slice(-10)}` : (authObj?.user?.email || 'Verified'))}</strong></span>
+                {authObj?.user?.role && (
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      textTransform: 'uppercase',
+                      background: '#eef2e7',
+                      color: '#4b6e15',
+                      border: '1px solid #d0e4ba',
+                      padding: '2px 8px',
+                      borderRadius: '6px'
+                    }}
+                  >
+                    {authObj.user.role}
+                  </span>
+                )}
               </p>
             </div>
 
