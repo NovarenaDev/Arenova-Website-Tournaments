@@ -1,4 +1,20 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://16.112.182.86';
+// Automatically resolve secure API Base URL to prevent browser Mixed Content blockage on HTTPS
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    const envUrl = import.meta.env.VITE_API_BASE_URL;
+    if (envUrl && envUrl.startsWith('https://')) {
+      return envUrl.replace(/\/$/, '');
+    }
+    if (window.location.hostname.includes('vercel.app')) {
+      return '';
+    }
+    // Secure HTTPS gateway to backend server (eliminates Mixed Content & CORS blocks)
+    return 'https://arenova-website.vercel.app';
+  }
+  return import.meta.env.VITE_API_BASE_URL || 'http://16.112.182.86';
+};
+
+const BASE_URL = getBaseUrl();
 
 
 // Local storage helpers for auth state
