@@ -9,8 +9,8 @@ import logo from '../../components/images/arenova_logo.png';
 export default function LoginPage() {
   const { login }  = useAuth();
   const navigate   = useNavigate();
-  const [email, setEmail]       = useState('super@arenova.in');
-  const [password, setPassword] = useState('Admin@123');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
@@ -97,7 +97,7 @@ export default function LoginPage() {
               <label className="block text-xs font-medium text-[#9ba3af] mb-1.5">Email Address</label>
               <input
                 type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="super@arenova.in" required className="input-field"
+                placeholder="Enter admin email" required className="input-field"
               />
             </div>
             <div>
