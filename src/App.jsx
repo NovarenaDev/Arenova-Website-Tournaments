@@ -11,6 +11,7 @@ import ContactPage from './pages/ContactPage';
 import LegalPage from './pages/LegalPage';
 import UserDashboard from './components/TournamentBooking/UserDashboard';
 import DownloadAppModal from './components/DownloadAppModal';
+import WhatsAppButton from './components/WhatsAppButton';
 import { api, getStoredAuth, clearStoredAuth } from './utils/api';
 
 // Parse current URL path for direct access without login
@@ -245,6 +246,8 @@ export default function App() {
         isOpen={showDownloadModal}
         onClose={() => setShowDownloadModal(false)}
       />
+
+      <WhatsAppButton />
     </div>
   );
 }

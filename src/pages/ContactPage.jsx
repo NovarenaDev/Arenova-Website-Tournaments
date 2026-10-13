@@ -119,9 +119,40 @@ export default function ContactPage() {
 
             <div className="contact-item">
               <span>Contact Number</span>
-              <a href="tel:+917793934108" style={{ fontWeight: '700', color: 'var(--ink)' }}>
-                +91 7793934108
-              </a>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <a href="tel:+917793934108" style={{ fontWeight: '700', color: 'var(--ink)' }}>
+                  +91 7793934108
+                </a>
+                <a
+                  href={`https://wa.me/917793934108?text=${encodeURIComponent('Hello Arenova! I would like to enquire about tournaments, sports venue bookings, and services.')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: '#0e7955',
+                    background: '#e8f8f0',
+                    padding: '3px 9px',
+                    borderRadius: '12px',
+                    border: '1px solid #b7ecd0',
+                    textDecoration: 'none'
+                  }}
+                  title="Chat with Arenova on WhatsApp"
+                >
+                  <svg width="13" height="13" viewBox="0 0 32 32" fill="none" style={{ display: 'block' }}>
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M16 3C8.82 3 3 8.82 3 16C3 18.55 3.74 20.93 5.02 22.95L3.33 28.67L9.23 27.02C11.19 28.21 13.51 28.9 16 28.9C23.18 28.9 29 23.08 29 15.9C29 8.72 23.18 3 16 3ZM16 26.6C13.84 26.6 11.83 26 10.12 24.97L9.75 24.75L5.78 25.86L6.91 22.01L6.67 21.62C5.56 19.85 4.97 17.78 4.97 15.6C4.97 9.8 9.7 5.07 15.5 5.07C18.31 5.07 20.95 6.16 22.94 8.15C24.93 10.14 26.03 12.78 26.03 15.6C26.03 21.4 21.8 26.6 16 26.6ZM21.56 18.98C21.26 18.83 19.76 18.09 19.48 17.99C19.2 17.89 19 17.84 18.8 18.14C18.6 18.44 18.02 19.12 17.85 19.32C17.67 19.52 17.5 19.55 17.2 19.4C16.9 19.25 15.92 18.93 14.77 17.9C13.87 17.1 13.27 16.11 13.1 15.81C12.92 15.51 13.08 15.35 13.23 15.2C13.37 15.06 13.54 14.86 13.69 14.68C13.84 14.5 13.89 14.37 13.99 14.17C14.09 13.97 14.04 13.8 13.96 13.65C13.89 13.5 13.29 12.01 13.04 11.41C12.8 10.82 12.55 10.9 12.36 10.89L11.78 10.88C11.58 10.88 11.26 10.95 10.99 11.25C10.72 11.55 9.94 12.28 9.94 13.76C9.94 15.24 11.02 16.67 11.17 16.87C11.32 17.07 13.31 20.14 16.36 21.46C17.09 21.77 17.65 21.96 18.1 22.1C18.83 22.33 19.5 22.3 20.03 22.22C20.62 22.13 21.84 21.48 22.09 20.78C22.34 20.08 22.34 19.48 22.26 19.35C22.19 19.22 21.86 19.13 21.56 18.98Z"
+                      fill="#0e7955"
+                    />
+                  </svg>
+                  <span>WhatsApp</span>
+                </a>
+              </div>
             </div>
 
             <div className="contact-item">
