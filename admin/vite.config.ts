@@ -8,6 +8,13 @@ export default defineConfig({
   build: {
     outDir: '../dist/admin',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/admin-[name]-[hash].js',
+        chunkFileNames: 'assets/admin-[name]-[hash].js',
+        assetFileNames: 'assets/admin-[name]-[hash].[ext]'
+      }
+    }
   },
   server: {
     host: '127.0.0.1',
