@@ -4,12 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "postinstall": "npm --prefix admin install",
     "dev": "concurrently -n \"web,admin\" -c \"cyan,magenta\" \"vite\" \"npm --prefix admin run dev\"",
     "dev:web": "vite",
     "dev:admin": "npm --prefix admin run dev",
     "build:web": "vite build",
-    "build:admin": "npm --prefix admin run build",
-    "build": "vite build && npm --prefix admin run build",
+    "build:admin": "npm --prefix admin install && npm --prefix admin run build",
+    "build": "vite build && npm --prefix admin install && npm --prefix admin run build",
     "lint": "oxlint",
     "preview": "vite preview"
   },
