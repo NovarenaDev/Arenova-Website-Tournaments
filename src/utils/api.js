@@ -1,6 +1,29 @@
-// Use relative '' in browser so all requests go to same-origin /api/...
-// This guarantees zero Mixed Content blocks and zero CORS errors across localhost, Amplify, and Vercel.
-const BASE_URL = typeof window !== 'undefined' ? '' : (import.meta.env.VITE_API_BASE_URL || 'http://16.112.182.86');
+// Base URL configuration for Arenova API (Production backend: https://api.getarenova.com)
+// When running in the browser with relative '/api' or unset, same-origin calls proxy cleanly through
+// Vite dev server or Vercel rewrites (eliminating CORS and mixed-content issues).
+// If an absolute URL is configured (e.g., https://api.getarenova.com), it seamlessly resolves.
+const rawBase = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+const BASE_URL = (() => {
+  if (!rawBase || rawBase === '/api') {
+    return typeof window !== 'undefined' ? '' : 'https://api.getarenova.com';
+  }
+  return rawBase.endsWith('/api') ? rawBase.slice(0, -4) : rawBase;
+})();
+
+// Helper to normalize any legacy media/banner URLs from the database (e.g., old IP to https://api.getarenova.com)
+const normalizeMediaUrls = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  if (Array.isArray(data)) return data.map(normalizeMediaUrls);
+  const normalized = { ...data };
+  for (const key of Object.keys(normalized)) {
+    if (typeof normalized[key] === 'string' && normalized[key].includes('16.112.182.86')) {
+      normalized[key] = normalized[key].replace(/http:\/\/16\.112\.182\.86/g, 'https://api.getarenova.com');
+    } else if (typeof normalized[key] === 'object' && normalized[key] !== null) {
+      normalized[key] = normalizeMediaUrls(normalized[key]);
+    }
+  }
+  return normalized;
+};
 
 
 // Local storage helpers for auth state
@@ -52,7 +75,10 @@ const request = async (endpoint, options = {}) => {
     ...options.headers,
   };
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const requestUrl = BASE_URL ? `${BASE_URL}${cleanEndpoint}` : cleanEndpoint;
+
+  const response = await fetch(requestUrl, {
     ...options,
     headers,
   });
@@ -68,7 +94,8 @@ const request = async (endpoint, options = {}) => {
     throw new Error(errorMessage);
   }
 
-  return response.json();
+  const result = await response.json();
+  return normalizeMediaUrls(result);
 };
 
 export const api = {

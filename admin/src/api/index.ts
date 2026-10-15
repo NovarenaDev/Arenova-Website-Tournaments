@@ -102,6 +102,13 @@ export const getTournamentRegistrations = (id: string, params: Record<string, an
   const q = new URLSearchParams(params).toString();
   return get(`/admin/novare/tournaments/${id}/registrations${q ? '?' + q : ''}`);
 };
+export const exportTournamentRegistrations = (id: string) => {
+  return fetch(`${BASE_URL}/admin/novare/tournaments/${id}/registrations/export`, {
+    headers: {
+      'Authorization': `Bearer ${getAdminToken()}`
+    }
+  });
+};
 
 // ── Venues ────────────────────────────────────────────────────────────────────
 export const getVenues       = (params: Record<string, any> = {}) => {

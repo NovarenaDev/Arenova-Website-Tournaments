@@ -1,5 +1,6 @@
-// ── Change to your deployed backend URL ──────────────────────────────────────
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+// ── Base URL configuration ──────────────────────────────────────
+const rawEnvUrl = (import.meta.env.VITE_API_BASE_URL || '/api').trim().replace(/\/+$/, '');
+export const BASE_URL = rawEnvUrl.endsWith('/api') ? rawEnvUrl : `${rawEnvUrl}/api`;
 
 let _token: string | null = null;
 
@@ -9,6 +10,9 @@ export const getAdminToken = () => _token;
 // Helper function to recursively normalize response data
 function normalizeData(obj: any): any {
   if (!obj || typeof obj !== 'object') {
+    if (typeof obj === 'string' && obj.includes('16.112.182.86')) {
+      return obj.replace(/http:\/\/16\.112\.182\.86/g, 'https://api.getarenova.com');
+    }
     return obj;
   }
   
@@ -132,7 +136,12 @@ export async function apiRequest<T = any>(
   };
   if (_token) headers['Authorization'] = `Bearer ${_token}`;
 
-  const res = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const requestUrl = (BASE_URL.endsWith('/api') && cleanEndpoint.startsWith('/api/'))
+    ? `${BASE_URL.slice(0, -4)}${cleanEndpoint}`
+    : `${BASE_URL}${cleanEndpoint}`;
+
+  const res = await fetch(requestUrl, { ...options, headers });
 
   if (res.status === 401) {
     const isAdminRoute = endpoint.startsWith('/admin') || endpoint.startsWith('/auth/admin');

@@ -22,7 +22,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://16.112.182.86',
+        target: 'https://api.getarenova.com',
         changeOrigin: true,
         secure: false,
       },

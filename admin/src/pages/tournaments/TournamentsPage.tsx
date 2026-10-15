@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Medal, Users, CalendarDays, Trophy, Plus, MapPin, Clock, Pencil, Trash2, Eye } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Input, Select, Textarea, DetailRow } from '../../components/ui';
-import { getAdminTournaments, createTournament, updateTournament, deleteTournament, getTournamentOptions, updateTournamentStatus, getTournamentRegistrations } from '../../api';
+import { getAdminTournaments, createTournament, updateTournament, deleteTournament, getTournamentOptions, updateTournamentStatus, getTournamentRegistrations, exportTournamentRegistrations } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const STATUS_MAP: Record<string, string> = {
@@ -518,12 +518,7 @@ function RegistrationsModal({ t, open, onClose }: { t: Tournament | null; open: 
     if (!t) return;
     try {
       const id = t._id || t.id;
-      const token = localStorage.getItem('kridext_admin_token') || '';
-      const res = await fetch(`/api/admin/novare/tournaments/${id}/registrations/export`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const res = await exportTournamentRegistrations(id);
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
