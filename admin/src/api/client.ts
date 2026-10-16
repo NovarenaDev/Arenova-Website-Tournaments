@@ -10,8 +10,13 @@ export const getAdminToken = () => _token;
 // Helper function to recursively normalize response data
 function normalizeData(obj: any): any {
   if (!obj || typeof obj !== 'object') {
-    if (typeof obj === 'string' && obj.includes('16.112.182.86')) {
-      return obj.replace(/http:\/\/16\.112\.182\.86/g, 'https://api.getarenova.com');
+    if (typeof obj === 'string') {
+      if (obj.includes('/api/media/')) {
+        return obj.substring(obj.indexOf('/api/media/'));
+      }
+      if (obj.includes('16.112.182.86')) {
+        return obj.replace(/http:\/\/16\.112\.182\.86/g, 'https://api.getarenova.com');
+      }
     }
     return obj;
   }

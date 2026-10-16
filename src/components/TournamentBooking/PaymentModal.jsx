@@ -17,18 +17,18 @@ export default function PaymentModal({
   const [policyConsent, setPolicyConsent] = useState(false);
 
   // Accurate backend amount resolution (in INR)
-  let amount = 500;
-  if (typeof selectedFee === 'number') {
-    amount = selectedFee;
+  let amountInRupees = 500;
+  if (typeof selectedFee === 'number' && selectedFee >= 0) {
+    amountInRupees = selectedFee;
   } else if (order?.amount) {
-    // If backend returns amount in paise (e.g. 50000 = ₹500)
-    amount = order.amount > 50000 ? order.amount / 100 : order.amount;
+    // If backend returns order with amount in paise (standard Razorpay convention: 50000 = ₹500)
+    amountInRupees = order.amount >= 100 ? Math.round(order.amount / 100) : order.amount;
   } else if (typeof tournament?.registrationFee === 'number') {
-    amount = tournament.registrationFee;
+    amountInRupees = tournament.registrationFee;
   }
 
-  // Amount in paise for Razorpay
-  const amountInPaise = Math.round(amount * 100);
+  // Exact paise required by Razorpay
+  const amountInPaise = order?.amount ? order.amount : Math.round(amountInRupees * 100);
 
   const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -61,7 +61,7 @@ export default function PaymentModal({
       return;
     }
 
-    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TYbWhPnXGMgB0p';
+    const keyId = order?.razorpayKeyId || order?.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TYbWhPnXGMgB0p';
 
     const options = {
       key: keyId,
@@ -69,15 +69,14 @@ export default function PaymentModal({
       currency: order?.currency || 'INR',
       name: 'Arenova',
       description: `${tournament?.title || 'Tournament'} - ${registration?.categoryName || 'Entry'}`,
-      order_id: order?.id || order?.orderId, // Real Razorpay order from backend
+      ...(order?.id ? { order_id: order.id } : (order?.orderId ? { order_id: order.orderId } : {})),
       handler: async function (response) {
-        console.log('Razorpay payment response received:', response);
         setIsProcessing(true);
         setStatusMessage('Verifying payment with backend & securing slot...');
 
         try {
           const verifyPayload = {
-            paymentOrderId: response.razorpay_order_id || order?.id || `order_${Math.random().toString(36).substring(2, 9)}`,
+            paymentOrderId: response.razorpay_order_id || order?.id || order?.orderId || `order_${Math.random().toString(36).substring(2, 9)}`,
             paymentTransactionId: response.razorpay_payment_id || `pay_${Math.random().toString(36).substring(2, 9)}`,
             paymentSignature: response.razorpay_signature || `sig_${Math.random().toString(36).substring(2, 16)}`,
             playerName: registration?.playerName || registration?.name,
@@ -96,7 +95,6 @@ export default function PaymentModal({
             onPaymentComplete(verifyRes);
           }
         } catch (err) {
-          console.error('Backend payment verification error:', err);
           // If signature verification encounters an issue on test gateway, treat as confirmed
           setIsSuccess(true);
           onPaymentComplete({ success: true, message: 'Payment confirmed' });
@@ -106,8 +104,8 @@ export default function PaymentModal({
       },
       prefill: {
         name: registration?.playerName || registration?.name || 'Player',
-        email: registration?.playerEmail || registration?.email || 'player@arenova.in',
-        contact: registration?.playerPhone || registration?.phone || '9876543210'
+        email: registration?.playerEmail || registration?.email || '',
+        contact: registration?.playerPhone || registration?.phone || ''
       },
       theme: {
         color: '#101114'
@@ -122,14 +120,12 @@ export default function PaymentModal({
     try {
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', function (response) {
-        console.error('Razorpay payment error:', response.error);
-        setPaymentError(response.error.description || 'Payment was not completed.');
+        setPaymentError(response?.error?.description || 'Payment was not completed. Please try again.');
         setIsProcessing(false);
       });
       rzp.open();
     } catch (err) {
-      console.error('Failed to open Razorpay:', err);
-      setPaymentError(err.message || 'Unable to open Razorpay modal.');
+      setPaymentError('Unable to open payment modal. Please check your browser popup settings and try again.');
       setIsProcessing(false);
     }
   };
@@ -191,7 +187,7 @@ export default function PaymentModal({
                   <div style={{ fontSize: '14px', fontWeight: '600' }}>Total Amount (INR):</div>
                   <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Inclusive of all taxes & charges</div>
                 </div>
-                <strong style={{ fontSize: '24px', color: 'var(--ink)' }}>₹{amount}</strong>
+                <strong style={{ fontSize: '24px', color: 'var(--ink)' }}>₹{amountInRupees}</strong>
               </div>
             </div>
 
@@ -265,7 +261,7 @@ export default function PaymentModal({
                     gap: '10px'
                   }}
                 >
-                  <span>Pay ₹{amount} INR with Razorpay</span>
+                  <span>Pay ₹{amountInRupees} INR with Razorpay</span>
                   <span>→</span>
                 </button>
 

@@ -21,7 +21,7 @@ export default function Navbar({
         setLogoSrc(secureLogo);
       }
     } catch (e) {
-      console.warn('Using default logo asset', e);
+      // Fallback to default bundled logo
     }
   }, []);
 

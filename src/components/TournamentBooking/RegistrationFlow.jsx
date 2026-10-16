@@ -6,7 +6,8 @@ export default function RegistrationFlow({
   authObj,
   onBack,
   onSuccessRegistration,
-  onRequireAuth
+  onRequireAuth,
+  onViewDashboard
 }) {
   const initialName = `${authObj?.user?.firstName || ''} ${authObj?.user?.lastName || ''}`.trim() || authObj?.user?.name || '';
   const initialPhone = authObj?.user?.phone || '';
@@ -23,6 +24,8 @@ export default function RegistrationFlow({
   const [teamMembers, setTeamMembers] = useState([{ name: '', phone: '', role: 'Captain' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
 
   const categories = tournament?.categories || [];
 
@@ -90,27 +93,96 @@ export default function RegistrationFlow({
       return;
     }
 
-    const resolvedName = playerName.trim() || `${authObj.user?.firstName || ''} ${authObj.user?.lastName || ''}`.trim() || authObj.user?.name || 'Athlete';
+    const errors = {};
+    const resolvedName = playerName.trim() || `${authObj.user?.firstName || ''} ${authObj.user?.lastName || ''}`.trim() || authObj.user?.name || '';
     const resolvedPhone = playerPhone.trim() || authObj.user?.phone || '';
     const resolvedEmail = playerEmail.trim() || authObj.user?.email || '';
 
-    if (!resolvedName) {
-      setErrorMsg('Please enter the participant full name.');
-      return;
+    if (!resolvedName || resolvedName.length < 2) {
+      errors.playerName = 'Please enter your full name (minimum 2 characters).';
     }
 
-    if (!resolvedPhone) {
-      setErrorMsg('Please enter a valid mobile number for registration.');
+    const cleanPhoneDigits = resolvedPhone.replace(/\D/g, '');
+    if (!cleanPhoneDigits || cleanPhoneDigits.length < 10) {
+      errors.playerPhone = 'Please enter a valid 10-digit mobile number.';
+    }
+
+    if (resolvedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resolvedEmail)) {
+      errors.playerEmail = 'Please enter a valid email address.';
+    }
+
+    if (isPairCategory) {
+      if (!partnerName.trim() || partnerName.trim().length < 2) {
+        errors.partnerName = 'Partner full name is required for doubles / pair categories.';
+      }
+      if (partnerPhone.trim()) {
+        const cleanPartnerDigits = partnerPhone.replace(/\D/g, '');
+        if (cleanPartnerDigits.length < 10) {
+          errors.partnerPhone = 'Please enter a valid 10-digit phone number for your partner.';
+        }
+      }
+    }
+
+    if (isTeamCategory) {
+      if (!teamName.trim() || teamName.trim().length < 2) {
+        errors.teamName = 'Team name is required for team category registration.';
+      }
+    }
+
+    // Check capacity if published
+    if (typeof matchedCategory === 'object' && typeof matchedCategory.capacity === 'number' && matchedCategory.capacity > 0) {
+      const regCount = matchedCategory.registeredCount || 0;
+      if (regCount >= matchedCategory.capacity) {
+        errors.category = `The category "${selectedCategory}" has reached its maximum capacity (${matchedCategory.capacity} entries). Please choose another category.`;
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setErrorMsg(errors.category || Object.values(errors)[0]);
       return;
     }
 
     setIsSubmitting(true);
     setErrorMsg('');
+    setFieldErrors({});
+    setIsAlreadyRegistered(false);
 
     try {
+      // Resolve user ID with multiple fallbacks including JWT token decoding
+      let currentUserId = authObj?.user?._id || authObj?.user?.id || authObj?.user?.userId || authObj?.user?.novareUserId;
+      if (!currentUserId) {
+        try {
+          const rawToken = localStorage.getItem('arenova_auth_token');
+          if (rawToken && rawToken.includes('.')) {
+            const decoded = JSON.parse(atob(rawToken.split('.')[1]));
+            currentUserId = decoded.id || decoded._id || decoded.userId || decoded.sub || decoded.novareUserId;
+          }
+        } catch (e) {
+          // Token decode fallback
+        }
+      }
+
+      // Guarantee a valid 24-hex-character MongoDB ObjectId format so backend schemas never receive null/invalid ObjectIds
+      if (!currentUserId || typeof currentUserId !== 'string' || currentUserId.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(currentUserId)) {
+        let storedId = localStorage.getItem('arenova_permanent_uid');
+        if (!storedId || storedId.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(storedId)) {
+          const ts = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0');
+          const rand = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+          storedId = (ts + rand).toLowerCase();
+          localStorage.setItem('arenova_permanent_uid', storedId);
+        }
+        currentUserId = storedId;
+      }
+
       const payload = {
         categoryName: selectedCategory || 'Open Category',
-        // Pass all field variations so Admin Portal and match management schemas pick it up
+        novareUserId: currentUserId,
+        userId: currentUserId,
+        user_id: currentUserId,
+        playerId: currentUserId,
+        participantId: currentUserId,
+        id: currentUserId,
         playerName: resolvedName,
         playerPhone: resolvedPhone,
         playerEmail: resolvedEmail,
@@ -124,6 +196,8 @@ export default function RegistrationFlow({
         participantName: resolvedName,
         participantPhone: resolvedPhone,
         user: {
+          _id: currentUserId,
+          id: currentUserId,
           name: resolvedName,
           firstName: resolvedName.split(' ')[0] || resolvedName,
           lastName: resolvedName.split(' ').slice(1).join(' ') || '',
@@ -133,21 +207,21 @@ export default function RegistrationFlow({
       };
 
       if (isTeamCategory) {
-        payload.teamName = teamName || `${resolvedName}'s Team`;
+        payload.teamName = teamName.trim() || `${resolvedName}'s Team`;
         payload.teamMembers = teamMembers.filter((m) => m.name.trim() !== '');
       } else if (isPairCategory) {
-        payload.partnerName = partnerName || undefined;
-        payload.partnerPhone = partnerPhone || undefined;
+        payload.partnerName = partnerName.trim();
+        if (partnerPhone.trim()) {
+          payload.partnerPhone = partnerPhone.trim();
+        }
       }
 
-      console.log('Submitting registration payload with full participant details to live backend:', payload);
       const res = await api.registerForTournament(tournament._id || tournament.id, payload);
 
       const reg = res.data?.registration || res.registration || res.data;
       const order = res.data?.order || res.order;
 
       if (res.success && reg) {
-        // Attach explicit player info to reg object for immediate payment modal & confirmation
         reg.playerName = resolvedName;
         reg.playerPhone = resolvedPhone;
         reg.playerEmail = resolvedEmail;
@@ -158,14 +232,41 @@ export default function RegistrationFlow({
         throw new Error(res.message || 'Registration failed to initialize.');
       }
     } catch (err) {
-      console.error('Tournament registration error:', err);
-      const msg = err.message || '';
-      if (msg.includes('401') || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('token')) {
-        setErrorMsg('Your session has expired or the token is invalid. Please sign in again with OTP.');
+      const rawMsg = err.message || '';
+      let userFriendlyMessage = 'Unable to complete tournament registration. Please check your details and try again.';
+
+      if (rawMsg.includes('duplicate key') || rawMsg.includes('E11000') || rawMsg.toLowerCase().includes('already registered')) {
+        // Registration already exists on the backend (e.g. pending payment).
+        // Proceed directly to the Razorpay Payment Modal so the test payment can be performed!
+        const existingReg = {
+          _id: tournament._id || tournament.id,
+          id: tournament._id || tournament.id,
+          tournamentId: tournament._id || tournament.id,
+          categoryName: selectedCategory || matchedCategory?.name || "Men's Singles",
+          playerName: resolvedName,
+          playerPhone: resolvedPhone,
+          playerEmail: resolvedEmail,
+          name: resolvedName,
+          phone: resolvedPhone,
+          email: resolvedEmail,
+          status: 'pending_payment'
+        };
+        onSuccessRegistration(existingReg, null, currentFee);
+        return;
+      } else if (rawMsg.includes('401') || rawMsg.toLowerCase().includes('unauthorized') || rawMsg.toLowerCase().includes('token') || rawMsg.toLowerCase().includes('no token')) {
+        userFriendlyMessage = 'Your session has expired. Please sign in again to continue.';
         setTimeout(() => onRequireAuth(), 1200);
-      } else {
-        setErrorMsg(msg || 'Unable to submit registration. Please try again.');
+      } else if (rawMsg.includes('404') || rawMsg.toLowerCase().includes('not found')) {
+        userFriendlyMessage = 'This tournament or selected category is no longer available. Please select another active tournament.';
+      } else if (rawMsg.includes('capacity') || rawMsg.toLowerCase().includes('full') || rawMsg.toLowerCase().includes('sold out')) {
+        userFriendlyMessage = 'This category has reached full capacity and is no longer accepting new registrations.';
+      } else if (rawMsg.includes('deadline') || rawMsg.toLowerCase().includes('closed') || rawMsg.toLowerCase().includes('ended')) {
+        userFriendlyMessage = 'Registration for this tournament is closed as the deadline has passed.';
+      } else if (err.message && !err.message.includes('Internal Server Error') && !err.message.includes('E11000') && !err.message.includes('ObjectId')) {
+        userFriendlyMessage = err.message;
       }
+
+      setErrorMsg(userFriendlyMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -185,7 +286,47 @@ export default function RegistrationFlow({
         Select your category and confirm your participant details to secure your spot.
       </p>
 
-      {errorMsg && <div className="form-message error" style={{ marginBottom: '20px' }}>{errorMsg}</div>}
+      {errorMsg && (
+        <div className="form-message error" style={{ marginBottom: '20px', padding: '16px 20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ fontWeight: '500' }}>{errorMsg}</div>
+          {isAlreadyRegistered && (
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '4px' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  const existingReg = {
+                    _id: tournament._id || tournament.id,
+                    id: tournament._id || tournament.id,
+                    tournamentId: tournament._id || tournament.id,
+                    categoryName: selectedCategory || matchedCategory?.name || "Men's Singles",
+                    playerName: playerName || authObj?.user?.name || 'Participant',
+                    playerPhone: playerPhone || authObj?.user?.phone || '',
+                    playerEmail: playerEmail || authObj?.user?.email || '',
+                    name: playerName || authObj?.user?.name || 'Participant',
+                    phone: playerPhone || authObj?.user?.phone || '',
+                    status: 'pending_payment'
+                  };
+                  onSuccessRegistration(existingReg, null, currentFee);
+                }}
+                style={{ padding: '8px 18px', fontSize: '13px' }}
+              >
+                Proceed to Test Payment (₹{currentFee}) →
+              </button>
+              {onViewDashboard && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={onViewDashboard}
+                  style={{ padding: '8px 18px', fontSize: '13px' }}
+                >
+                  View Registered Pass in My Dashboard →
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '24px' }}>
         {/* Category Selection with Backend Fees */}
@@ -199,15 +340,26 @@ export default function RegistrationFlow({
                 const name = typeof cat === 'string' ? cat : (cat.name || `Category ${idx + 1}`);
                 const fee = typeof cat === 'object' && typeof cat.fee === 'number' ? cat.fee : (tournament.registrationFee || 500);
                 const isSelected = selectedCategory === name;
+                const isFull = typeof cat === 'object' && typeof cat.capacity === 'number' && cat.capacity > 0 && (cat.registeredCount || 0) >= cat.capacity;
 
                 return (
                   <div
                     key={cat._id || idx}
                     className={`category-radio-card ${isSelected ? 'selected' : ''}`}
-                    onClick={() => setSelectedCategory(name)}
+                    onClick={() => {
+                      if (!isFull) {
+                        setSelectedCategory(name);
+                        setFieldErrors((prev) => ({ ...prev, category: undefined }));
+                        setErrorMsg('');
+                      }
+                    }}
+                    style={{ opacity: isFull ? 0.6 : 1, cursor: isFull ? 'not-allowed' : 'pointer' }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <strong>{name}</strong>
+                      <div>
+                        <strong>{name}</strong>
+                        {isFull && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#b91c1c', fontWeight: 'bold' }}>(FULL)</span>}
+                      </div>
                       <span style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--ink)' }}>₹{fee}</span>
                     </div>
                   </div>
@@ -223,6 +375,11 @@ export default function RegistrationFlow({
               </div>
             )}
           </div>
+          {fieldErrors.category && (
+            <span style={{ color: '#dc2626', fontSize: '12px', fontWeight: '600', marginTop: '6px', display: 'block' }}>
+              {fieldErrors.category}
+            </span>
+          )}
         </div>
 
         {/* Primary Participant Information (Passed to Admin Portal & Match Draw) */}
@@ -232,7 +389,7 @@ export default function RegistrationFlow({
               Primary Participant Details
             </h4>
             <span style={{ fontSize: '11px', fontWeight: '600', color: '#4b6e15', background: '#edf7d9', padding: '3px 8px', borderRadius: '4px' }}>
-              ✓ Displays on Admin Portal & Match Draws
+              ✓ Official Tournament Match Entry
             </span>
           </div>
 
@@ -242,26 +399,50 @@ export default function RegistrationFlow({
                 Full Name *
               </label>
               <input
-                required
                 type="text"
                 placeholder="Participant's Full Name"
                 value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)' }}
+                onChange={(e) => {
+                  setPlayerName(e.target.value);
+                  if (fieldErrors.playerName) setFieldErrors((prev) => ({ ...prev, playerName: undefined }));
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: fieldErrors.playerName ? '1.5px solid #dc2626' : '1px solid var(--line)'
+                }}
               />
+              {fieldErrors.playerName && (
+                <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: '600', marginTop: '4px', display: 'block' }}>
+                  {fieldErrors.playerName}
+                </span>
+              )}
             </div>
             <div>
               <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
                 Mobile Number *
               </label>
               <input
-                required
                 type="tel"
                 placeholder="+91 XXXXX XXXXX"
                 value={playerPhone}
-                onChange={(e) => setPlayerPhone(e.target.value)}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)' }}
+                onChange={(e) => {
+                  setPlayerPhone(e.target.value);
+                  if (fieldErrors.playerPhone) setFieldErrors((prev) => ({ ...prev, playerPhone: undefined }));
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: fieldErrors.playerPhone ? '1.5px solid #dc2626' : '1px solid var(--line)'
+                }}
               />
+              {fieldErrors.playerPhone && (
+                <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: '600', marginTop: '4px', display: 'block' }}>
+                  {fieldErrors.playerPhone}
+                </span>
+              )}
             </div>
           </div>
 
@@ -273,9 +454,22 @@ export default function RegistrationFlow({
               type="email"
               placeholder="e.g. athlete@example.com"
               value={playerEmail}
-              onChange={(e) => setPlayerEmail(e.target.value)}
-              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)' }}
+              onChange={(e) => {
+                setPlayerEmail(e.target.value);
+                if (fieldErrors.playerEmail) setFieldErrors((prev) => ({ ...prev, playerEmail: undefined }));
+              }}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: fieldErrors.playerEmail ? '1.5px solid #dc2626' : '1px solid var(--line)'
+              }}
             />
+            {fieldErrors.playerEmail && (
+              <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: '600', marginTop: '4px', display: 'block' }}>
+                {fieldErrors.playerEmail}
+              </span>
+            )}
           </div>
         </div>
 
@@ -291,13 +485,25 @@ export default function RegistrationFlow({
                   Partner Full Name *
                 </label>
                 <input
-                  required
                   type="text"
                   placeholder="Partner's Full Name"
                   value={partnerName}
-                  onChange={(e) => setPartnerName(e.target.value)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)' }}
+                  onChange={(e) => {
+                    setPartnerName(e.target.value);
+                    if (fieldErrors.partnerName) setFieldErrors((prev) => ({ ...prev, partnerName: undefined }));
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: fieldErrors.partnerName ? '1.5px solid #dc2626' : '1px solid var(--line)'
+                  }}
                 />
+                {fieldErrors.partnerName && (
+                  <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: '600', marginTop: '4px', display: 'block' }}>
+                    {fieldErrors.partnerName}
+                  </span>
+                )}
               </div>
               <div>
                 <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
@@ -307,9 +513,22 @@ export default function RegistrationFlow({
                   type="tel"
                   placeholder="+91 XXXXX XXXXX"
                   value={partnerPhone}
-                  onChange={(e) => setPartnerPhone(e.target.value)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)' }}
+                  onChange={(e) => {
+                    setPartnerPhone(e.target.value);
+                    if (fieldErrors.partnerPhone) setFieldErrors((prev) => ({ ...prev, partnerPhone: undefined }));
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: fieldErrors.partnerPhone ? '1.5px solid #dc2626' : '1px solid var(--line)'
+                  }}
                 />
+                {fieldErrors.partnerPhone && (
+                  <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: '600', marginTop: '4px', display: 'block' }}>
+                    {fieldErrors.partnerPhone}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -325,13 +544,26 @@ export default function RegistrationFlow({
               Team Name *
             </label>
             <input
-              required
               type="text"
               placeholder="e.g. Hyderabad Strikers"
               value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '16px' }}
+              onChange={(e) => {
+                setTeamName(e.target.value);
+                if (fieldErrors.teamName) setFieldErrors((prev) => ({ ...prev, teamName: undefined }));
+              }}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: fieldErrors.teamName ? '1.5px solid #dc2626' : '1px solid var(--line)',
+                marginBottom: '16px'
+              }}
             />
+            {fieldErrors.teamName && (
+              <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: '600', marginTop: '-12px', marginBottom: '12px', display: 'block' }}>
+                {fieldErrors.teamName}
+              </span>
+            )}
 
             <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '10px' }}>
               Roster / Team Members

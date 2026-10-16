@@ -128,7 +128,6 @@ export default function App() {
       const data = await api.getTournaments();
       setTournaments(data.data || data || []);
     } catch (err) {
-      console.warn('Live tournament fetch notice:', err.message);
       setTournaments([]);
     } finally {
       setLoadingTournaments(false);

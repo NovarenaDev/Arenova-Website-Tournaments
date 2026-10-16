@@ -32,7 +32,7 @@ if (isFirebaseConfigured) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
   } catch (error) {
-    console.error('Firebase initialization failed:', error);
+    // Firebase initialization fallback
   }
 }
 

@@ -42,7 +42,7 @@ export default function UserDashboard({
       const res = await api.getMyRegistrations();
       setRegistrations(res.data || res || []);
     } catch (err) {
-      console.error('Failed to load registrations:', err);
+      setRegistrations([]);
     } finally {
       setLoading(false);
     }

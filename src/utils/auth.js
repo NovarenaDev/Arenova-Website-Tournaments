@@ -6,21 +6,9 @@ import { api } from './api';
 // or a mock authentication bypass mode for local UI development.
 
 export const signInWithToken = async (idToken) => {
-  try {
-    const data = await api.syncUser(idToken);
-    return data;
-  } catch (error) {
-    console.error("Auth sync failed:", error);
-    throw error;
-  }
+  return api.syncUser(idToken);
 };
 
 export const completeUserProfile = async (idToken, firstName, lastName, email) => {
-  try {
-    const data = await api.updateUserProfile({ firstName, lastName, email });
-    return data;
-  } catch (error) {
-    console.error("Profile completion failed:", error);
-    throw error;
-  }
+  return api.updateUserProfile({ firstName, lastName, email });
 };

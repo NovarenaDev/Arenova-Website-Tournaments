@@ -19,12 +19,16 @@ export default function TournamentDetails({
   if (!tournament) return null;
 
   const sportKey = (tournament.sport || 'badminton').toLowerCase();
-  const bannerUrl = tournament.banner ||
+  let rawBanner = tournament.banner ||
     tournament.bannerImage ||
     tournament.image ||
-    tournament.posterImage ||
-    SPORT_FALLBACKS[sportKey] ||
-    badmintonImg;
+    tournament.posterImage;
+
+  if (typeof rawBanner === 'string' && rawBanner.includes('/api/media/')) {
+    rawBanner = rawBanner.substring(rawBanner.indexOf('/api/media/'));
+  }
+
+  const bannerUrl = rawBanner || SPORT_FALLBACKS[sportKey] || badmintonImg;
 
   const startDate = tournament.startDate
     ? new Date(tournament.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -68,7 +72,16 @@ export default function TournamentDetails({
         alt={tournament.title}
         className="details-banner"
         style={{ width: '100%', maxHeight: '380px', objectFit: 'cover', borderRadius: '16px' }}
-        onError={(e) => { e.target.src = badmintonImg; }}
+        loading="lazy"
+        onError={(e) => {
+          if (e.target.src.includes('/api/media/') && !e.target.dataset.triedFallback) {
+            e.target.dataset.triedFallback = 'true';
+            const path = e.target.src.substring(e.target.src.indexOf('/api/media/'));
+            e.target.src = `https://api.getarenova.com${path}`;
+            return;
+          }
+          e.target.src = SPORT_FALLBACKS[sportKey] || badmintonImg;
+        }}
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.6fr', gap: '40px', alignItems: 'start', marginTop: '20px' }}>

@@ -10,14 +10,22 @@ const BASE_URL = (() => {
   return rawBase.endsWith('/api') ? rawBase.slice(0, -4) : rawBase;
 })();
 
-// Helper to normalize any legacy media/banner URLs from the database (e.g., old IP to https://api.getarenova.com)
+// Helper to normalize any legacy media/banner URLs from the database
+// Converts absolute IP or backend URLs to same-origin relative /api/media/... paths
+// to prevent cross-origin CORP blocks (net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin)
 const normalizeMediaUrls = (data) => {
   if (!data || typeof data !== 'object') return data;
   if (Array.isArray(data)) return data.map(normalizeMediaUrls);
   const normalized = { ...data };
   for (const key of Object.keys(normalized)) {
-    if (typeof normalized[key] === 'string' && normalized[key].includes('16.112.182.86')) {
-      normalized[key] = normalized[key].replace(/http:\/\/16\.112\.182\.86/g, 'https://api.getarenova.com');
+    if (typeof normalized[key] === 'string') {
+      const val = normalized[key];
+      if (val.includes('/api/media/')) {
+        // Strip out host and keep same-origin relative path /api/media/...
+        normalized[key] = val.substring(val.indexOf('/api/media/'));
+      } else if (val.includes('16.112.182.86')) {
+        normalized[key] = val.replace(/http:\/\/16\.112\.182\.86/g, 'https://api.getarenova.com');
+      }
     } else if (typeof normalized[key] === 'object' && normalized[key] !== null) {
       normalized[key] = normalizeMediaUrls(normalized[key]);
     }
@@ -34,10 +42,41 @@ const STORAGE_KEYS = {
 };
 
 export const getStoredAuth = () => {
+  const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+  const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem(STORAGE_KEYS.USER) || 'null');
+  } catch (e) {
+    user = null;
+  }
+
+  // Fallback to resolve user ID from JWT token claims if missing in stored user object
+  if (token && (!user || (!user._id && !user.id))) {
+    try {
+      if (token.includes('.')) {
+        const decoded = JSON.parse(atob(token.split('.')[1]));
+        const resolvedId = decoded.id || decoded._id || decoded.userId || decoded.sub || decoded.novareUserId;
+        if (resolvedId) {
+          user = {
+            ...(user || {}),
+            _id: resolvedId,
+            id: resolvedId,
+            phone: user?.phone || decoded.phone || '',
+            email: user?.email || decoded.email || '',
+            name: user?.name || decoded.name || '',
+          };
+        }
+      }
+    } catch (e) {
+      // Decode fallback
+    }
+  }
+
   return {
-    token: localStorage.getItem(STORAGE_KEYS.TOKEN),
-    refreshToken: localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
-    user: JSON.parse(localStorage.getItem(STORAGE_KEYS.USER) || 'null'),
+    token,
+    refreshToken,
+    user,
   };
 };
 
@@ -45,10 +84,23 @@ export const setStoredAuth = (token, refreshToken, user) => {
   if (token) localStorage.setItem(STORAGE_KEYS.TOKEN, token);
   if (refreshToken) localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
   if (user) {
+    const rawUserData = user.user || user.data || user;
+    let resolvedId = rawUserData._id || rawUserData.id || rawUserData.userId || rawUserData.novareUserId;
+    if (!resolvedId && token && token.includes('.')) {
+      try {
+        const decoded = JSON.parse(atob(token.split('.')[1]));
+        resolvedId = decoded.id || decoded._id || decoded.userId || decoded.sub || decoded.novareUserId;
+      } catch (e) {
+        // Fallback
+      }
+    }
+
     const normalizedUser = {
-      ...user,
-      firstName: user.firstName || (user.name ? user.name.split(' ')[0] : ''),
-      lastName: user.lastName || (user.name ? user.name.split(' ').slice(1).join(' ') : ''),
+      ...rawUserData,
+      _id: resolvedId || rawUserData._id,
+      id: resolvedId || rawUserData.id,
+      firstName: rawUserData.firstName || (rawUserData.name ? rawUserData.name.split(' ')[0] : ''),
+      lastName: rawUserData.lastName || (rawUserData.name ? rawUserData.name.split(' ').slice(1).join(' ') : ''),
     };
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(normalizedUser));
   }
@@ -60,7 +112,7 @@ export const clearStoredAuth = () => {
   localStorage.removeItem(STORAGE_KEYS.USER);
 };
 
-// Helper for fetch with Authorization headers
+// Helper for fetch with Authorization headers and user-friendly error formatting
 const request = async (endpoint, options = {}) => {
   const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
   const isAuthEndpoint = endpoint.startsWith('/api/auth/') || endpoint.includes('/auth/sync') || endpoint.includes('/auth/complete-profile');
@@ -85,13 +137,37 @@ const request = async (endpoint, options = {}) => {
 
   if (!response.ok) {
     let errorMessage = 'Something went wrong';
+    let errorData = null;
     try {
-      const errorData = await response.json();
-      errorMessage = errorData.message || errorData.error || errorMessage;
+      errorData = await response.json();
+      const rawText = typeof errorData === 'string' ? errorData : JSON.stringify(errorData);
+
+      if (rawText.includes('E11000') || rawText.toLowerCase().includes('duplicate key')) {
+        errorMessage = 'You are already registered for this tournament category.';
+      } else if (errorData.errors) {
+        if (Array.isArray(errorData.errors)) {
+          errorMessage = errorData.errors.map(err => typeof err === 'string' ? err : err.msg || err.message || JSON.stringify(err)).join(', ');
+        } else if (typeof errorData.errors === 'object') {
+          errorMessage = Object.values(errorData.errors).map(err => typeof err === 'string' ? err : err.msg || err.message || JSON.stringify(err)).join(', ');
+        }
+      } else if (errorData.message && typeof errorData.message === 'string') {
+        errorMessage = errorData.message;
+      } else if (errorData.error) {
+        errorMessage = typeof errorData.error === 'string' ? errorData.error : (errorData.error.message || errorMessage);
+      }
+
+      // Sanitize raw MongoDB or internal server details from leaking into UI
+      if (errorMessage.includes('E11000') || errorMessage.includes('ObjectId(') || errorMessage.includes('duplicate key')) {
+        errorMessage = 'You are already registered for this tournament category.';
+      }
     } catch (e) {
       // Ignored
     }
-    throw new Error(errorMessage);
+
+    const err = new Error(errorMessage);
+    err.status = response.status;
+    err.data = errorData;
+    throw err;
   }
 
   const result = await response.json();

@@ -73,7 +73,6 @@ export default function ContactPage() {
         setSuccessMessage('Thank you for reaching out! We have recorded your enquiry.');
       }
     } catch (err) {
-      console.error('Contact enquiry error:', err);
       setErrorMessage(err.message || 'Failed to submit enquiry. Please check your connection and try again.');
     } finally {
       setIsSubmitting(false);

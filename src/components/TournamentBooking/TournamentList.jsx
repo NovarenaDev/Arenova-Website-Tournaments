@@ -100,13 +100,17 @@ export default function TournamentList({
           {filteredTournaments.map((tournament) => {
             const sportKey = (tournament.sport || 'badminton').toLowerCase();
             
-            // API returns banner URL from Cloudinary (tournament.banner)
-            const cardImg = tournament.banner ||
+            // Tournament banner resolution - keep same-origin relative /api/media/... to avoid CORP errors
+            let rawBanner = tournament.banner ||
               tournament.bannerImage ||
               tournament.image ||
-              tournament.posterImage ||
-              SPORT_IMAGES[sportKey] ||
-              badmintonImg;
+              tournament.posterImage;
+
+            if (typeof rawBanner === 'string' && rawBanner.includes('/api/media/')) {
+              rawBanner = rawBanner.substring(rawBanner.indexOf('/api/media/'));
+            }
+
+            const cardImg = rawBanner || SPORT_IMAGES[sportKey] || badmintonImg;
 
             const startDate = tournament.startDate
               ? new Date(tournament.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -142,7 +146,16 @@ export default function TournamentList({
                     alt={tournament.title}
                     className="tournament-card-img"
                     style={{ height: '100%', objectFit: 'cover' }}
-                    onError={(e) => { e.target.src = badmintonImg; }}
+                    loading="lazy"
+                    onError={(e) => {
+                      if (e.target.src.includes('/api/media/') && !e.target.dataset.triedFallback) {
+                        e.target.dataset.triedFallback = 'true';
+                        const path = e.target.src.substring(e.target.src.indexOf('/api/media/'));
+                        e.target.src = `https://api.getarenova.com${path}`;
+                        return;
+                      }
+                      e.target.src = SPORT_IMAGES[sportKey] || badmintonImg;
+                    }}
                   />
                   {tournament.status && (
                     <span

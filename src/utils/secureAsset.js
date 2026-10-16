@@ -6,7 +6,6 @@ export const getArenovaLogo = () => {
     // Base64 string is resolved dynamically
     return "data:image/png;base64," + ENCRYPTED_LOGO;
   } catch (e) {
-    console.error("Decryption failed", e);
     return "";
   }
 };

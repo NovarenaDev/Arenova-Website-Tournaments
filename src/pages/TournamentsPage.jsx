@@ -82,6 +82,7 @@ export default function TournamentsPage({
               onBack={() => setSubView('details')}
               onSuccessRegistration={handleSuccessRegistration}
               onRequireAuth={onRequireAuth}
+              onViewDashboard={onViewDashboard}
             />
           </div>
         </section>
