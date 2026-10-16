@@ -176,39 +176,18 @@ export default function RegistrationFlow({
       }
 
       const payload = {
-        categoryName: selectedCategory || 'Open Category',
-        novareUserId: currentUserId,
-        userId: currentUserId,
-        user_id: currentUserId,
-        playerId: currentUserId,
-        participantId: currentUserId,
-        id: currentUserId,
-        playerName: resolvedName,
-        playerPhone: resolvedPhone,
-        playerEmail: resolvedEmail,
-        name: resolvedName,
-        phone: resolvedPhone,
-        email: resolvedEmail,
-        mobile: resolvedPhone,
-        phoneNumber: resolvedPhone,
-        registrantName: resolvedName,
-        registrantPhone: resolvedPhone,
-        participantName: resolvedName,
-        participantPhone: resolvedPhone,
-        user: {
-          _id: currentUserId,
-          id: currentUserId,
-          name: resolvedName,
-          firstName: resolvedName.split(' ')[0] || resolvedName,
-          lastName: resolvedName.split(' ').slice(1).join(' ') || '',
-          phone: resolvedPhone,
-          email: resolvedEmail
-        }
+        categoryName: selectedCategory || 'Open Category'
       };
 
       if (isTeamCategory) {
         payload.teamName = teamName.trim() || `${resolvedName}'s Team`;
-        payload.teamMembers = teamMembers.filter((m) => m.name.trim() !== '');
+        payload.teamMembers = teamMembers
+          .filter((m) => m.name.trim() !== '')
+          .map((m) => ({
+            name: m.name.trim(),
+            phone: m.phone ? m.phone.trim() : '',
+            role: m.role || 'Player'
+          }));
       } else if (isPairCategory) {
         payload.partnerName = partnerName.trim();
         if (partnerPhone.trim()) {
@@ -238,9 +217,10 @@ export default function RegistrationFlow({
       if (rawMsg.includes('duplicate key') || rawMsg.includes('E11000') || rawMsg.toLowerCase().includes('already registered')) {
         // Registration already exists on the backend (e.g. pending payment).
         // Proceed directly to the Razorpay Payment Modal so the test payment can be performed!
+        const regTrackId = `reg_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
         const existingReg = {
-          _id: tournament._id || tournament.id,
-          id: tournament._id || tournament.id,
+          _id: regTrackId,
+          id: regTrackId,
           tournamentId: tournament._id || tournament.id,
           categoryName: selectedCategory || matchedCategory?.name || "Men's Singles",
           playerName: resolvedName,
@@ -249,6 +229,12 @@ export default function RegistrationFlow({
           name: resolvedName,
           phone: resolvedPhone,
           email: resolvedEmail,
+          teamName: isTeamCategory ? (teamName.trim() || `${resolvedName}'s Team`) : '',
+          partnerName: isPairCategory ? partnerName.trim() : '',
+          partnerPhone: isPairCategory ? partnerPhone.trim() : '',
+          novareUserId: currentUserId,
+          userId: currentUserId,
+          isLocalRegistration: true,
           status: 'pending_payment'
         };
         onSuccessRegistration(existingReg, null, currentFee);

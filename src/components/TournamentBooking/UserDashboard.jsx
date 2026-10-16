@@ -22,8 +22,15 @@ export default function UserDashboard({
 
   const [cancelInfoId, setCancelInfoId] = useState(null);
 
+  // Invoices state
+  const [invoices, setInvoices] = useState([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
+  const [invoiceError, setInvoiceError] = useState('');
+
   useEffect(() => {
     fetchRegistrations();
+    fetchInvoices();
   }, []);
 
   useEffect(() => {
@@ -40,11 +47,73 @@ export default function UserDashboard({
     setLoading(true);
     try {
       const res = await api.getMyRegistrations();
-      setRegistrations(res.data || res || []);
+      const rawList = res?.data || res || [];
+      const list = Array.isArray(rawList) ? rawList : [];
+
+      // Fetch tournaments list to enrich any registration that only has an ID
+      const tournamentsRes = await api.getTournaments().catch(() => ({ data: [] }));
+      const allTournaments = tournamentsRes?.data || tournamentsRes || [];
+      const tMap = {};
+      if (Array.isArray(allTournaments)) {
+        allTournaments.forEach(t => {
+          if (t._id) tMap[t._id] = t;
+          if (t.id) tMap[t.id] = t;
+        });
+      }
+
+      const enriched = list.map(reg => {
+        let t = reg.tournament;
+        if (!t || typeof t === 'string') {
+          const tId = typeof t === 'string' ? t : reg.tournamentId;
+          t = tMap[tId] || {
+            title: reg.tournamentTitle || 'Tournament Pass',
+            sport: reg.sport || 'Sports',
+            venue: reg.venue || 'Arenova Designated Arena'
+          };
+        }
+        return {
+          ...reg,
+          tournament: t
+        };
+      });
+
+      setRegistrations(enriched);
     } catch (err) {
       setRegistrations([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchInvoices = async () => {
+    setLoadingInvoices(true);
+    setInvoiceError('');
+    try {
+      const res = await api.getMyInvoices({ type: 'tournament_registration' });
+      const rawList = res?.data || res || [];
+      setInvoices(Array.isArray(rawList) ? rawList : []);
+    } catch (err) {
+      setInvoices([]);
+    } finally {
+      setLoadingInvoices(false);
+    }
+  };
+
+  const handleDownloadInvoice = async (invoiceId) => {
+    if (!invoiceId || downloadingInvoiceId) return;
+    setDownloadingInvoiceId(invoiceId);
+    setInvoiceError('');
+    try {
+      const res = await api.downloadInvoice(invoiceId);
+      if (res?.success && res.data?.downloadUrl) {
+        window.open(res.data.downloadUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        throw new Error(res?.message || 'Invoice PDF is generating. Please try again in a few moments.');
+      }
+    } catch (err) {
+      setInvoiceError(err.message || 'Unable to download invoice. Please try again.');
+    } finally {
+      setDownloadingInvoiceId(null);
     }
   };
 
@@ -158,6 +227,24 @@ export default function UserDashboard({
               My Registered Tournaments ({registrations.length})
             </button>
             <button
+              onClick={() => {
+                setActiveTab('invoices');
+                fetchInvoices();
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '12px 16px',
+                fontSize: '15px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                color: activeTab === 'invoices' ? 'var(--ink)' : 'var(--muted)',
+                borderBottom: activeTab === 'invoices' ? '3px solid var(--ink)' : '3px solid transparent'
+              }}
+            >
+              Invoices & Receipts ({invoices.length})
+            </button>
+            <button
               onClick={() => setActiveTab('profile')}
               style={{
                 background: 'none',
@@ -256,11 +343,29 @@ export default function UserDashboard({
                               <div>
                                 Category: <strong style={{ color: 'var(--ink)' }}>{reg.categoryName || 'Open'}</strong>
                                 {reg.teamName ? ` • Team: ${reg.teamName}` : ''}
+                                {reg.partnerName ? ` • Partner: ${reg.partnerName}` : ''}
                               </div>
                               <div>
                                 Participant: <strong style={{ color: 'var(--ink)' }}>{athleteName}</strong>
                                 {athletePhone ? ` (${athletePhone})` : ''}
                               </div>
+                              {(tournament.venue || tournament.location) && (
+                                <div>
+                                  Venue: <strong style={{ color: 'var(--ink)' }}>{tournament.venue || tournament.location}</strong>
+                                </div>
+                              )}
+                              {(tournament.startDate || tournament.date) && (
+                                <div>
+                                  Schedule: <strong style={{ color: 'var(--ink)' }}>
+                                    {tournament.startDate ? new Date(tournament.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : tournament.date}
+                                  </strong>
+                                </div>
+                              )}
+                              {reg.amount ? (
+                                <div>
+                                  Amount Paid: <strong style={{ color: 'var(--ink)' }}>₹{reg.amount}</strong>
+                                </div>
+                              ) : null}
                             </div>
                           </div>
 
@@ -327,6 +432,115 @@ export default function UserDashboard({
                             </div>
                           </div>
                         )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Invoices Tab */}
+          {activeTab === 'invoices' && (
+            <div>
+              {invoiceError && (
+                <div className="form-message error" style={{ marginBottom: '20px' }}>
+                  {invoiceError}
+                </div>
+              )}
+
+              {loadingInvoices && (
+                <div style={{ textAlign: 'center', padding: '50px 0', color: 'var(--muted)' }}>
+                  Loading payment invoices...
+                </div>
+              )}
+
+              {!loadingInvoices && invoices.length === 0 && (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '60px 20px',
+                  background: 'var(--soft)',
+                  borderRadius: '16px',
+                  border: '1px dashed var(--line)'
+                }}>
+                  <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', marginBottom: '8px' }}>
+                    No Invoices Available
+                  </h3>
+                  <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '20px' }}>
+                    Official tax invoices and payment receipts generated for tournament registrations will appear here.
+                  </p>
+                  <button className="btn btn-primary" onClick={onBrowseTournaments}>
+                    Browse Tournaments
+                  </button>
+                </div>
+              )}
+
+              {!loadingInvoices && invoices.length > 0 && (
+                <div style={{ display: 'grid', gap: '16px' }}>
+                  {invoices.map((inv) => {
+                    const isDownloading = downloadingInvoiceId === inv._id;
+                    const formattedDate = inv.paidAt
+                      ? new Date(inv.paidAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : 'Recently Paid';
+
+                    return (
+                      <div
+                        key={inv._id}
+                        style={{
+                          background: '#fff',
+                          border: '1px solid var(--line)',
+                          borderRadius: '14px',
+                          padding: '20px 24px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '16px'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: '700', fontSize: '14px' }}>
+                              {inv.invoiceNumber || 'INV-ARENOVA'}
+                            </span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              background: '#edf7d9',
+                              color: '#4b6e15'
+                            }}>
+                              PAID
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                            <span>Tournament Registration</span> • <span>{formattedDate}</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          <strong style={{ fontSize: '18px', color: 'var(--ink)' }}>
+                            ₹{inv.total || inv.amount || 0}
+                          </strong>
+
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            disabled={isDownloading}
+                            onClick={() => handleDownloadInvoice(inv._id)}
+                            style={{
+                              padding: '8px 14px',
+                              fontSize: '13px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            {isDownloading ? '⏳ Fetching...' : '📄 Download PDF'}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
