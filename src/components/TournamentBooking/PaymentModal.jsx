@@ -15,6 +15,38 @@ export default function PaymentModal({
   const [paymentError, setPaymentError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
   const [policyConsent, setPolicyConsent] = useState(false);
+  const [invoiceData, setInvoiceData] = useState(registration?.invoice || null);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [invoiceDownloadNotice, setInvoiceDownloadNotice] = useState('');
+
+  // Handle immediate post-payment invoice PDF download (Spec Flow 1)
+  const handleDownloadInvoicePdf = async () => {
+    const invId = invoiceData?._id;
+    if (!invId || downloadingInvoice) return;
+    setDownloadingInvoice(true);
+    setInvoiceDownloadNotice('');
+
+    try {
+      const res = await api.downloadInvoice(invId);
+      if (res?.success && res.data?.downloadUrl) {
+        window.open(res.data.downloadUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        setInvoiceDownloadNotice(res?.message || 'Invoice PDF is still generating. Please try again in a few moments.');
+      }
+    } catch (err) {
+      if (err?.status === 400 || err?.message?.toLowerCase().includes('generating')) {
+        setInvoiceDownloadNotice('Generating PDF, please try again in a moment.');
+      } else if (err?.status === 403) {
+        setInvoiceDownloadNotice('Unauthorized: You can only access your own invoices.');
+      } else if (err?.status === 404) {
+        setInvoiceDownloadNotice('Invoice not found.');
+      } else {
+        setInvoiceDownloadNotice(err.message || 'Unable to download invoice. Please try again.');
+      }
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
 
   // Accurate backend amount resolution (in INR)
   let amountInRupees = 500;
@@ -124,7 +156,22 @@ export default function PaymentModal({
               playerPhone: confirmedTicket.playerPhone,
               playerEmail: confirmedTicket.playerEmail
             };
-            await api.verifyPayment(regId, verifyPayload);
+            const verifyRes = await api.verifyPayment(regId, verifyPayload);
+            const returnedInvoice = verifyRes?.invoice || verifyRes?.data?.invoice;
+            if (returnedInvoice?._id) {
+              confirmedTicket.invoice = returnedInvoice;
+              setInvoiceData(returnedInvoice);
+
+              // Update localStorage with confirmed invoice details
+              try {
+                const rawExisting = localStorage.getItem('arenova_confirmed_registrations');
+                const list = rawExisting ? JSON.parse(rawExisting) : [];
+                const updated = list.map(item => item._id === confirmedTicket._id ? { ...item, invoice: returnedInvoice } : item);
+                localStorage.setItem('arenova_confirmed_registrations', JSON.stringify(updated));
+              } catch (e) {
+                // Ignore
+              }
+            }
           }
         } catch (err) {
           // Verify payment error ignored for UI display
@@ -326,17 +373,55 @@ export default function PaymentModal({
               border: '1px solid var(--line)',
               textAlign: 'left',
               fontSize: '13px',
-              marginBottom: '24px'
+              marginBottom: '20px'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <span style={{ color: 'var(--muted)' }}>Registration ID:</span>
                 <strong style={{ fontFamily: 'monospace' }}>{registration?._id || registration?.id || 'CONFIRMED'}</strong>
               </div>
+              {invoiceData?.invoiceNumber && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ color: 'var(--muted)' }}>Invoice Number:</span>
+                  <strong style={{ fontFamily: 'monospace', color: '#101114' }}>{invoiceData.invoiceNumber}</strong>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--muted)' }}>Payment Gateway:</span>
                 <span style={{ color: '#2b7711', fontWeight: 'bold' }}>✓ Razorpay Verified</span>
               </div>
             </div>
+
+            {/* Spec Flow 1: Immediate Post-Payment Invoice Download Action */}
+            {invoiceData?._id && (
+              <div style={{ marginBottom: '16px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={downloadingInvoice}
+                  onClick={handleDownloadInvoicePdf}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    background: '#f8fdf2',
+                    borderColor: '#a3e635',
+                    color: '#275204',
+                    fontWeight: '700'
+                  }}
+                >
+                  {downloadingInvoice ? '⏳ Fetching Invoice Link...' : '📄 Download Invoice PDF'}
+                </button>
+                {invoiceDownloadNotice && (
+                  <p style={{ fontSize: '12px', color: '#854d0e', marginTop: '6px', textAlign: 'center' }}>
+                    {invoiceDownloadNotice}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div style={{ display: 'grid', gap: '10px' }}>
               <button

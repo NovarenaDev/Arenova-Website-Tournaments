@@ -108,10 +108,20 @@ export default function UserDashboard({
       if (res?.success && res.data?.downloadUrl) {
         window.open(res.data.downloadUrl, '_blank', 'noopener,noreferrer');
       } else {
-        throw new Error(res?.message || 'Invoice PDF is generating. Please try again in a few moments.');
+        throw new Error(res?.message || 'Invoice PDF is still generating. Please try again in a few moments.');
       }
     } catch (err) {
-      setInvoiceError(err.message || 'Unable to download invoice. Please try again.');
+      if (err?.status === 400 || err?.message?.toLowerCase().includes('generating')) {
+        setInvoiceError('Generating PDF, please try again in a moment.');
+      } else if (err?.status === 403) {
+        setInvoiceError('Unauthorized: Users can only access their own invoices.');
+      } else if (err?.status === 404) {
+        setInvoiceError('Invoice not found.');
+      } else if (err?.status === 401) {
+        setInvoiceError('Session expired. Please sign in again.');
+      } else {
+        setInvoiceError(err.message || 'Unable to download invoice. Please try again.');
+      }
     } finally {
       setDownloadingInvoiceId(null);
     }
@@ -377,6 +387,30 @@ export default function UserDashboard({
                               </strong>
                             </div>
 
+                            {/* Direct Invoice PDF download button if pass has an invoice linked */}
+                            {reg.invoice?._id && (
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                disabled={downloadingInvoiceId === reg.invoice._id}
+                                onClick={() => handleDownloadInvoice(reg.invoice._id)}
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '11px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  background: '#f8fdf2',
+                                  borderColor: '#a3e635',
+                                  color: '#275204',
+                                  fontWeight: '600',
+                                  borderRadius: '6px'
+                                }}
+                              >
+                                {downloadingInvoiceId === reg.invoice._id ? '⏳ Fetching...' : '📄 Tax Invoice (PDF)'}
+                              </button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => setCancelInfoId(isCancelOpen ? null : regId)}
@@ -528,17 +562,21 @@ export default function UserDashboard({
                           <button
                             type="button"
                             className="btn btn-secondary"
-                            disabled={isDownloading}
+                            disabled={isDownloading || inv.downloadReady === false}
                             onClick={() => handleDownloadInvoice(inv._id)}
                             style={{
                               padding: '8px 14px',
                               fontSize: '13px',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '6px'
+                              gap: '6px',
+                              opacity: inv.downloadReady === false ? 0.65 : 1,
+                              cursor: inv.downloadReady === false ? 'not-allowed' : 'pointer'
                             }}
                           >
-                            {isDownloading ? '⏳ Fetching...' : '📄 Download PDF'}
+                            {isDownloading
+                              ? '⏳ Fetching...'
+                              : (inv.downloadReady === false ? '⏳ Generating PDF...' : '📄 Download PDF')}
                           </button>
                         </div>
                       </div>
