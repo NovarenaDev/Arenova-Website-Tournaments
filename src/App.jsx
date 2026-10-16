@@ -137,7 +137,7 @@ export default function App() {
   useEffect(() => {
     // Clear any stale mock tokens from previous tests so real backend JWT is required
     const currentAuth = getStoredAuth();
-    if (currentAuth?.token && (currentAuth.token.startsWith('arenova_token_direct_') || currentAuth.token.startsWith('mock_'))) {
+    if (currentAuth?.token && (!currentAuth.token.includes('.') || currentAuth.token.startsWith('mock_') || currentAuth.token.startsWith('arenova_token_'))) {
       clearStoredAuth();
       setAuthObj(getStoredAuth());
     }
