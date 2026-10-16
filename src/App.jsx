@@ -56,6 +56,7 @@ export default function App() {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [tournaments, setTournaments] = useState([]);
   const [loadingTournaments, setLoadingTournaments] = useState(false);
+  const [tournamentsError, setTournamentsError] = useState('');
 
   // Centralized navigation that keeps browser URL and history in sync
   const navigateTo = (target, customDocType = null) => {
@@ -124,11 +125,13 @@ export default function App() {
   // Fetch tournaments from API
   const fetchTournaments = async () => {
     setLoadingTournaments(true);
+    setTournamentsError('');
     try {
       const data = await api.getTournaments();
       setTournaments(data.data || data || []);
     } catch (err) {
       setTournaments([]);
+      setTournamentsError(err.message || 'Unable to load live tournaments. Please check your internet connection.');
     } finally {
       setLoadingTournaments(false);
     }
@@ -195,6 +198,8 @@ export default function App() {
           <TournamentsPage
             tournaments={tournaments}
             loadingTournaments={loadingTournaments}
+            tournamentsError={tournamentsError}
+            onRetryTournaments={fetchTournaments}
             authObj={authObj}
             onRequireAuth={() => setShowAuthModal(true)}
             onViewDashboard={handleOpenDashboard}

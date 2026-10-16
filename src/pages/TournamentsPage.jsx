@@ -7,6 +7,8 @@ import PaymentModal from '../components/TournamentBooking/PaymentModal';
 export default function TournamentsPage({
   tournaments,
   loadingTournaments,
+  tournamentsError,
+  onRetryTournaments,
   authObj,
   onRequireAuth,
   onViewDashboard
@@ -120,6 +122,8 @@ export default function TournamentsPage({
             <TournamentList
               tournaments={tournaments}
               loading={loadingTournaments}
+              error={tournamentsError}
+              onRetry={onRetryTournaments}
               onSelectTournament={handleSelectTournament}
               selectedSport={selectedSport}
               setSelectedSport={setSelectedSport}

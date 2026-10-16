@@ -27,6 +27,7 @@ export default function UserDashboard({
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
   const [invoiceError, setInvoiceError] = useState('');
+  const [registrationsError, setRegistrationsError] = useState('');
 
   useEffect(() => {
     fetchRegistrations();
@@ -45,6 +46,7 @@ export default function UserDashboard({
 
   const fetchRegistrations = async () => {
     setLoading(true);
+    setRegistrationsError('');
     try {
       const res = await api.getMyRegistrations();
       const rawList = res?.data || res || [];
@@ -80,6 +82,7 @@ export default function UserDashboard({
       setRegistrations(enriched);
     } catch (err) {
       setRegistrations([]);
+      setRegistrationsError(err.message || 'Unable to connect to server. Please check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -94,6 +97,7 @@ export default function UserDashboard({
       setInvoices(Array.isArray(rawList) ? rawList : []);
     } catch (err) {
       setInvoices([]);
+      setInvoiceError(err.message || 'Unable to load invoices. Please check your internet connection.');
     } finally {
       setLoadingInvoices(false);
     }
@@ -274,6 +278,31 @@ export default function UserDashboard({
           {/* Registrations Tab */}
           {activeTab === 'registrations' && (
             <div>
+              {registrationsError && (
+                <div style={{
+                  background: '#fff8df',
+                  border: '1px solid #fde047',
+                  color: '#854d0e',
+                  padding: '12px 18px',
+                  borderRadius: '10px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}>
+                  <span style={{ fontSize: '13px' }}>⚠️ {registrationsError}</span>
+                  <button
+                    className="btn btn-primary"
+                    style={{ padding: '6px 14px', fontSize: '12px' }}
+                    onClick={fetchRegistrations}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
               {loading && (
                 <div style={{ textAlign: 'center', padding: '50px 0', color: 'var(--muted)' }}>
                   Loading your tournament passes...
@@ -478,8 +507,27 @@ export default function UserDashboard({
           {activeTab === 'invoices' && (
             <div>
               {invoiceError && (
-                <div className="form-message error" style={{ marginBottom: '20px' }}>
-                  {invoiceError}
+                <div style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#991b1b',
+                  padding: '12px 18px',
+                  borderRadius: '10px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}>
+                  <span style={{ fontSize: '13px' }}>⚠️ {invoiceError}</span>
+                  <button
+                    className="btn btn-primary"
+                    style={{ padding: '6px 14px', fontSize: '12px', background: '#991b1b', borderColor: '#991b1b', color: '#fff' }}
+                    onClick={fetchInvoices}
+                  >
+                    Retry
+                  </button>
                 </div>
               )}
 

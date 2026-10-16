@@ -14,6 +14,8 @@ const SPORT_IMAGES = {
 export default function TournamentList({
   tournaments,
   loading,
+  error,
+  onRetry,
   onSelectTournament,
   selectedSport,
   setSelectedSport
@@ -73,8 +75,35 @@ export default function TournamentList({
         </div>
       )}
 
+      {/* Error state */}
+      {!loading && error && filteredTournaments.length === 0 && (
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '60px 20px',
+            background: '#fff8df',
+            borderRadius: '16px',
+            border: '1px solid #fde047',
+            marginBottom: '24px'
+          }}
+        >
+          <div style={{ fontSize: '36px', marginBottom: '12px' }}>⚠️</div>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', marginBottom: '8px', color: '#854d0e' }}>
+            Unable to Connect to Tournament Network
+          </h3>
+          <p style={{ color: '#713f12', maxWidth: '440px', margin: '0 auto 16px', fontSize: '14px' }}>
+            {error}
+          </p>
+          {onRetry && (
+            <button className="btn btn-primary" onClick={onRetry}>
+              Retry Connection
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Empty state */}
-      {!loading && filteredTournaments.length === 0 && (
+      {!loading && !error && filteredTournaments.length === 0 && (
         <div
           style={{
             textAlign: 'center',
