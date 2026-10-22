@@ -20,6 +20,7 @@ export default function RegistrationFlow({
   const [selectedCategory, setSelectedCategory] = useState('');
   const [partnerName, setPartnerName] = useState('');
   const [partnerPhone, setPartnerPhone] = useState('');
+  const [partnerUserId, setPartnerUserId] = useState('');
   const [teamName, setTeamName] = useState('');
   const [teamMembers, setTeamMembers] = useState([{ name: '', phone: '', role: 'Captain' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -115,17 +116,36 @@ export default function RegistrationFlow({
       if (!partnerName.trim() || partnerName.trim().length < 2) {
         errors.partnerName = 'Partner full name is required for doubles / pair categories.';
       }
-      if (partnerPhone.trim()) {
-        const cleanPartnerDigits = partnerPhone.replace(/\D/g, '');
-        if (cleanPartnerDigits.length < 10) {
-          errors.partnerPhone = 'Please enter a valid 10-digit phone number for your partner.';
-        }
+      const cleanPartnerDigits = partnerPhone.replace(/\D/g, '');
+      if (!cleanPartnerDigits || cleanPartnerDigits.length < 10) {
+        errors.partnerPhone = 'Partner 10-digit mobile number is required.';
       }
     }
 
     if (isTeamCategory) {
       if (!teamName.trim() || teamName.trim().length < 2) {
         errors.teamName = 'Team name is required for team category registration.';
+      }
+
+      const minMembers = typeof matchedCategory?.minimumPlayers === 'number' && matchedCategory.minimumPlayers > 0
+        ? matchedCategory.minimumPlayers
+        : 2;
+
+      const validMembers = teamMembers.filter((m) => m.name.trim() !== '');
+      if (validMembers.length < minMembers) {
+        errors.teamMembers = `This category requires a minimum of ${minMembers} team members (currently ${validMembers.length}).`;
+      }
+
+      // Check that all entered members have valid phone numbers
+      for (let i = 0; i < teamMembers.length; i++) {
+        const m = teamMembers[i];
+        if (m.name.trim()) {
+          const digits = (m.phone || '').replace(/\D/g, '');
+          if (!digits || digits.length < 10) {
+            errors.teamMembers = `Please enter a valid 10-digit phone number for player ${i + 1} (${m.name.trim()}).`;
+            break;
+          }
+        }
       }
     }
 
@@ -139,7 +159,7 @@ export default function RegistrationFlow({
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      setErrorMsg(errors.category || Object.values(errors)[0]);
+      setErrorMsg(errors.category || errors.teamMembers || Object.values(errors)[0]);
       return;
     }
 
@@ -148,33 +168,18 @@ export default function RegistrationFlow({
     setFieldErrors({});
     setIsAlreadyRegistered(false);
 
-    // Resolve user ID with multiple fallbacks including JWT token decoding
-    let currentUserId = authObj?.user?._id || authObj?.user?.id || authObj?.user?.userId || authObj?.user?.novareUserId;
-    if (!currentUserId) {
-      try {
-        const rawToken = localStorage.getItem('arenova_auth_token');
-        if (rawToken && rawToken.includes('.')) {
-          const decoded = JSON.parse(atob(rawToken.split('.')[1]));
-          currentUserId = decoded.id || decoded._id || decoded.userId || decoded.sub || decoded.novareUserId;
-        }
-      } catch (e) {
-        // Token decode fallback
-      }
-    }
-
-    // Guarantee a valid 24-hex-character MongoDB ObjectId format so backend schemas never receive null/invalid ObjectIds
-    if (!currentUserId || typeof currentUserId !== 'string' || currentUserId.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(currentUserId)) {
-      let storedId = localStorage.getItem('arenova_permanent_uid');
-      if (!storedId || storedId.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(storedId)) {
-        const ts = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0');
-        const rand = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-        storedId = (ts + rand).toLowerCase();
-        localStorage.setItem('arenova_permanent_uid', storedId);
-      }
-      currentUserId = storedId;
-    }
-
     try {
+      // 1. Sync primary user profile with backend database
+      if (resolvedName || resolvedEmail) {
+        const [fName, ...lNameParts] = resolvedName.split(' ');
+        api.updateUserProfile({
+          firstName: fName || '',
+          lastName: lNameParts.join(' ') || '',
+          email: resolvedEmail || undefined
+        }).catch(() => {});
+      }
+
+      // 2. Build registration payload matching the backend OpenAPI schema
       const payload = {
         categoryName: selectedCategory || 'Open Category'
       };
@@ -190,11 +195,13 @@ export default function RegistrationFlow({
           }));
       } else if (isPairCategory) {
         payload.partnerName = partnerName.trim();
-        if (partnerPhone.trim()) {
-          payload.partnerPhone = partnerPhone.trim();
+        payload.partnerPhone = partnerPhone.trim();
+        if (partnerUserId && partnerUserId.trim()) {
+          payload.partnerUserId = partnerUserId.trim();
         }
       }
 
+      // 3. Register on backend database
       const res = await api.registerForTournament(tournament._id || tournament.id, payload);
 
       const reg = res.data?.registration || res.registration || res.data;
@@ -208,7 +215,7 @@ export default function RegistrationFlow({
         reg.phone = resolvedPhone;
         onSuccessRegistration(reg, order, currentFee);
       } else {
-        throw new Error(res.message || 'Registration failed to initialize.');
+        throw new Error(res?.message || 'Registration could not be created.');
       }
     } catch (err) {
       const rawMsg = err.message || '';
@@ -217,34 +224,10 @@ export default function RegistrationFlow({
       if (
         rawMsg.includes('duplicate key') ||
         rawMsg.includes('E11000') ||
-        rawMsg.toLowerCase().includes('already registered') ||
-        rawMsg.includes('Internal Server Error') ||
-        err?.status === 500
+        rawMsg.toLowerCase().includes('already registered')
       ) {
-        // Registration already exists on the backend or server hit duplicate key.
-        // Proceed directly to the Razorpay Payment Modal so the test payment can be performed!
-        const regTrackId = `reg_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
-        const existingReg = {
-          _id: regTrackId,
-          id: regTrackId,
-          tournamentId: tournament._id || tournament.id,
-          categoryName: selectedCategory || matchedCategory?.name || "Men's Singles",
-          playerName: resolvedName,
-          playerPhone: resolvedPhone,
-          playerEmail: resolvedEmail,
-          name: resolvedName,
-          phone: resolvedPhone,
-          email: resolvedEmail,
-          teamName: isTeamCategory ? (teamName.trim() || `${resolvedName}'s Team`) : '',
-          partnerName: isPairCategory ? partnerName.trim() : '',
-          partnerPhone: isPairCategory ? partnerPhone.trim() : '',
-          novareUserId: currentUserId,
-          userId: currentUserId,
-          isLocalRegistration: true,
-          status: 'pending_payment'
-        };
-        onSuccessRegistration(existingReg, null, currentFee);
-        return;
+        setIsAlreadyRegistered(true);
+        userFriendlyMessage = `You are already registered for the "${selectedCategory}" category in this tournament. Your official pass is saved in your Athlete Dashboard.`;
       } else if (rawMsg.includes('401') || rawMsg.toLowerCase().includes('unauthorized') || rawMsg.toLowerCase().includes('token') || rawMsg.toLowerCase().includes('no token')) {
         userFriendlyMessage = 'Your session has expired. Please sign in again to continue.';
         setTimeout(() => onRequireAuth(), 1200);
@@ -282,41 +265,32 @@ export default function RegistrationFlow({
         <div className="form-message error" style={{ marginBottom: '20px', padding: '16px 20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ fontWeight: '500' }}>{errorMsg}</div>
           {isAlreadyRegistered && (
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '4px' }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => {
-                  const regTrackId = `reg_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
-                  const existingReg = {
-                    _id: regTrackId,
-                    id: regTrackId,
-                    tournamentId: tournament._id || tournament.id,
-                    categoryName: selectedCategory || matchedCategory?.name || "Men's Singles",
-                    playerName: playerName || authObj?.user?.name || 'Participant',
-                    playerPhone: playerPhone || authObj?.user?.phone || '',
-                    playerEmail: playerEmail || authObj?.user?.email || '',
-                    name: playerName || authObj?.user?.name || 'Participant',
-                    phone: playerPhone || authObj?.user?.phone || '',
-                    status: 'pending_payment',
-                    isLocalRegistration: true
-                  };
-                  onSuccessRegistration(existingReg, null, currentFee);
-                }}
-                style={{ padding: '8px 18px', fontSize: '13px' }}
-              >
-                Proceed to Test Payment (₹{currentFee}) →
-              </button>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '6px' }}>
               {onViewDashboard && (
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-primary"
                   onClick={onViewDashboard}
                   style={{ padding: '8px 18px', fontSize: '13px' }}
                 >
-                  View Registered Pass in My Dashboard →
+                  View Active Pass in My Dashboard →
                 </button>
               )}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setErrorMsg('');
+                  setIsAlreadyRegistered(false);
+                  const otherCat = categories.find((c) => (typeof c === 'string' ? c : c.name) !== selectedCategory);
+                  if (otherCat) {
+                    setSelectedCategory(typeof otherCat === 'string' ? otherCat : (otherCat.name || ''));
+                  }
+                }}
+                style={{ padding: '8px 18px', fontSize: '13px' }}
+              >
+                Choose Another Category
+              </button>
             </div>
           )}
         </div>
@@ -501,7 +475,7 @@ export default function RegistrationFlow({
               </div>
               <div>
                 <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
-                  Partner Phone Number
+                  Partner Phone Number *
                 </label>
                 <input
                   type="tel"
@@ -524,6 +498,27 @@ export default function RegistrationFlow({
                   </span>
                 )}
               </div>
+            </div>
+
+            <div style={{ marginTop: '14px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
+                Partner User ID (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 6acb... (if partner already has an Arenova profile)"
+                value={partnerUserId}
+                onChange={(e) => setPartnerUserId(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--line)'
+                }}
+              />
+              <span style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                Links your partner's existing profile directly to match brackets and notifications.
+              </span>
             </div>
           </div>
         )}
@@ -559,21 +554,26 @@ export default function RegistrationFlow({
               </span>
             )}
 
-            <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '10px' }}>
-              Roster / Team Members
+            <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
+              Roster / Team Members * {typeof matchedCategory?.minimumPlayers === 'number' ? `(Min ${matchedCategory.minimumPlayers}${matchedCategory.maximumPlayers ? `, Max ${matchedCategory.maximumPlayers}` : ''} players required)` : ''}
             </label>
+            {fieldErrors.teamMembers && (
+              <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: '600', marginBottom: '10px', display: 'block' }}>
+                {fieldErrors.teamMembers}
+              </span>
+            )}
             {teamMembers.map((member, idx) => (
-              <div key={idx} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+              <div key={idx} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
                 <input
                   type="text"
-                  placeholder={`Player ${idx + 1} Name`}
+                  placeholder={`Player ${idx + 1} Name *`}
                   value={member.name}
                   onChange={(e) => handleMemberChange(idx, 'name', e.target.value)}
                   style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--line)' }}
                 />
                 <input
                   type="tel"
-                  placeholder="Phone Number"
+                  placeholder="10-digit Phone *"
                   value={member.phone}
                   onChange={(e) => handleMemberChange(idx, 'phone', e.target.value)}
                   style={{ width: '150px', padding: '10px', borderRadius: '8px', border: '1px solid var(--line)' }}
@@ -582,7 +582,8 @@ export default function RegistrationFlow({
                   <button
                     type="button"
                     onClick={() => handleRemoveTeamMember(idx)}
-                    style={{ background: 'none', border: 'none', color: '#b91c1c', cursor: 'pointer', padding: '0 8px' }}
+                    style={{ background: 'none', border: 'none', color: '#b91c1c', cursor: 'pointer', padding: '0 8px', fontSize: '14px' }}
+                    title="Remove player"
                   >
                     ✕
                   </button>
@@ -593,9 +594,10 @@ export default function RegistrationFlow({
               type="button"
               className="btn btn-secondary"
               onClick={handleAddTeamMember}
+              disabled={typeof matchedCategory?.maximumPlayers === 'number' && teamMembers.length >= matchedCategory.maximumPlayers}
               style={{ padding: '6px 14px', fontSize: '12px', marginTop: '6px' }}
             >
-              + Add Player
+              + Add Player ({teamMembers.length}{typeof matchedCategory?.maximumPlayers === 'number' ? `/${matchedCategory.maximumPlayers}` : ''})
             </button>
           </div>
         )}

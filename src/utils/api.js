@@ -111,7 +111,18 @@ export const clearStoredAuth = () => {
   localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
   localStorage.removeItem(STORAGE_KEYS.USER);
   localStorage.removeItem('arenova_confirmed_registrations');
+  localStorage.removeItem('arenova_permanent_uid');
 };
+
+// Immediate cleanup of obsolete dummy registration caches
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('arenova_confirmed_registrations');
+    localStorage.removeItem('arenova_permanent_uid');
+  } catch (e) {
+    // Ignore storage access errors
+  }
+}
 
 // Helper for fetch with Authorization headers and user-friendly error formatting
 const request = async (endpoint, options = {}) => {
@@ -311,9 +322,8 @@ export const api = {
   },
 
   verifyPayment: async (registrationId, paymentDetails) => {
-    // If registrationId is missing, local prefix, or same as tournament ID, return immediate success without triggering 404
-    if (!registrationId || registrationId.startsWith('reg_') || registrationId.startsWith('tour_')) {
-      return { success: true, message: 'Payment verified successfully' };
+    if (!registrationId) {
+      throw new Error('Valid tournament registration ID is required to verify payment.');
     }
     return request(`/api/novare/registrations/${registrationId}/verify-payment`, {
       method: 'POST',
@@ -322,41 +332,14 @@ export const api = {
   },
 
   getMyRegistrations: async () => {
-    let serverRegistrations = [];
-    try {
-      const res = await request('/api/novare/registrations/my');
-      serverRegistrations = Array.isArray(res) ? res : (res?.data || res?.registrations || []);
-    } catch (e) {
-      serverRegistrations = [];
-    }
-
-    let localConfirmed = [];
-    try {
-      const raw = localStorage.getItem('arenova_confirmed_registrations');
-      localConfirmed = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(localConfirmed)) localConfirmed = [];
-    } catch (e) {
-      localConfirmed = [];
-    }
-
-    // Merge server registrations and local confirmed registrations
-    const merged = [...localConfirmed];
-    for (const serverReg of serverRegistrations) {
-      const sId = serverReg._id || serverReg.id;
-      const sTournId = serverReg.tournamentId || (typeof serverReg.tournament === 'object' ? serverReg.tournament?._id : serverReg.tournament);
-      const exists = merged.some(item => {
-        const itemTournId = item.tournamentId || (typeof item.tournament === 'object' ? item.tournament?._id : item.tournament);
-        return (item._id && item._id === sId) || (itemTournId && sTournId && itemTournId === sTournId && item.categoryName === serverReg.categoryName);
-      });
-      if (!exists) {
-        merged.push(serverReg);
-      }
-    }
-
+    // Pure backend database fetch - returns confirmed registrations directly from MongoDB
+    const res = await request('/api/novare/registrations/my');
+    const rawList = res?.data || res?.registrations || (Array.isArray(res) ? res : []);
+    const list = Array.isArray(rawList) ? rawList : [];
     return {
       success: true,
-      data: merged,
-      count: merged.length
+      data: list,
+      count: list.length
     };
   },
 

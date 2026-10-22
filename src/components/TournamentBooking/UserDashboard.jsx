@@ -416,29 +416,39 @@ export default function UserDashboard({
                               </strong>
                             </div>
 
-                            {/* Direct Invoice PDF download button if pass has an invoice linked */}
-                            {reg.invoice?._id && (
-                              <button
-                                type="button"
-                                className="btn btn-secondary"
-                                disabled={downloadingInvoiceId === reg.invoice._id}
-                                onClick={() => handleDownloadInvoice(reg.invoice._id)}
-                                style={{
-                                  padding: '4px 10px',
-                                  fontSize: '11px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  background: '#f8fdf2',
-                                  borderColor: '#a3e635',
-                                  color: '#275204',
-                                  fontWeight: '600',
-                                  borderRadius: '6px'
-                                }}
-                              >
-                                {downloadingInvoiceId === reg.invoice._id ? '⏳ Fetching...' : '📄 Tax Invoice (PDF)'}
-                              </button>
-                            )}
+                            {/* Direct Invoice PDF download button if pass has an invoice linked or matching invoice exists */}
+                            {(() => {
+                              const linkedInv = reg.invoice || invoices.find(inv =>
+                                (inv.registrationId && (inv.registrationId === regId || inv.registrationId === reg._id)) ||
+                                (inv.registration && (inv.registration === regId || inv.registration === reg._id)) ||
+                                (inv.metadata?.registrationId && inv.metadata.registrationId === regId) ||
+                                (reg.invoiceId && inv._id === reg.invoiceId)
+                              );
+                              const targetInvoiceId = linkedInv?._id || reg.invoiceId;
+                              if (!targetInvoiceId) return null;
+                              return (
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  disabled={downloadingInvoiceId === targetInvoiceId}
+                                  onClick={() => handleDownloadInvoice(targetInvoiceId)}
+                                  style={{
+                                    padding: '4px 10px',
+                                    fontSize: '11px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    background: '#f8fdf2',
+                                    borderColor: '#a3e635',
+                                    color: '#275204',
+                                    fontWeight: '600',
+                                    borderRadius: '6px'
+                                  }}
+                                >
+                                  {downloadingInvoiceId === targetInvoiceId ? '⏳ Fetching...' : '📄 Tax Invoice (PDF)'}
+                                </button>
+                              );
+                            })()}
 
                             <button
                               type="button"

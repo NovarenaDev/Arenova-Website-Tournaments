@@ -76,6 +76,8 @@ export default function PaymentModal({
     });
   };
 
+  const [pendingVerification, setPendingVerification] = useState(null);
+
   // Launch official Razorpay Checkout Screen
   const handleLaunchRazorpay = async () => {
     if (!policyConsent) {
@@ -93,7 +95,7 @@ export default function PaymentModal({
       return;
     }
 
-    const keyId = order?.razorpayKeyId || order?.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TYbWhPnXGMgB0p';
+    const keyId = order?.razorpayKeyId || order?.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_live_ToWiCACQpuVBCX';
 
     const options = {
       key: keyId,
@@ -106,7 +108,13 @@ export default function PaymentModal({
         setIsProcessing(true);
         setStatusMessage('Verifying payment with backend & securing slot...');
 
-        const regId = registration?._id || registration?.id || `reg_${Date.now().toString(36)}`;
+        const regId = registration?._id || registration?.id;
+        if (!regId) {
+          setPaymentError(`Payment was completed (Razorpay ID: ${response.razorpay_payment_id}), but registration ID is missing. Please contact support.`);
+          setIsProcessing(false);
+          return;
+        }
+
         const confirmedTicket = {
           _id: regId,
           id: regId,
@@ -120,65 +128,43 @@ export default function PaymentModal({
           partnerName: registration?.partnerName || '',
           partnerPhone: registration?.partnerPhone || '',
           amount: amountInRupees,
-          paymentOrderId: response.razorpay_order_id || order?.id || order?.orderId || `order_${Math.random().toString(36).substring(2, 9)}`,
-          paymentTransactionId: response.razorpay_payment_id || `pay_${Math.random().toString(36).substring(2, 9)}`,
-          paymentSignature: response.razorpay_signature || `sig_${Math.random().toString(36).substring(2, 16)}`,
+          paymentOrderId: response.razorpay_order_id || order?.id || order?.orderId,
+          paymentTransactionId: response.razorpay_payment_id,
+          paymentSignature: response.razorpay_signature,
           paymentStatus: 'PAID',
           status: 'CONFIRMED',
           confirmedAt: new Date().toISOString()
         };
 
-        // Persist to local confirmed registrations so it is GUARANTEED to show in dashboard profile
-        try {
-          const rawExisting = localStorage.getItem('arenova_confirmed_registrations');
-          const list = rawExisting ? JSON.parse(rawExisting) : [];
-          const updated = [
-            confirmedTicket,
-            ...list.filter(item => {
-              const itemTournId = item.tournamentId || (typeof item.tournament === 'object' ? item.tournament?._id : item.tournament);
-              const curTournId = confirmedTicket.tournamentId;
-              return !(itemTournId === curTournId && item.categoryName === confirmedTicket.categoryName);
-            })
-          ];
-          localStorage.setItem('arenova_confirmed_registrations', JSON.stringify(updated));
-        } catch (e) {
-          // localStorage error handling
-        }
+        const verifyPayload = {
+          paymentOrderId: response.razorpay_order_id || order?.id || order?.orderId,
+          paymentTransactionId: response.razorpay_payment_id,
+          paymentSignature: response.razorpay_signature
+        };
 
         try {
-          const isRealServerReg = regId && !regId.startsWith('reg_') && regId !== tournament?._id && regId !== tournament?.id;
-          if (isRealServerReg) {
-            const verifyPayload = {
-              paymentOrderId: confirmedTicket.paymentOrderId,
-              paymentTransactionId: confirmedTicket.paymentTransactionId,
-              paymentSignature: confirmedTicket.paymentSignature,
-              playerName: confirmedTicket.playerName,
-              playerPhone: confirmedTicket.playerPhone,
-              playerEmail: confirmedTicket.playerEmail
-            };
-            const verifyRes = await api.verifyPayment(regId, verifyPayload);
+          const verifyRes = await api.verifyPayment(regId, verifyPayload);
+          if (verifyRes?.success) {
             const returnedInvoice = verifyRes?.invoice || verifyRes?.data?.invoice;
             if (returnedInvoice?._id) {
               confirmedTicket.invoice = returnedInvoice;
               setInvoiceData(returnedInvoice);
-
-              // Update localStorage with confirmed invoice details
-              try {
-                const rawExisting = localStorage.getItem('arenova_confirmed_registrations');
-                const list = rawExisting ? JSON.parse(rawExisting) : [];
-                const updated = list.map(item => item._id === confirmedTicket._id ? { ...item, invoice: returnedInvoice } : item);
-                localStorage.setItem('arenova_confirmed_registrations', JSON.stringify(updated));
-              } catch (e) {
-                // Ignore
-              }
             }
+            setIsProcessing(false);
+            setIsSuccess(true);
+            setPendingVerification(null);
+            onPaymentComplete(confirmedTicket);
+          } else {
+            throw new Error(verifyRes?.message || 'Payment verification was not confirmed by the server.');
           }
         } catch (err) {
-          // Verify payment error ignored for UI display
-        } finally {
           setIsProcessing(false);
-          setIsSuccess(true);
-          onPaymentComplete(confirmedTicket);
+          setPendingVerification({
+            regId,
+            verifyPayload,
+            confirmedTicket
+          });
+          setPaymentError(`Payment was charged by Razorpay (Payment ID: ${response.razorpay_payment_id}), but backend verification had a temporary issue: ${err.message || 'Verification failed'}. Click "Retry Verification" below to confirm your slot.`);
         }
       },
       prefill: {
@@ -206,6 +192,32 @@ export default function PaymentModal({
     } catch (err) {
       setPaymentError('Unable to open payment modal. Please check your browser popup settings and try again.');
       setIsProcessing(false);
+    }
+  };
+
+  const handleRetryVerification = async () => {
+    if (!pendingVerification) return;
+    setIsProcessing(true);
+    setStatusMessage('Verifying payment with backend & securing slot...');
+    setPaymentError('');
+    try {
+      const verifyRes = await api.verifyPayment(pendingVerification.regId, pendingVerification.verifyPayload);
+      if (verifyRes?.success) {
+        const returnedInvoice = verifyRes?.invoice || verifyRes?.data?.invoice;
+        if (returnedInvoice?._id) {
+          pendingVerification.confirmedTicket.invoice = returnedInvoice;
+          setInvoiceData(returnedInvoice);
+        }
+        setIsProcessing(false);
+        setIsSuccess(true);
+        setPendingVerification(null);
+        onPaymentComplete(pendingVerification.confirmedTicket);
+      } else {
+        throw new Error(verifyRes?.message || 'Payment verification failed.');
+      }
+    } catch (err) {
+      setIsProcessing(false);
+      setPaymentError(`Verification check failed: ${err.message}. Please click "Retry Verification" again or contact support with Payment ID: ${pendingVerification.verifyPayload.paymentTransactionId}.`);
     }
   };
 
@@ -321,28 +333,52 @@ export default function PaymentModal({
               </div>
             ) : (
               <div style={{ display: 'grid', gap: '12px' }}>
-                {/* Primary Razorpay Checkout Button */}
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleLaunchRazorpay}
-                  disabled={!policyConsent}
-                  style={{
-                    width: '100%',
-                    padding: '16px',
-                    fontSize: '15px',
-                    background: policyConsent ? '#101114' : '#888',
-                    cursor: policyConsent ? 'pointer' : 'not-allowed',
-                    opacity: policyConsent ? 1 : 0.65,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px'
-                  }}
-                >
-                  <span>Pay ₹{amountInRupees} INR with Razorpay</span>
-                  <span>→</span>
-                </button>
+                {/* Primary Razorpay Checkout or Retry Verification Button */}
+                {pendingVerification ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleRetryVerification}
+                    style={{
+                      width: '100%',
+                      padding: '16px',
+                      fontSize: '15px',
+                      background: '#166534',
+                      borderColor: '#166534',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span>✓ Retry Payment Verification</span>
+                    <span>→</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleLaunchRazorpay}
+                    disabled={!policyConsent}
+                    style={{
+                      width: '100%',
+                      padding: '16px',
+                      fontSize: '15px',
+                      background: policyConsent ? '#101114' : '#888',
+                      cursor: policyConsent ? 'pointer' : 'not-allowed',
+                      opacity: policyConsent ? 1 : 0.65,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px'
+                    }}
+                  >
+                    <span>Pay ₹{amountInRupees} INR with Razorpay</span>
+                    <span>→</span>
+                  </button>
+                )}
 
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
                   <span>🔒 256-Bit Encrypted</span>
