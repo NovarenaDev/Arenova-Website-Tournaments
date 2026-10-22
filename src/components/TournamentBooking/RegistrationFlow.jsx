@@ -20,6 +20,7 @@ export default function RegistrationFlow({
   const [selectedCategory, setSelectedCategory] = useState('');
   const [partnerName, setPartnerName] = useState('');
   const [partnerPhone, setPartnerPhone] = useState('');
+  const [partnerEmail, setPartnerEmail] = useState('');
   const [partnerUserId, setPartnerUserId] = useState('');
   const [teamName, setTeamName] = useState('');
   const [teamMembers, setTeamMembers] = useState([{ name: '', phone: '', role: 'Captain' }]);
@@ -72,6 +73,30 @@ export default function RegistrationFlow({
     selectedCategory.toLowerCase().includes('squad') ||
     (tournament.sport || '').toLowerCase() === 'cricket' ||
     (tournament.sport || '').toLowerCase() === 'basketball';
+
+  // Auto-sync team roster and captain details when a team category is active
+  useEffect(() => {
+    if (isTeamCategory) {
+      const minPlayers = typeof matchedCategory?.minimumPlayers === 'number' && matchedCategory.minimumPlayers > 0
+        ? matchedCategory.minimumPlayers
+        : 2;
+
+      setTeamMembers((prev) => {
+        const next = [...prev];
+        const captainName = next[0]?.name || playerName || '';
+        const captainPhone = next[0]?.phone || playerPhone || '';
+        if (next.length === 0) {
+          next.push({ name: captainName, phone: captainPhone, role: 'Captain' });
+        } else if (!next[0].name && captainName) {
+          next[0] = { ...next[0], name: captainName, phone: captainPhone, role: 'Captain' };
+        }
+        while (next.length < minPlayers) {
+          next.push({ name: '', phone: '', role: `Player ${next.length + 1}` });
+        }
+        return next;
+      });
+    }
+  }, [isTeamCategory, matchedCategory, playerName, playerPhone]);
 
   const handleAddTeamMember = () => {
     setTeamMembers([...teamMembers, { name: '', phone: '', role: `Player ${teamMembers.length + 1}` }]);
@@ -172,16 +197,22 @@ export default function RegistrationFlow({
       // 1. Sync primary user profile with backend database
       if (resolvedName || resolvedEmail) {
         const [fName, ...lNameParts] = resolvedName.split(' ');
-        api.updateUserProfile({
+        api.completeProfile({
           firstName: fName || '',
           lastName: lNameParts.join(' ') || '',
           email: resolvedEmail || undefined
         }).catch(() => {});
       }
 
-      // 2. Build registration payload matching the backend OpenAPI schema
+      // 2. Build registration payload with complete participant details
       const payload = {
-        categoryName: selectedCategory || 'Open Category'
+        categoryName: selectedCategory || 'Open Category',
+        playerName: resolvedName,
+        playerPhone: resolvedPhone,
+        playerEmail: resolvedEmail,
+        name: resolvedName,
+        phone: resolvedPhone,
+        email: resolvedEmail
       };
 
       if (isTeamCategory) {
@@ -196,6 +227,9 @@ export default function RegistrationFlow({
       } else if (isPairCategory) {
         payload.partnerName = partnerName.trim();
         payload.partnerPhone = partnerPhone.trim();
+        if (partnerEmail && partnerEmail.trim()) {
+          payload.partnerEmail = partnerEmail.trim();
+        }
         if (partnerUserId && partnerUserId.trim()) {
           payload.partnerUserId = partnerUserId.trim();
         }
@@ -500,26 +534,45 @@ export default function RegistrationFlow({
               </div>
             </div>
 
-            <div style={{ marginTop: '14px' }}>
-              <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
-                Partner User ID (Optional)
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. 6acb... (if partner already has an Arenova profile)"
-                value={partnerUserId}
-                onChange={(e) => setPartnerUserId(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--line)'
-                }}
-              />
-              <span style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px', display: 'block' }}>
-                Links your partner's existing profile directly to match brackets and notifications.
-              </span>
+            <div style={{ marginTop: '14px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
+                  Partner Email Address (Optional)
+                </label>
+                <input
+                  type="email"
+                  placeholder="e.g. partner@example.com"
+                  value={partnerEmail}
+                  onChange={(e) => setPartnerEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
+                  Partner User ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 6acb... (if partner has an Arenova profile)"
+                  value={partnerUserId}
+                  onChange={(e) => setPartnerUserId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)'
+                  }}
+                />
+              </div>
             </div>
+            <span style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '6px', display: 'block' }}>
+              Links your partner's profile directly to match brackets and schedules.
+            </span>
           </div>
         )}
 

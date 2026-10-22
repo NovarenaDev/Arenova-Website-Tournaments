@@ -10,5 +10,5 @@ export const signInWithToken = async (idToken) => {
 };
 
 export const completeUserProfile = async (idToken, firstName, lastName, email) => {
-  return api.updateUserProfile({ firstName, lastName, email });
+  return api.completeProfile({ firstName, lastName, email });
 };

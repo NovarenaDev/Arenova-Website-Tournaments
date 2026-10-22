@@ -79,7 +79,20 @@ export default function UserDashboard({
         };
       });
 
-      setRegistrations(enriched);
+      // Strictly deduplicate registrations by unique ID to guarantee no duplicate data
+      const seenIds = new Set();
+      const uniqueList = [];
+      for (const item of enriched) {
+        const id = item._id || item.id;
+        if (id && !seenIds.has(id)) {
+          seenIds.add(id);
+          uniqueList.push(item);
+        } else if (!id) {
+          uniqueList.push(item);
+        }
+      }
+
+      setRegistrations(uniqueList);
     } catch (err) {
       setRegistrations([]);
       setRegistrationsError(err.message || 'Unable to connect to server. Please check your internet connection.');

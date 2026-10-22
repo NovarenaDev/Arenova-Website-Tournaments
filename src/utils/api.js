@@ -266,7 +266,10 @@ export const api = {
   },
 
   updateUserProfile: async (profileData) => {
-    // profileData: { firstName, lastName, email }
+    // If updating email, route via /api/auth/complete-profile since /api/users/me only handles non-sensitive fields
+    if (profileData.email) {
+      return api.completeProfile(profileData);
+    }
     const data = await request('/api/users/me', {
       method: 'PUT',
       body: JSON.stringify(profileData),
@@ -278,7 +281,6 @@ export const api = {
         ...data.data,
         firstName: data.data.firstName || (data.data.name ? data.data.name.split(' ')[0] : profileData.firstName),
         lastName: data.data.lastName || (data.data.name ? data.data.name.split(' ').slice(1).join(' ') : profileData.lastName),
-        email: data.data.email || profileData.email,
         name: data.data.name || `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim()
       };
       setStoredAuth(currentAuth.token, currentAuth.refreshToken, updatedUser);
@@ -300,14 +302,30 @@ export const api = {
   },
 
   completeProfile: async (payload) => {
-    // payload: { idToken, firstName, lastName, email }
-    const data = await request('/api/novare/auth/complete-profile', {
-      method: 'POST',
-      body: JSON.stringify(payload),
+    // Backend endpoint: PUT /api/auth/complete-profile { firstName, lastName, email, address }
+    const cleanPayload = {
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email: payload.email,
+      ...(payload.address ? { address: payload.address } : {})
+    };
+    const data = await request('/api/auth/complete-profile', {
+      method: 'PUT',
+      body: JSON.stringify(cleanPayload),
     });
 
-    if (data.success && data.token) {
-      setStoredAuth(data.token, data.refreshToken, data.data || {});
+    if (data.success && data.data) {
+      const currentAuth = getStoredAuth();
+      const user = data.data;
+      const updatedUser = {
+        ...(currentAuth.user || {}),
+        ...user,
+        firstName: user.firstName || payload.firstName,
+        lastName: user.lastName || payload.lastName,
+        email: user.email || payload.email,
+        name: user.name || `${payload.firstName || ''} ${payload.lastName || ''}`.trim()
+      };
+      setStoredAuth(currentAuth.token, currentAuth.refreshToken, updatedUser);
     }
     return data;
   },

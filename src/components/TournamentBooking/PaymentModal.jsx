@@ -103,7 +103,7 @@ export default function PaymentModal({
       currency: order?.currency || 'INR',
       name: 'Arenova',
       description: `${tournament?.title || 'Tournament'} - ${registration?.categoryName || 'Entry'}`,
-      ...(order?.id ? { order_id: order.id } : (order?.orderId ? { order_id: order.orderId } : {})),
+      ...(order?.id ? { order_id: order.id } : (order?.orderId ? { order_id: order.orderId } : (order?.order_id ? { order_id: order.order_id } : {}))),
       handler: async function (response) {
         setIsProcessing(true);
         setStatusMessage('Verifying payment with backend & securing slot...');
@@ -114,6 +114,8 @@ export default function PaymentModal({
           setIsProcessing(false);
           return;
         }
+
+        const resolvedOrderId = response.razorpay_order_id || order?.id || order?.orderId || order?.order_id || registration?.paymentOrderId || '';
 
         const confirmedTicket = {
           _id: regId,
@@ -127,19 +129,20 @@ export default function PaymentModal({
           teamName: registration?.teamName || '',
           partnerName: registration?.partnerName || '',
           partnerPhone: registration?.partnerPhone || '',
+          partnerEmail: registration?.partnerEmail || '',
           amount: amountInRupees,
-          paymentOrderId: response.razorpay_order_id || order?.id || order?.orderId,
+          paymentOrderId: resolvedOrderId,
           paymentTransactionId: response.razorpay_payment_id,
-          paymentSignature: response.razorpay_signature,
+          paymentSignature: response.razorpay_signature || '',
           paymentStatus: 'PAID',
           status: 'CONFIRMED',
           confirmedAt: new Date().toISOString()
         };
 
         const verifyPayload = {
-          paymentOrderId: response.razorpay_order_id || order?.id || order?.orderId,
+          paymentOrderId: resolvedOrderId,
           paymentTransactionId: response.razorpay_payment_id,
-          paymentSignature: response.razorpay_signature
+          paymentSignature: response.razorpay_signature || ''
         };
 
         try {
