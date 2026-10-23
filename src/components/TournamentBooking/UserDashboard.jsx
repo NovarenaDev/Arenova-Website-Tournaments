@@ -7,11 +7,12 @@ export default function UserDashboard({
   onSignOut,
   onBrowseTournaments,
   onUpdateAuth,
-  onOpenDownloadModal
+  onOpenDownloadModal,
+  onPayPendingRegistration
 }) {
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('registrations'); // 'registrations' or 'profile'
+  const [activeTab, setActiveTab] = useState('registrations'); // 'registrations', 'invoices', or 'profile'
   const [profileForm, setProfileForm] = useState({
     firstName: authObj?.user?.firstName || (authObj?.user?.name ? authObj.user.name.split(' ')[0] : ''),
     lastName: authObj?.user?.lastName || (authObj?.user?.name ? authObj.user.name.split(' ').slice(1).join(' ') : ''),
@@ -29,7 +30,24 @@ export default function UserDashboard({
   const [invoiceError, setInvoiceError] = useState('');
   const [registrationsError, setRegistrationsError] = useState('');
 
+  const fetchUserProfile = async () => {
+    try {
+      const user = await api.getCurrentUser();
+      if (user && (user._id || user.id || user.phone || user.email)) {
+        if (onUpdateAuth) onUpdateAuth(user);
+        setProfileForm({
+          firstName: user.firstName || (user.name ? user.name.split(' ')[0] : ''),
+          lastName: user.lastName || (user.name ? user.name.split(' ').slice(1).join(' ') : ''),
+          email: user.email || ''
+        });
+      }
+    } catch (err) {
+      console.warn('[UserDashboard] Could not fetch live user profile:', err);
+    }
+  };
+
   useEffect(() => {
+    fetchUserProfile();
     fetchRegistrations();
     fetchInvoices();
   }, []);
@@ -105,7 +123,8 @@ export default function UserDashboard({
     setLoadingInvoices(true);
     setInvoiceError('');
     try {
-      const res = await api.getMyInvoices({ type: 'tournament_registration' });
+      // Fetch all invoices for the user from MongoDB without restricting types
+      const res = await api.getMyInvoices();
       const rawList = res?.data || res || [];
       setInvoices(Array.isArray(rawList) ? rawList : []);
     } catch (err) {
@@ -428,6 +447,31 @@ export default function UserDashboard({
                                 {regId?.slice(-8) || 'ACTIVE'}
                               </strong>
                             </div>
+
+                            {/* Action to complete payment for pending passes */}
+                            {!isPaid && onPayPendingRegistration && (
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => onPayPendingRegistration(reg)}
+                                style={{
+                                  padding: '7px 14px',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  background: 'var(--accent)',
+                                  color: 'var(--ink)',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  boxShadow: '0 4px 12px rgba(184, 255, 61, 0.3)'
+                                }}
+                              >
+                                💳 Complete Slot Payment →
+                              </button>
+                            )}
 
                             {/* Direct Invoice PDF download button if pass has an invoice linked or matching invoice exists */}
                             {(() => {

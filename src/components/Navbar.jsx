@@ -95,58 +95,33 @@ export default function Navbar({
           </button>
 
           <div className="nav-actions">
-            {/* Download App Action */}
-            <button
-              className="nav-cta-secondary"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                if (onOpenDownloadModal) onOpenDownloadModal();
-              }}
-              title="Download Arenova Mobile App"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontWeight: '700',
-                background: 'rgba(184, 255, 61, 0.15)',
-                borderColor: 'rgba(184, 255, 61, 0.4)',
-                marginRight: '10px'
-              }}
-            >
-              📲 App
-            </button>
-
             {authObj?.token ? (
               <>
                 <button
-                  className="nav-cta-secondary"
+                  className={`nav-cta-secondary ${activePage === 'dashboard' ? 'active' : ''}`}
                   onClick={() => {
                     setMobileMenuOpen(false);
                     onOpenDashboard();
                   }}
-                  title="View my registrations & profile"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  title={userName ? `Logged in as ${userName} • Athlete Dashboard` : 'View Athlete Dashboard'}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontWeight: '700',
+                    ...(activePage === 'dashboard'
+                      ? {
+                          borderColor: 'var(--accent)',
+                          background: 'rgba(184, 255, 61, 0.15)',
+                          color: 'var(--ink)'
+                        }
+                      : {})
+                  }}
                 >
-                  <span>👤</span>
-                  <span>{userName ? `Hi, ${userName}` : 'Dashboard'}</span>
-                  {userRole && (
-                    <span
-                      style={{
-                        fontSize: '10px',
-                        fontWeight: '800',
-                        textTransform: 'uppercase',
-                        background: 'var(--soft)',
-                        border: '1px solid var(--line)',
-                        color: 'var(--ink)',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        marginLeft: '4px'
-                      }}
-                    >
-                      {userRole}
-                    </span>
-                  )}
+                  <span style={{ fontSize: '15px' }}>👤</span>
+                  <span>Dashboard</span>
                 </button>
+
                 <button
                   className="nav-cta"
                   style={{ background: '#222' }}
@@ -156,6 +131,25 @@ export default function Navbar({
                   }}
                 >
                   Sign Out
+                </button>
+
+                <button
+                  className="nav-cta-secondary"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (onOpenDownloadModal) onOpenDownloadModal();
+                  }}
+                  title="Download Arenova Mobile App"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontWeight: '700',
+                    background: 'rgba(184, 255, 61, 0.15)',
+                    borderColor: 'rgba(184, 255, 61, 0.4)'
+                  }}
+                >
+                  📲 App
                 </button>
               </>
             ) : (
@@ -167,13 +161,33 @@ export default function Navbar({
                     onOpenAuth();
                   }}
                 >
-                  Sign In
+                  Login
                 </button>
+
                 <button
                   className="nav-cta"
                   onClick={() => handleNavClick('tournaments')}
                 >
                   Get Started →
+                </button>
+
+                <button
+                  className="nav-cta-secondary"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (onOpenDownloadModal) onOpenDownloadModal();
+                  }}
+                  title="Download Arenova Mobile App"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontWeight: '700',
+                    background: 'rgba(184, 255, 61, 0.15)',
+                    borderColor: 'rgba(184, 255, 61, 0.4)'
+                  }}
+                >
+                  📲 App
                 </button>
               </>
             )}

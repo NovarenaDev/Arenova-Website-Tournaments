@@ -11,12 +11,19 @@ export default function TournamentsPage({
   onRetryTournaments,
   authObj,
   onRequireAuth,
-  onViewDashboard
+  onViewDashboard,
+  initialSubView = 'live'
 }) {
   // Sub-views: 'overview' (reference tournaments.html), 'live' (dedicated tournament finder), 'details', 'register'
-  const [subView, setSubView] = useState('overview');
+  const [subView, setSubView] = useState(initialSubView);
   const [selectedTournament, setSelectedTournament] = useState(null);
   const [selectedSport, setSelectedSport] = useState('');
+
+  useEffect(() => {
+    if (initialSubView) {
+      setSubView(initialSubView);
+    }
+  }, [initialSubView]);
 
   // Payment modal state
   const [paymentData, setPaymentData] = useState(null);

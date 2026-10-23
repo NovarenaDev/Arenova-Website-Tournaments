@@ -165,25 +165,29 @@ const request = async (endpoint, options = {}) => {
     let errorData = null;
     try {
       errorData = await response.json();
+      console.error(`[ARENOVA API ERROR] ${response.status} ${requestUrl}:`, errorData);
       const rawText = typeof errorData === 'string' ? errorData : JSON.stringify(errorData);
 
-      if (rawText.includes('E11000') || rawText.toLowerCase().includes('duplicate key')) {
+      // Distinguish between actual tournament category duplicate vs email/phone duplicate
+      if (
+        (rawText.includes('E11000') || rawText.toLowerCase().includes('duplicate key')) &&
+        (rawText.includes('novareregistrations') || rawText.includes('categoryName'))
+      ) {
         errorMessage = 'You are already registered for this tournament category.';
+      } else if (rawText.includes('email_1') || (rawText.includes('E11000') && rawText.includes('email'))) {
+        errorMessage = 'This email address is already linked to another account. Please use a unique email address.';
+      } else if (rawText.includes('phone_1') || (rawText.includes('E11000') && rawText.includes('phone'))) {
+        errorMessage = 'This mobile number is already registered.';
+      } else if (errorData.message && typeof errorData.message === 'string') {
+        errorMessage = errorData.message;
       } else if (errorData.errors) {
         if (Array.isArray(errorData.errors)) {
           errorMessage = errorData.errors.map(err => typeof err === 'string' ? err : err.msg || err.message || JSON.stringify(err)).join(', ');
         } else if (typeof errorData.errors === 'object') {
           errorMessage = Object.values(errorData.errors).map(err => typeof err === 'string' ? err : err.msg || err.message || JSON.stringify(err)).join(', ');
         }
-      } else if (errorData.message && typeof errorData.message === 'string') {
-        errorMessage = errorData.message;
       } else if (errorData.error) {
         errorMessage = typeof errorData.error === 'string' ? errorData.error : (errorData.error.message || errorMessage);
-      }
-
-      // Sanitize raw MongoDB or internal server details from leaking into UI
-      if (errorMessage.includes('E11000') || errorMessage.includes('ObjectId(') || errorMessage.includes('duplicate key')) {
-        errorMessage = 'You are already registered for this tournament category.';
       }
     } catch (e) {
       // Ignored
@@ -200,6 +204,35 @@ const request = async (endpoint, options = {}) => {
 };
 
 export const api = {
+  // Current User Profile (Database Direct)
+  getCurrentUser: async () => {
+    try {
+      const res = await request('/api/users/me');
+      const user = res?.data?.user || res?.data || res?.user || res;
+      if (user && (user._id || user.id || user.phone || user.email)) {
+        const currentAuth = getStoredAuth();
+        if (currentAuth.token) {
+          setStoredAuth(currentAuth.token, currentAuth.refreshToken, { ...(currentAuth.user || {}), ...user });
+        }
+      }
+      return user;
+    } catch (e) {
+      try {
+        const res = await request('/api/auth/me');
+        const user = res?.data?.user || res?.data || res?.user || res;
+        if (user && (user._id || user.id || user.phone || user.email)) {
+          const currentAuth = getStoredAuth();
+          if (currentAuth.token) {
+            setStoredAuth(currentAuth.token, currentAuth.refreshToken, { ...(currentAuth.user || {}), ...user });
+          }
+        }
+        return user;
+      } catch (err) {
+        return null;
+      }
+    }
+  },
+
   // Tournaments
   getTournaments: async (params = {}) => {
     const query = new URLSearchParams();
@@ -306,23 +339,43 @@ export const api = {
     const cleanPayload = {
       firstName: payload.firstName,
       lastName: payload.lastName,
-      email: payload.email,
+      ...(payload.email && typeof payload.email === 'string' && payload.email.trim() ? { email: payload.email.trim() } : {}),
       ...(payload.address ? { address: payload.address } : {})
     };
-    const data = await request('/api/auth/complete-profile', {
-      method: 'PUT',
-      body: JSON.stringify(cleanPayload),
-    });
 
-    if (data.success && data.data) {
+    let data;
+    try {
+      data = await request('/api/auth/complete-profile', {
+        method: 'PUT',
+        body: JSON.stringify(cleanPayload),
+      });
+    } catch (authErr) {
+      // If complete-profile endpoint fails, fallback to PUT /api/users/me (non-sensitive profile fields)
+      const userPayload = {
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        name: `${payload.firstName || ''} ${payload.lastName || ''}`.trim(),
+        ...(payload.address ? { address: payload.address } : {})
+      };
+      try {
+        data = await request('/api/users/me', {
+          method: 'PUT',
+          body: JSON.stringify(userPayload),
+        });
+      } catch (userErr) {
+        throw authErr;
+      }
+    }
+
+    const user = data?.data?.user || data?.data || data?.user || data;
+    if (user && (user._id || user.id || user.phone || user.email)) {
       const currentAuth = getStoredAuth();
-      const user = data.data;
       const updatedUser = {
         ...(currentAuth.user || {}),
         ...user,
         firstName: user.firstName || payload.firstName,
         lastName: user.lastName || payload.lastName,
-        email: user.email || payload.email,
+        email: user.email || (payload.email && payload.email.trim()) || currentAuth.user?.email,
         name: user.name || `${payload.firstName || ''} ${payload.lastName || ''}`.trim()
       };
       setStoredAuth(currentAuth.token, currentAuth.refreshToken, updatedUser);
@@ -352,12 +405,21 @@ export const api = {
   getMyRegistrations: async () => {
     // Pure backend database fetch - returns confirmed registrations directly from MongoDB
     const res = await request('/api/novare/registrations/my');
-    const rawList = res?.data || res?.registrations || (Array.isArray(res) ? res : []);
-    const list = Array.isArray(rawList) ? rawList : [];
+    let list = [];
+    if (Array.isArray(res)) {
+      list = res;
+    } else if (Array.isArray(res?.data)) {
+      list = res.data;
+    } else if (Array.isArray(res?.data?.registrations)) {
+      list = res.data.registrations;
+    } else if (Array.isArray(res?.registrations)) {
+      list = res.registrations;
+    }
     return {
       success: true,
       data: list,
-      count: list.length
+      count: list.length,
+      raw: res
     };
   },
 
@@ -381,7 +443,23 @@ export const api = {
     if (params.page) query.append('page', params.page);
     if (params.limit) query.append('limit', params.limit);
     const queryString = query.toString() ? `?${query.toString()}` : '';
-    return request(`/api/invoices/my${queryString}`);
+    const res = await request(`/api/invoices/my${queryString}`);
+    let list = [];
+    if (Array.isArray(res)) {
+      list = res;
+    } else if (Array.isArray(res?.data)) {
+      list = res.data;
+    } else if (Array.isArray(res?.data?.invoices)) {
+      list = res.data.invoices;
+    } else if (Array.isArray(res?.invoices)) {
+      list = res.invoices;
+    }
+    return {
+      success: true,
+      data: list,
+      count: list.length,
+      raw: res
+    };
   },
 
   getInvoiceById: async (id) => {

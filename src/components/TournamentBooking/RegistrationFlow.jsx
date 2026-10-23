@@ -195,13 +195,22 @@ export default function RegistrationFlow({
 
     try {
       // 1. Sync primary user profile with backend database
-      if (resolvedName || resolvedEmail) {
-        const [fName, ...lNameParts] = resolvedName.split(' ');
-        api.completeProfile({
-          firstName: fName || '',
-          lastName: lNameParts.join(' ') || '',
-          email: resolvedEmail || undefined
-        }).catch(() => {});
+      if (resolvedName || (resolvedEmail && resolvedEmail.trim())) {
+        const [fName, ...lNameParts] = (resolvedName || '').split(' ');
+        try {
+          await api.completeProfile({
+            firstName: fName || '',
+            lastName: lNameParts.join(' ') || '',
+            email: resolvedEmail && resolvedEmail.trim() ? resolvedEmail.trim() : undefined
+          });
+        } catch (profileErr) {
+          console.warn('[RegistrationFlow] Profile sync note:', profileErr.message);
+          if (profileErr.message && (profileErr.message.includes('email') || profileErr.message.includes('linked') || profileErr.message.includes('associated'))) {
+            setErrorMsg(profileErr.message);
+            setIsSubmitting(false);
+            return;
+          }
+        }
       }
 
       // 2. Build registration payload with complete participant details
@@ -255,13 +264,19 @@ export default function RegistrationFlow({
       const rawMsg = err.message || '';
       let userFriendlyMessage = 'Unable to complete tournament registration. Please check your details and try again.';
 
-      if (
-        rawMsg.includes('duplicate key') ||
-        rawMsg.includes('E11000') ||
-        rawMsg.toLowerCase().includes('already registered')
-      ) {
+      const isCategoryDuplicate =
+        (rawMsg.includes('novareregistrations') || rawMsg.includes('categoryName')) &&
+        (rawMsg.includes('E11000') || rawMsg.toLowerCase().includes('duplicate key')) ||
+        rawMsg.toLowerCase().includes('already registered for this tournament') ||
+        rawMsg.toLowerCase().includes('already registered for this category');
+
+      if (isCategoryDuplicate) {
         setIsAlreadyRegistered(true);
         userFriendlyMessage = `You are already registered for the "${selectedCategory}" category in this tournament. Your official pass is saved in your Athlete Dashboard.`;
+      } else if (rawMsg.includes('email') && (rawMsg.includes('already') || rawMsg.includes('linked') || rawMsg.includes('associated') || rawMsg.includes('E11000'))) {
+        userFriendlyMessage = 'The email address provided is already associated with another account. Please use your own unique email address.';
+      } else if (rawMsg.includes('phone') && (rawMsg.includes('already') || rawMsg.includes('registered'))) {
+        userFriendlyMessage = 'This mobile number is already registered.';
       } else if (rawMsg.includes('401') || rawMsg.toLowerCase().includes('unauthorized') || rawMsg.toLowerCase().includes('token') || rawMsg.toLowerCase().includes('no token')) {
         userFriendlyMessage = 'Your session has expired. Please sign in again to continue.';
         setTimeout(() => onRequireAuth(), 1200);

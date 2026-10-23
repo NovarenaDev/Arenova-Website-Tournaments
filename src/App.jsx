@@ -10,6 +10,7 @@ import VenuesPage from './pages/VenuesPage';
 import ContactPage from './pages/ContactPage';
 import LegalPage from './pages/LegalPage';
 import UserDashboard from './components/TournamentBooking/UserDashboard';
+import PaymentModal from './components/TournamentBooking/PaymentModal';
 import DownloadAppModal from './components/DownloadAppModal';
 import WhatsAppButton from './components/WhatsAppButton';
 import { api, getStoredAuth, clearStoredAuth } from './utils/api';
@@ -149,9 +150,19 @@ export default function App() {
     if (currentAuth?.token && (!currentAuth.token.includes('.') || currentAuth.token.startsWith('mock_') || currentAuth.token.startsWith('arenova_token_'))) {
       clearStoredAuth();
       setAuthObj(getStoredAuth());
+    } else if (currentAuth?.token) {
+      // Always sync live user profile from database on load
+      api.getCurrentUser().then(res => {
+        const userData = res?.data || res?.user || res;
+        if (userData && (userData._id || userData.id || userData.phone || userData.email)) {
+          setAuthObj(prev => ({ ...prev, user: userData }));
+        }
+      }).catch(() => {});
     }
     fetchTournaments();
   }, []);
+
+  const [dashboardPayment, setDashboardPayment] = useState(null);
 
   const handleSignOut = () => {
     clearStoredAuth();
@@ -234,9 +245,14 @@ export default function App() {
             onSignOut={handleSignOut}
             onBrowseTournaments={() => navigateTo('tournaments')}
             onUpdateAuth={(updatedUser) => {
-              setAuthObj({ ...authObj, user: updatedUser });
+              const currentAuth = getStoredAuth();
+              if (currentAuth?.token) {
+                setStoredAuth(currentAuth.token, currentAuth.refreshToken, updatedUser);
+              }
+              setAuthObj(prev => ({ ...prev, user: updatedUser }));
             }}
             onOpenDownloadModal={() => setShowDownloadModal(true)}
+            onPayPendingRegistration={(reg) => setDashboardPayment(reg)}
           />
         )}
       </div>
@@ -256,6 +272,21 @@ export default function App() {
         isOpen={showDownloadModal}
         onClose={() => setShowDownloadModal(false)}
       />
+
+      {dashboardPayment && (
+        <PaymentModal
+          registration={dashboardPayment}
+          order={dashboardPayment.order}
+          tournament={dashboardPayment.tournament}
+          selectedFee={dashboardPayment.amount || dashboardPayment.tournament?.registrationFee || 500}
+          onClose={() => setDashboardPayment(null)}
+          onPaymentComplete={() => {
+            setDashboardPayment(null);
+            navigateTo('dashboard');
+          }}
+          onViewDashboard={() => setDashboardPayment(null)}
+        />
+      )}
 
       <WhatsAppButton />
     </div>
