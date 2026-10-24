@@ -45,6 +45,10 @@ const parseRouteFromLocation = () => {
   if (path === '/dashboard') {
     return { page: 'dashboard', legalType: null };
   }
+  if (path === '/admin') {
+    window.location.replace('/admin/');
+    return { page: 'home', legalType: null };
+  }
   return { page: 'home', legalType: null };
 };
 
@@ -95,6 +99,9 @@ export default function App() {
     } else if (target === '/dashboard' || target === 'dashboard') {
       newPage = 'dashboard';
       newPath = '/dashboard';
+    } else if (target === '/admin' || target === 'admin') {
+      window.location.href = '/admin/';
+      return;
     } else {
       newPage = 'home';
       newPath = '/';

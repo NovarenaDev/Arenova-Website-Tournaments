@@ -7,6 +7,11 @@
     <link rel="icon" type="image/svg+xml" href="/src/components/images/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      if (window.location.pathname === '/admin') {
+        window.history.replaceState(null, '', '/admin/' + window.location.search + window.location.hash);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
