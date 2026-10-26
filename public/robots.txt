@@ -1,0 +1,22 @@
+# robots.txt for Arenova (getarenova.com)
+# Generated for search engines (Googlebot, Bingbot, etc.)
+
+User-agent: *
+Allow: /
+Allow: /tournaments
+Allow: /venues
+Allow: /solutions
+Allow: /about
+Allow: /contact
+Allow: /terms-and-conditions
+Allow: /privacy-policy
+Allow: /refund-cancellation-policy
+
+# Disallow internal API and admin endpoints
+Disallow: /admin/
+Disallow: /admin
+Disallow: /api/
+Disallow: /dashboard
+
+# Canonical XML Sitemap
+Sitemap: https://getarenova.com/sitemap.xml

@@ -45,13 +45,13 @@ export default function AboutPage({ onNavigate }) {
           <div className="company-cards">
             <div>
               <span>LEGAL COMPANY</span>
-              <h3>Novarena</h3>
-              <p>The incorporated legal entity responsible for the business and operations.</p>
+              <h3>Novarena Technologies LLP</h3>
+              <p>The incorporated legal entity responsible for the business, engineering and operations.</p>
             </div>
             <div>
-              <span>PRODUCT / BRAND</span>
-              <h3>Arenova</h3>
-              <p>The sports technology platform and customer product operated by Novarena.</p>
+              <span>PRODUCT / PLATFORM</span>
+              <h3>Arenova (getarenova.com)</h3>
+              <p>The digital sports technology platform, tournament portal and court booking system.</p>
             </div>
           </div>
         </div>

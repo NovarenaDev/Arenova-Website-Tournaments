@@ -37,7 +37,15 @@ export default function Navbar({
   return (
     <header className="site-header">
       <div className="container nav">
-        <div className="brand" onClick={() => handleNavClick('home')}>
+        <a
+          href="/"
+          className="brand"
+          onClick={(e) => {
+            e.preventDefault();
+            handleNavClick('home');
+          }}
+          title="Arenova - Sports Technology Platform"
+        >
           {logoSrc ? (
             <img src={logoSrc} alt="Arenova" className="brand-logo-img" />
           ) : (
@@ -46,7 +54,7 @@ export default function Navbar({
               <span>ARENOVA</span>
             </>
           )}
-        </div>
+        </a>
 
         <button
           className="menu-toggle"
@@ -57,42 +65,66 @@ export default function Navbar({
         </button>
 
         <nav className={`nav-links ${mobileMenuOpen ? 'open' : ''}`}>
-          <button
+          <a
+            href="/"
             className={`nav-link ${activePage === 'home' ? 'active' : ''}`}
-            onClick={() => handleNavClick('home')}
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavClick('home');
+            }}
           >
             Home
-          </button>
-          <button
+          </a>
+          <a
+            href="/about"
             className={`nav-link ${activePage === 'about' ? 'active' : ''}`}
-            onClick={() => handleNavClick('about')}
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavClick('about');
+            }}
           >
             About
-          </button>
-          <button
+          </a>
+          <a
+            href="/solutions"
             className={`nav-link ${activePage === 'solutions' ? 'active' : ''}`}
-            onClick={() => handleNavClick('solutions')}
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavClick('solutions');
+            }}
           >
             Solutions
-          </button>
-          <button
+          </a>
+          <a
+            href="/tournaments"
             className={`nav-link ${activePage === 'tournaments' ? 'active' : ''}`}
-            onClick={() => handleNavClick('tournaments')}
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavClick('tournaments');
+            }}
           >
             Tournaments
-          </button>
-          <button
+          </a>
+          <a
+            href="/venues"
             className={`nav-link ${activePage === 'venues' ? 'active' : ''}`}
-            onClick={() => handleNavClick('venues')}
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavClick('venues');
+            }}
           >
             Venues
-          </button>
-          <button
+          </a>
+          <a
+            href="/contact"
             className={`nav-link ${activePage === 'contact' ? 'active' : ''}`}
-            onClick={() => handleNavClick('contact')}
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavClick('contact');
+            }}
           >
             Contact
-          </button>
+          </a>
 
           <div className="nav-actions">
             {authObj?.token ? (

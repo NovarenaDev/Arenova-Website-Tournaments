@@ -2,11 +2,159 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Arenova - Stadium Sports Tournament Portal</title>
+
+    <!-- Primary SEO Meta Tags -->
+    <title>Arenova | Sports Tournament Registration & Venue Booking Platform</title>
+    <meta name="title" content="Arenova | Sports Tournament Registration & Venue Booking Platform" />
+    <meta
+      name="description"
+      content="Arenova (getarenova.com by Novarena) connects players, tournament organizers, and sports venues. Discover badminton & pickleball tournaments, book courts, and track live scores."
+    />
+    <meta
+      name="keywords"
+      content="Arenova, getarenova, getarenova.com, Novarena, Novarena Technologies, sports tournament registration, badminton tournaments, pickleball tournaments Hyderabad, sports venue booking, badminton court booking, tournament management software, live sports brackets, tournament organizer, stadium sports portal"
+    />
+    <link rel="canonical" href="https://getarenova.com/" />
+
+    <!-- Crawlers and Search Engine Directives -->
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="bingbot" content="index, follow" />
+
+    <!-- Brand and Authorship Metadata -->
+    <meta name="application-name" content="Arenova" />
+    <meta name="author" content="Novarena Technologies LLP" />
+    <meta name="publisher" content="Arenova" />
+    <meta name="copyright" content="Novarena Technologies LLP" />
+    <meta name="theme-color" content="#0d9488" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- Google Site Verification (Add your Google Search Console token if needed) -->
+    <!-- <meta name="google-site-verification" content="YOUR_VERIFICATION_TOKEN" /> -->
+
+    <!-- Favicons and Web App Manifest -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Preconnect to external resources -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://api.getarenova.com" />
+
+    <!-- Open Graph / Facebook / WhatsApp / LinkedIn -->
+    <meta property="og:site_name" content="Arenova" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://getarenova.com/" />
+    <meta property="og:title" content="Arenova | Sports Tournament Registration & Venue Booking Platform" />
+    <meta
+      property="og:description"
+      content="Arenova connects players, tournaments, venues, and organizers through a simple digital sports ecosystem. Find tournaments, register, and track live matches."
+    />
+    <meta property="og:image" content="https://getarenova.com/og-image.png" />
+    <meta property="og:image:secure_url" content="https://getarenova.com/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Arenova - Sports Technology Platform at getarenova.com" />
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:domain" content="getarenova.com" />
+    <meta name="twitter:url" content="https://getarenova.com/" />
+    <meta name="twitter:title" content="Arenova | Sports Tournament Registration & Venue Booking Platform" />
+    <meta
+      name="twitter:description"
+      content="Discover tournaments, book badminton & pickleball venues, and follow live match results on Arenova."
+    />
+    <meta name="twitter:image" content="https://getarenova.com/og-image.png" />
+
+    <!-- Structured Data: Schema.org (WebSite, SportsOrganization, SoftwareApplication) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://getarenova.com/#website",
+          "url": "https://getarenova.com/",
+          "name": "Arenova",
+          "alternateName": ["GetArenova", "Arenova Sports", "Novarena Arenova"],
+          "description": "Technology that moves sports forward. Digital tournament registrations, court bookings, and live scores.",
+          "publisher": {
+            "@id": "https://getarenova.com/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://getarenova.com/tournaments?search={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          },
+          "inLanguage": "en-US"
+        },
+        {
+          "@type": "SportsOrganization",
+          "@id": "https://getarenova.com/#organization",
+          "name": "Arenova",
+          "legalName": "Novarena Technologies LLP",
+          "url": "https://getarenova.com/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://getarenova.com/favicon.png",
+            "caption": "Arenova Logo"
+          },
+          "image": "https://getarenova.com/og-image.png",
+          "description": "Sports technology platform built to connect players, organizers, venues, and academies for competitive tournaments and court management.",
+          "contactPoint": [
+            {
+              "@type": "ContactPoint",
+              "telephone": "+91-7793934108",
+              "contactType": "customer service",
+              "email": "support@novarena.in",
+              "areaServed": "IN",
+              "availableLanguage": ["en", "hi", "te"]
+            }
+          ],
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Plot No. 12, Survey No. 41, Hitech City, Madhapur",
+            "addressLocality": "Hyderabad",
+            "addressRegion": "Telangana",
+            "postalCode": "500081",
+            "addressCountry": "IN"
+          },
+          "sameAs": [
+            "https://getarenova.com",
+            "https://wa.me/917793934108"
+          ]
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://getarenova.com/#app",
+          "name": "Arenova Sports App",
+          "operatingSystem": "Web, Android",
+          "applicationCategory": "SportsApplication",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "INR"
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.9",
+            "reviewCount": "1280"
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- Razorpay Payment Integration -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   </head>
   <body>

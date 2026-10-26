@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import badmintonImg from '../../assets/stadium_badminton_pro.jpg';
 import basketballImg from '../../assets/stadium_basketball_pro.jpg';
 import cricketImg from '../../assets/stadium_cricket_pro.jpg';
@@ -16,6 +16,15 @@ export default function TournamentDetails({
   onBack,
   onProceedRegistration
 }) {
+  useEffect(() => {
+    if (tournament?.title) {
+      document.title = `${tournament.title} | Arenova Tournament Registration`;
+    }
+    return () => {
+      document.title = 'Live Tournaments, Brackets & Registrations | Arenova';
+    };
+  }, [tournament?.title]);
+
   if (!tournament) return null;
 
   const sportKey = (tournament.sport || 'badminton').toLowerCase();
@@ -216,6 +225,50 @@ export default function TournamentDetails({
           </button>
         </div>
       </div>
+
+      {/* Structured Data: SportsEvent Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SportsEvent",
+            "name": tournament.title,
+            "description": tournament.description || `Participate in ${tournament.title} organized on Arenova (getarenova.com).`,
+            "startDate": tournament.startDate || new Date().toISOString(),
+            "endDate": tournament.endDate || tournament.startDate || new Date().toISOString(),
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "location": {
+              "@type": "Place",
+              "name": tournament.venue || "Sports Arena",
+              "address": {
+                "@type": "PostalAddress",
+                "addressLocality": tournament.city || "Hyderabad",
+                "addressCountry": "IN"
+              }
+            },
+            "image": [
+              typeof rawBanner === 'string' && rawBanner.startsWith('http')
+                ? rawBanner
+                : `https://getarenova.com/og-image.png`
+            ],
+            "organizer": {
+              "@type": "Organization",
+              "name": tournament.organizer || "Arenova & Novarena",
+              "url": "https://getarenova.com"
+            },
+            "offers": {
+              "@type": "Offer",
+              "url": "https://getarenova.com/tournaments",
+              "price": tournament.registrationFee || 500,
+              "priceCurrency": "INR",
+              "availability": "https://schema.org/InStock",
+              "validFrom": new Date().toISOString().split('T')[0]
+            }
+          })
+        }}
+      />
     </div>
   );
 }

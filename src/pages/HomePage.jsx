@@ -202,6 +202,154 @@ export default function HomePage({ onNavigate }) {
         </div>
       </section>
 
+      {/* Frequently Asked Questions (FAQ) Section - High Search Intent SEO */}
+      <section className="faq-section" id="faq">
+        <div className="container">
+          <div className="section-head center">
+            <div className="eyebrow">COMMON QUESTIONS</div>
+            <h2>Frequently Asked Questions</h2>
+            <p>
+              Everything you need to know about participating, organizing, and booking on the Arenova sports platform.
+            </p>
+          </div>
+
+          <div className="faq-list">
+            <details className="faq-item" open>
+              <summary className="faq-summary">
+                <span>What is Arenova (getarenova.com)?</span>
+                <span className="faq-icon">+</span>
+              </summary>
+              <div className="faq-content">
+                <p>
+                  <strong>Arenova</strong> is a premier sports technology platform operated by <strong>Novarena Technologies LLP</strong>. It provides an all-in-one digital infrastructure for sports players, tournament organizers, and sports venues. Available at <a href="https://getarenova.com">getarenova.com</a>, it simplifies tournament registrations, live match bracket tracking, and court bookings for Badminton, Pickleball, and competitive sports communities.
+                </p>
+              </div>
+            </details>
+
+            <details className="faq-item">
+              <summary className="faq-summary">
+                <span>How do players register for tournaments on Arenova?</span>
+                <span className="faq-icon">+</span>
+              </summary>
+              <div className="faq-content">
+                <p>
+                  Registering is seamless! Head to the <button className="link-btn" onClick={() => onNavigate('tournaments')} style={{ textDecoration: 'underline', color: '#0d9488', fontWeight: 'bold' }}>Tournaments section</button>, choose an upcoming event, review category details (e.g., Men’s/Women’s Singles, Doubles, Mixed Doubles), and submit participant info. Secure payment can be made instantly via UPI, Debit/Credit Card, or Net Banking, after which you receive a digital booking pass.
+                </p>
+              </div>
+            </details>
+
+            <details className="faq-item">
+              <summary className="faq-summary">
+                <span>Can sports venues and badminton academies partner with Arenova?</span>
+                <span className="faq-icon">+</span>
+              </summary>
+              <div className="faq-content">
+                <p>
+                  Yes! Arenova empowers venue operators and sports academies to eliminate manual booking registers. Facility managers can list courts, define hourly rates, manage bookable slots, and accept automated online payments. Visit our <button className="link-btn" onClick={() => onNavigate('venues')} style={{ textDecoration: 'underline', color: '#0d9488', fontWeight: 'bold' }}>Venues page</button> or <button className="link-btn" onClick={() => onNavigate('contact')} style={{ textDecoration: 'underline', color: '#0d9488', fontWeight: 'bold' }}>contact our team</button> to get your facility listed.
+                </p>
+              </div>
+            </details>
+
+            <details className="faq-item">
+              <summary className="faq-summary">
+                <span>How does Arenova assist tournament organizers?</span>
+                <span className="faq-icon">+</span>
+              </summary>
+              <div className="faq-content">
+                <p>
+                  Arenova replaces spreadsheets and chaotic manual draws. Organizers can publish tournament details, collect online entry fees, generate automated single or double elimination draw brackets, schedule court matches, and publish live scores for players and fans to track in real-time.
+                </p>
+              </div>
+            </details>
+
+            <details className="faq-item">
+              <summary className="faq-summary">
+                <span>Which sports are currently supported on getarenova.com?</span>
+                <span className="faq-icon">+</span>
+              </summary>
+              <div className="faq-content">
+                <p>
+                  Arenova currently focuses on <strong>Badminton</strong> and <strong>Pickleball</strong>, with active support expanding into Box Cricket, Tennis, Table Tennis, and Football across major cities including Hyderabad, Bangalore, and across India.
+                </p>
+              </div>
+            </details>
+
+            <details className="faq-item">
+              <summary className="faq-summary">
+                <span>Are transactions on Arenova secure?</span>
+                <span className="faq-icon">+</span>
+              </summary>
+              <div className="faq-content">
+                <p>
+                  Yes. All tournament registration payments and venue fees are processed through RBI-authorized, PCI-DSS compliant payment gateways (such as Razorpay). We support UPI, major Credit/Debit Cards, and Net Banking with immediate payment verification and automated receipts.
+                </p>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        {/* Structured Data: FAQPage Schema */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              "mainEntity": [
+                {
+                  "@type": "Question",
+                  "name": "What is Arenova (getarenova.com)?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Arenova is a premier sports technology platform operated by Novarena Technologies LLP at getarenova.com. It connects players, tournament organizers, and sports venues with digital registrations, live brackets, and court bookings."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "How do players register for tournaments on Arenova?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Browse tournaments on getarenova.com, select your event and category (Singles, Doubles, Mixed), submit participant names, and complete payment via UPI, Cards, or Net Banking to receive an instant digital registration pass."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "Can sports venues and badminton academies partner with Arenova?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes, sports venues can list courts, manage time slot availability, accept online bookings, and track customer transactions seamlessly through Arenova."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "How does Arenova assist tournament organizers?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Arenova automates registrations, online fee collection, draw and bracket generation, match scheduling, and live score updates."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "Which sports are currently supported on getarenova.com?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Arenova primarily focuses on Badminton and Pickleball, with expansion underway for Box Cricket, Tennis, and football tournaments."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "Are transactions on Arenova secure?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes, payments on Arenova are processed through RBI-authorized, PCI-DSS compliant gateways like Razorpay with support for UPI, Cards, and Net Banking."
+                  }
+                }
+              ]
+            })
+          }}
+        />
+      </section>
+
       {/* CTA Section */}
       <section className="cta-section">
         <div className="container cta-inner">

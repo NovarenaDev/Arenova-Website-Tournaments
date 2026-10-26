@@ -13,6 +13,7 @@ import UserDashboard from './components/TournamentBooking/UserDashboard';
 import PaymentModal from './components/TournamentBooking/PaymentModal';
 import DownloadAppModal from './components/DownloadAppModal';
 import WhatsAppButton from './components/WhatsAppButton';
+import SEOHead from './components/SEOHead';
 import { api, getStoredAuth, clearStoredAuth } from './utils/api';
 
 // Parse current URL path for direct access without login
@@ -195,6 +196,7 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <SEOHead activePage={activePage} legalDocType={legalDocType} />
       <Navbar
         activePage={activePage}
         setActivePage={navigateTo}
