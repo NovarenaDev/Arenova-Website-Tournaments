@@ -51,6 +51,10 @@ function normalizeData(obj: any): any {
     }
   }
 
+  if (!normalized.name && (normalized.firstName || normalized.fullName)) {
+    normalized.name = normalized.fullName || `${normalized.firstName || ''} ${normalized.lastName || ''}`.trim();
+  }
+
   // Extract phone number from all common key names
   if (!normalized.phone) {
     normalized.phone =
@@ -60,7 +64,14 @@ function normalizeData(obj: any): any {
       normalized.contact ||
       normalized.contactNumber ||
       normalized.phone_number ||
+      normalized.profile?.phone ||
+      normalized.profile?.phoneNumber ||
       '';
+  }
+
+  // Normalize kyc status (handles kyc, kycStatus, uppercase/lowercase)
+  if (normalized.kyc || normalized.kycStatus) {
+    normalized.kyc = String(normalized.kyc || normalized.kycStatus).toLowerCase();
   }
   
   // 1. Map _id to id if id doesn't exist

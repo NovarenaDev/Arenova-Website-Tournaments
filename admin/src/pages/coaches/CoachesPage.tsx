@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Star, CheckCircle, XCircle, Clock, FileText, ChevronDown, ChevronUp, Ban, Trash2, Phone, Mail, MapPin, Calendar, Award } from 'lucide-react';
+import { Star, CheckCircle, XCircle, Clock, FileText, ChevronDown, ChevronUp, Ban, Trash2, Phone, Mail, MapPin, Calendar, Award, RotateCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, ConfirmDialog, Modal, Input } from '../../components/ui';
 import { getAdminCoaches, approveKyc, rejectKyc, banCoach, deleteAdminCoach, uploadImage, updateAdminCoach } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,7 +7,7 @@ import type { Coach } from '../../types';
 
 
 const KYC_MAP: Record<string, string> = { approved: 'badge-green', pending: 'badge-amber', rejected: 'badge-red', under_review: 'badge-blue' };
-const FILTERS = ['All', 'Active', 'Banned', 'Rejected'];
+const FILTERS = ['All', 'Pending Review', 'Active', 'Banned', 'Rejected'];
 
 function fmt(n?: number) {
   if (n === undefined || n === null) return '₹0';
@@ -89,18 +89,58 @@ export default function CoachesPage() {
   };
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const coachRes = await getAdminCoaches({ limit: 100 }).catch(() => ({ data: [] }));
-      const rawList = coachRes.data || coachRes.coaches || (Array.isArray(coachRes) ? coachRes : []);
-      const coachData = rawList.map((c: any) => ({
-        ...c,
-        kyc: c.kyc || 'pending'
-      }));
+      const extractList = (res: any): any[] => {
+        if (!res) return [];
+        if (Array.isArray(res)) return res;
+        if (Array.isArray(res.data)) return res.data;
+        if (Array.isArray(res.coaches)) return res.coaches;
+        if (res.data && Array.isArray(res.data.coaches)) return res.data.coaches;
+        if (res.data && Array.isArray(res.data.data)) return res.data.data;
+        return [];
+      };
+
+      // Query all KYC segments in parallel so coaches under review or pending are NEVER missed by backend filters
+      const results = await Promise.allSettled([
+        getAdminCoaches({ limit: 100 }),
+        getAdminCoaches({ kyc: 'under_review', limit: 100 }),
+        getAdminCoaches({ kyc: 'pending', limit: 100 }),
+        getAdminCoaches({ kyc: 'approved', limit: 100 }),
+        getAdminCoaches({ kyc: 'rejected', limit: 100 }),
+      ]);
+
+      const coachMap = new Map<string, any>();
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value) {
+          const list = extractList(r.value);
+          for (const c of list) {
+            const id = c.id || c._id;
+            if (id && !coachMap.has(id)) {
+              coachMap.set(id, c);
+            }
+          }
+        }
+      }
+
+      const coachData = Array.from(coachMap.values()).map((c: any) => {
+        const kyc = (c.kyc || c.kycStatus || 'pending').toLowerCase();
+        return {
+          ...c,
+          id: c.id || c._id,
+          _id: c._id || c.id,
+          kyc,
+          isActive: c.isActive ?? (kyc === 'approved')
+        };
+      });
+
       setCoaches(coachData);
-      
+
       // Derive applications locally from coaches with under_review or pending kyc status
       const apps = coachData.filter((c: any) => c.kyc === 'under_review' || c.kyc === 'pending');
       setApps(apps);
+    } catch (err) {
+      console.error('Failed to load coaches', err);
     } finally {
       setLoading(false);
     }
@@ -113,6 +153,7 @@ export default function CoachesPage() {
     const matchSearch = search === '' ||
       `${c.name || ''} ${c.email || ''} ${phone} ${(c.sports || []).join(' ')}`.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === 'All' ? true :
+      (filter === 'Pending Review' && (c.kyc === 'under_review' || c.kyc === 'pending')) ||
       (filter === 'Active' && c.kyc === 'approved' && (c.isActive ?? true)) ||
       (filter === 'Banned' && (c.kyc === 'approved' || !c.kyc) && c.isActive === false) ||
       (filter === 'Rejected' && c.kyc === 'rejected');
@@ -126,7 +167,7 @@ export default function CoachesPage() {
     const grpPrice = parseFloat(groupPricePerPerson) || requestedGroupPricePerPerson || 0;
     try {
       await approveKyc(id, indPrice, grpPrice);
-      setCoaches(prev => prev.map(c => c.id === id || (c as any)._id === id ? { ...c, kyc: 'approved', individualPrice: indPrice, groupPricePerPerson: grpPrice } : c));
+      setCoaches(prev => prev.map(c => (c.id === id || (c as any)._id === id) ? { ...c, kyc: 'approved', isActive: true, individualPrice: indPrice, groupPricePerPerson: grpPrice } : c));
       setApps(prev => prev.filter(a => (a.id || a._id) !== id));
       setApproveModal(null);
     } catch (err: any) {
@@ -143,7 +184,7 @@ export default function CoachesPage() {
     }
     try {
       await rejectKyc(id, reason);
-      setCoaches(prev => prev.map(c => c.id === id ? { ...c, kyc: 'rejected' } : c));
+      setCoaches(prev => prev.map(c => (c.id === id || (c as any)._id === id) ? { ...c, kyc: 'rejected', isActive: false } : c));
       setApps(prev => prev.filter(a => (a.id || a._id) !== id));
       setRejectModal(null);
     } catch (err: any) {
@@ -211,10 +252,11 @@ export default function CoachesPage() {
   };
 
   const stats = {
+    total:         coaches.length,
     totalApproved: coaches.filter(c => c.kyc === 'approved').length,
     active:        coaches.filter(c => c.kyc === 'approved' && c.isActive).length,
     banned:        coaches.filter(c => c.kyc === 'approved' && !c.isActive).length,
-    pending:       coaches.filter(c => c.kyc === 'under_review').length,
+    pending:       coaches.filter(c => c.kyc === 'under_review' || c.kyc === 'pending').length,
     rejected:      coaches.filter(c => c.kyc === 'rejected').length,
   };
 
@@ -222,17 +264,34 @@ export default function CoachesPage() {
     <div className="flex flex-col gap-5 p-5">
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard label="Total Coaches"    value={String(stats.totalApproved)} icon={<Award className="h-4 w-4 text-[#F05A22]"/>}         iconBg="bg-[#F05A22]/10" />
-        <StatCard label="Active Coaches"   value={String(stats.active)}        icon={<CheckCircle className="h-4 w-4 text-emerald-400"/>}  iconBg="bg-emerald-400/10" />
-        <StatCard label="Banned/Inactive"  value={String(stats.banned)}        icon={<Ban className="h-4 w-4 text-red-400"/>}              iconBg="bg-red-400/10" />
-        <StatCard label="Pending KYC"      value={String(stats.pending)}       icon={<Clock className="h-4 w-4 text-amber-400"/>}           iconBg="bg-amber-400/10" />
-        <StatCard label="Rejected KYC"     value={String(stats.rejected)}      icon={<XCircle className="h-4 w-4 text-rose-400"/>}          iconBg="bg-rose-400/10" />
+        <div className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setFilter('All')}>
+          <StatCard label="Total Coaches"    value={String(stats.total)} icon={<Award className="h-4 w-4 text-[#F05A22]"/>}         iconBg="bg-[#F05A22]/10" />
+        </div>
+        <div className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setFilter('Active')}>
+          <StatCard label="Active Coaches"   value={String(stats.active)}        icon={<CheckCircle className="h-4 w-4 text-emerald-400"/>}  iconBg="bg-emerald-400/10" />
+        </div>
+        <div className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setFilter('Pending Review')}>
+          <StatCard label="Pending KYC"      value={String(stats.pending)}       icon={<Clock className="h-4 w-4 text-amber-400"/>}           iconBg="bg-amber-400/10" />
+        </div>
+        <div className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setFilter('Banned')}>
+          <StatCard label="Banned/Inactive"  value={String(stats.banned)}        icon={<Ban className="h-4 w-4 text-red-400"/>}              iconBg="bg-red-400/10" />
+        </div>
+        <div className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setFilter('Rejected')}>
+          <StatCard label="Rejected KYC"     value={String(stats.rejected)}      icon={<XCircle className="h-4 w-4 text-rose-400"/>}          iconBg="bg-rose-400/10" />
+        </div>
       </div>
 
       {/* Pending Applications */}
       {applications.length > 0 && (
         <Card>
-          <CardHeader><CardTitle>Pending Applications ({applications.length})</CardTitle></CardHeader>
+          <CardHeader>
+            <div className="flex items-center justify-between w-full">
+              <CardTitle>Pending Applications ({applications.length})</CardTitle>
+              <Button variant="ghost" className="h-7 text-[10px] px-2.5 text-[#9ba3af] hover:text-white" onClick={() => load()}>
+                <RotateCw className="h-3 w-3 mr-1" /> Refresh
+              </Button>
+            </div>
+          </CardHeader>
           <CardContent className="space-y-3">
             {applications.map((app: any) => {
               const phone = app.phone || app.phoneNumber || app.mobile || app.mobileNumber || app.contact || app.user?.phone || app.user?.phoneNumber || app.profile?.phone || 'No phone';
@@ -360,7 +419,18 @@ export default function CoachesPage() {
                                 onClick={() => setAvatarUpload({ coachId: c.id, coachName: c.name })}>
                                 Avatar
                               </Button>
-                              {c.kyc === 'approved' ? (
+                              {(c.kyc === 'under_review' || c.kyc === 'pending') ? (
+                                <>
+                                  <Button variant="primary" className="h-7 text-[10px] px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm"
+                                    onClick={() => openApproveModal(c)}>
+                                    <CheckCircle className="h-3 w-3 mr-1" /> Verify Coach
+                                  </Button>
+                                  <Button variant="danger" className="h-7 text-[10px] px-2"
+                                    onClick={() => setRejectModal({ id: c.id || (c as any)._id, name: c.name, reason: '' })}>
+                                    <XCircle className="h-3 w-3 mr-1" /> Reject
+                                  </Button>
+                                </>
+                              ) : c.kyc === 'approved' ? (
                                 c.isActive ? (
                                   <Button variant="ghost" className="h-7 text-[10px] px-2 text-red-400 hover:bg-red-400/10"
                                     onClick={() => setBanModal({ id: c.id, name: c.name, reason: '' })}>
