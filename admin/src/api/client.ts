@@ -1,5 +1,5 @@
 // ── Base URL configuration ──────────────────────────────────────
-const rawEnvUrl = (import.meta.env.VITE_API_BASE_URL || '/api').trim().replace(/\/+$/, '');
+const rawEnvUrl = (import.meta.env.VITE_API_BASE_URL || 'https://api.getarenova.com').trim().replace(/\/+$/, '');
 export const BASE_URL = rawEnvUrl.endsWith('/api') ? rawEnvUrl : `${rawEnvUrl}/api`;
 
 let _token: string | null = null;
@@ -12,7 +12,8 @@ function normalizeData(obj: any): any {
   if (!obj || typeof obj !== 'object') {
     if (typeof obj === 'string') {
       if (obj.includes('/api/media/')) {
-        return obj.substring(obj.indexOf('/api/media/'));
+        const path = obj.substring(obj.indexOf('/api/media/'));
+        return `https://api.getarenova.com${path}`;
       }
       if (obj.includes('16.112.182.86')) {
         return obj.replace(/http:\/\/16\.112\.182\.86/g, 'https://api.getarenova.com');

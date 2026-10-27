@@ -1,18 +1,14 @@
 // Base URL configuration for Arenova API (Production backend: https://api.getarenova.com)
-// When running in the browser with relative '/api' or unset, same-origin calls proxy cleanly through
-// Vite dev server or Vercel rewrites (eliminating CORS and mixed-content issues).
-// If an absolute URL is configured (e.g., https://api.getarenova.com), it seamlessly resolves.
-const rawBase = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+const rawBase = (import.meta.env.VITE_API_BASE_URL || 'https://api.getarenova.com').trim().replace(/\/+$/, '');
 const BASE_URL = (() => {
   if (!rawBase || rawBase === '/api') {
-    return typeof window !== 'undefined' ? '' : 'https://api.getarenova.com';
+    return 'https://api.getarenova.com';
   }
   return rawBase.endsWith('/api') ? rawBase.slice(0, -4) : rawBase;
 })();
 
 // Helper to normalize any legacy media/banner URLs from the database
-// Converts absolute IP or backend URLs to same-origin relative /api/media/... paths
-// to prevent cross-origin CORP blocks (net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin)
+// Converts to absolute https://api.getarenova.com/api/media/... paths
 const normalizeMediaUrls = (data) => {
   if (!data || typeof data !== 'object') return data;
   if (Array.isArray(data)) return data.map(normalizeMediaUrls);
@@ -21,8 +17,8 @@ const normalizeMediaUrls = (data) => {
     if (typeof normalized[key] === 'string') {
       const val = normalized[key];
       if (val.includes('/api/media/')) {
-        // Strip out host and keep same-origin relative path /api/media/...
-        normalized[key] = val.substring(val.indexOf('/api/media/'));
+        const path = val.substring(val.indexOf('/api/media/'));
+        normalized[key] = `https://api.getarenova.com${path}`;
       } else if (val.includes('16.112.182.86')) {
         normalized[key] = val.replace(/http:\/\/16\.112\.182\.86/g, 'https://api.getarenova.com');
       }
@@ -139,7 +135,11 @@ const request = async (endpoint, options = {}) => {
   };
 
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const requestUrl = BASE_URL ? `${BASE_URL}${cleanEndpoint}` : cleanEndpoint;
+  const requestUrl = (BASE_URL.endsWith('/api') && cleanEndpoint.startsWith('/api/'))
+    ? `${BASE_URL.slice(0, -4)}${cleanEndpoint}`
+    : (!cleanEndpoint.startsWith('/api/') && !BASE_URL.endsWith('/api'))
+      ? `${BASE_URL}/api${cleanEndpoint}`
+      : `${BASE_URL}${cleanEndpoint}`;
 
   let response;
   try {
