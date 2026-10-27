@@ -31,11 +31,14 @@ export default function CoachesPage() {
   const [approveModal, setApproveModal] = useState<{
     id: string;
     name: string;
+    phone: string;
     individualPrice: string;
     groupPricePerPerson: string;
     requestedIndividualPrice?: number;
     requestedGroupPricePerPerson?: number;
   } | null>(null);
+  const [phoneModal, setPhoneModal] = useState<{ id: string; name: string; phone: string } | null>(null);
+  const [savingPhone, setSavingPhone] = useState(false);
   const [rejectModal, setRejectModal] = useState<{ id: string; name: string; reason: string } | null>(null);
   const [banModal, setBanModal] = useState<{ id: string; name: string; reason: string } | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ id: string; name: string } | null>(null);
@@ -78,9 +81,12 @@ export default function CoachesPage() {
         ? String(reqGrp)
         : (coach.groupPricePerPerson !== undefined && coach.groupPricePerPerson !== null ? String(coach.groupPricePerPerson) : '');
 
+    const coachPhone = coach.phone || coach.phoneNumber || coach.mobile || coach.mobileNumber || coach.contact || coach.user?.phone || '';
+
     setApproveModal({
       id: coach.id || coach._id,
       name: coach.name,
+      phone: coachPhone,
       individualPrice: initInd,
       groupPricePerPerson: initGrp,
       requestedIndividualPrice: reqInd !== undefined && reqInd !== null ? Number(reqInd) : undefined,
@@ -99,6 +105,32 @@ export default function CoachesPage() {
         if (res.data && Array.isArray(res.data.coaches)) return res.data.coaches;
         if (res.data && Array.isArray(res.data.data)) return res.data.data;
         return [];
+      };
+
+      const getCoachPhone = (c: any): string => {
+        const raw =
+          c.phone ||
+          c.phoneNumber ||
+          c.mobile ||
+          c.mobileNumber ||
+          c.contact ||
+          c.contactNumber ||
+          c.phone_number ||
+          c.contact_number ||
+          c.user?.phone ||
+          c.user?.phoneNumber ||
+          c.user?.mobile ||
+          c.userId?.phone ||
+          c.userId?.phoneNumber ||
+          c.profile?.phone ||
+          c.profile?.phoneNumber ||
+          c.profile?.mobile ||
+          c.onboarding?.phone ||
+          c.address?.phone ||
+          c.professionalDetails?.phone ||
+          c.whatsapp ||
+          '';
+        return raw !== undefined && raw !== null ? String(raw).trim() : '';
       };
 
       // Query all KYC segments in parallel so coaches under review or pending are NEVER missed by backend filters
@@ -125,10 +157,13 @@ export default function CoachesPage() {
 
       const coachData = Array.from(coachMap.values()).map((c: any) => {
         const kyc = (c.kyc || c.kycStatus || 'pending').toLowerCase();
+        const phone = getCoachPhone(c);
         return {
           ...c,
           id: c.id || c._id,
           _id: c._id || c.id,
+          phone,
+          phoneNumber: phone,
           kyc,
           isActive: c.isActive ?? (kyc === 'approved')
         };
@@ -162,16 +197,45 @@ export default function CoachesPage() {
 
   const handleApproveConfirm = async () => {
     if (!approveModal) return;
-    const { id, individualPrice, groupPricePerPerson, requestedIndividualPrice, requestedGroupPricePerPerson } = approveModal;
+    const { id, phone, individualPrice, groupPricePerPerson, requestedIndividualPrice, requestedGroupPricePerPerson } = approveModal;
     const indPrice = parseFloat(individualPrice) || requestedIndividualPrice || 0;
     const grpPrice = parseFloat(groupPricePerPerson) || requestedGroupPricePerPerson || 0;
+    const cleanPhone = (phone || '').trim();
     try {
       await approveKyc(id, indPrice, grpPrice);
-      setCoaches(prev => prev.map(c => (c.id === id || (c as any)._id === id) ? { ...c, kyc: 'approved', isActive: true, individualPrice: indPrice, groupPricePerPerson: grpPrice } : c));
+      if (cleanPhone) {
+        await updateAdminCoach(id, { phone: cleanPhone }).catch(() => {});
+      }
+      setCoaches(prev => prev.map(c => (c.id === id || (c as any)._id === id) ? {
+        ...c,
+        kyc: 'approved',
+        isActive: true,
+        individualPrice: indPrice,
+        groupPricePerPerson: grpPrice,
+        phone: cleanPhone || c.phone,
+        phoneNumber: cleanPhone || c.phoneNumber
+      } : c));
       setApps(prev => prev.filter(a => (a.id || a._id) !== id));
       setApproveModal(null);
     } catch (err: any) {
       alert(err.message || 'Approval failed');
+    }
+  };
+
+  const handlePhoneSave = async () => {
+    if (!phoneModal) return;
+    const { id, phone } = phoneModal;
+    const cleanPhone = (phone || '').trim();
+    try {
+      setSavingPhone(true);
+      await updateAdminCoach(id, { phone: cleanPhone });
+      setCoaches(prev => prev.map(c => (c.id === id || (c as any)._id === id) ? { ...c, phone: cleanPhone, phoneNumber: cleanPhone } : c));
+      setApps(prev => prev.map(a => (a.id === id || (a as any)._id === id) ? { ...a, phone: cleanPhone, phoneNumber: cleanPhone } : a));
+      setPhoneModal(null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update phone number');
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -294,7 +358,7 @@ export default function CoachesPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {applications.map((app: any) => {
-              const phone = app.phone || app.phoneNumber || app.mobile || app.mobileNumber || app.contact || app.user?.phone || app.user?.phoneNumber || app.profile?.phone || 'No phone';
+              const phone = app.phone || app.phoneNumber || app.mobile || app.mobileNumber || app.contact || app.user?.phone || app.user?.phoneNumber || app.profile?.phone || '';
               const reqInd = app.requestedIndividualPrice ?? app.individualPrice ?? app.fee ?? app.sessionFee;
               const reqGrp = app.requestedGroupPricePerPerson ?? app.groupPricePerPerson ?? app.groupFee;
               const hasFee = reqInd !== undefined || reqGrp !== undefined;
@@ -306,8 +370,27 @@ export default function CoachesPage() {
                       <Avatar initials={getInitials(app.name)} size={40} />
                       <div>
                         <p className="font-semibold text-white text-sm">{app.name || 'Unknown Coach'}</p>
-                        <p className="text-[11px] text-[#5c6370]">{app.email || 'No email'} · <span className="text-gray-300 font-medium">{phone}</span></p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <div className="flex items-center gap-2 mt-1 text-[11px] text-[#5c6370] flex-wrap">
+                          <span>{app.email || 'No email'}</span>
+                          <span>·</span>
+                          {phone ? (
+                            <span className="text-emerald-400 font-medium inline-flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                              <Phone className="h-3 w-3 text-emerald-400" />
+                              {phone}
+                            </span>
+                          ) : (
+                            <span className="text-amber-400/80 italic">No phone on record</span>
+                          )}
+                          {can('coaches_write') && (
+                            <button
+                              onClick={() => setPhoneModal({ id: app._id || app.id, name: app.name, phone })}
+                              className="text-[10px] text-amber-400 hover:text-amber-300 font-medium underline cursor-pointer ml-1"
+                            >
+                              {phone ? 'Edit Number' : '+ Add Number'}
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                           {(app.sports || []).map((s: string) => <Badge key={s} className="badge-blue">{s}</Badge>)}
                         </div>
                         {hasFee && (
@@ -389,7 +472,28 @@ export default function CoachesPage() {
                             <Avatar initials={getInitials(c.name)} size={34} />
                             <div>
                               <p className="text-sm font-medium text-white">{c.name || 'Unknown Coach'}</p>
-                              <p className="text-[11px] text-[#5c6370]">{c.email || 'No email'}</p>
+                              <div className="flex flex-col gap-0.5 mt-0.5">
+                                {c.email && <p className="text-[11px] text-[#5c6370]">{c.email}</p>}
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {c.phone ? (
+                                    <span className="text-[11px] text-emerald-400 font-medium inline-flex items-center gap-1">
+                                      <Phone className="h-2.5 w-2.5 text-emerald-400" />
+                                      {c.phone}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-amber-500/80 italic">No phone</span>
+                                  )}
+                                  {can('coaches_write') && (
+                                    <button
+                                      onClick={() => setPhoneModal({ id: c.id || (c as any)._id, name: c.name, phone: c.phone || '' })}
+                                      className="text-[10px] text-amber-400/90 hover:text-amber-300 underline cursor-pointer"
+                                      title="Edit or add phone number"
+                                    >
+                                      {c.phone ? 'Edit' : '+ Add Number'}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </Td>
@@ -527,6 +631,13 @@ export default function CoachesPage() {
           )}
 
           <Input
+            label="Coach Phone Number"
+            type="tel"
+            placeholder="e.g. +91 98765 43210"
+            value={approveModal?.phone || ''}
+            onChange={e => setApproveModal(prev => prev ? { ...prev, phone: e.target.value } : null)}
+          />
+          <Input
             label="Individual Session Price (₹)"
             type="number"
             value={approveModal?.individualPrice || ''}
@@ -541,6 +652,32 @@ export default function CoachesPage() {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setApproveModal(null)}>Cancel</Button>
             <Button variant="primary" onClick={handleApproveConfirm}>Approve & Set Prices</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!phoneModal}
+        onClose={() => setPhoneModal(null)}
+        title={`Update Phone Number - ${phoneModal?.name}`}
+        size="sm"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Phone Number"
+            type="tel"
+            placeholder="e.g. +91 98765 43210 or 9876543210"
+            value={phoneModal?.phone || ''}
+            onChange={e => setPhoneModal(prev => prev ? { ...prev, phone: e.target.value } : null)}
+          />
+          <p className="text-[11px] text-[#5c6370]">
+            Enter the active mobile contact number for this coach to receive notifications and player bookings.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setPhoneModal(null)}>Cancel</Button>
+            <Button variant="primary" disabled={savingPhone} onClick={handlePhoneSave}>
+              {savingPhone ? 'Saving...' : 'Save Phone Number'}
+            </Button>
           </div>
         </div>
       </Modal>

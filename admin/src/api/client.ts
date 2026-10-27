@@ -46,28 +46,44 @@ function normalizeData(obj: any): any {
       normalized.name = u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim();
     }
     if (!normalized.email && u.email) normalized.email = u.email;
-    if (!normalized.phone && (u.phone || u.phoneNumber || u.mobile || u.mobileNumber || u.contactNumber)) {
-      normalized.phone = u.phone || u.phoneNumber || u.mobile || u.mobileNumber || u.contactNumber;
+  }
+
+  if (!normalized.name) {
+    if (normalized.firstName || normalized.fullName) {
+      normalized.name = normalized.fullName || `${normalized.firstName || ''} ${normalized.lastName || ''}`.trim();
+    } else if (normalized.profile && typeof normalized.profile === 'object' && (normalized.profile.name || normalized.profile.fullName)) {
+      normalized.name = normalized.profile.name || normalized.profile.fullName;
     }
   }
 
-  if (!normalized.name && (normalized.firstName || normalized.fullName)) {
-    normalized.name = normalized.fullName || `${normalized.firstName || ''} ${normalized.lastName || ''}`.trim();
-  }
+  // Extract phone number from all possible direct and nested fields
+  const rawPhone =
+    normalized.phone ||
+    normalized.phoneNumber ||
+    normalized.mobile ||
+    normalized.mobileNumber ||
+    normalized.contact ||
+    normalized.contactNumber ||
+    normalized.phone_number ||
+    normalized.contact_number ||
+    u?.phone ||
+    u?.phoneNumber ||
+    u?.mobile ||
+    u?.mobileNumber ||
+    u?.contact ||
+    u?.contactNumber ||
+    (normalized.profile && typeof normalized.profile === 'object' ? (
+      normalized.profile.phone ||
+      normalized.profile.phoneNumber ||
+      normalized.profile.mobile
+    ) : '') ||
+    (normalized.address && typeof normalized.address === 'object' ? normalized.address.phone : '') ||
+    normalized.whatsapp ||
+    normalized.whatsappNumber ||
+    '';
 
-  // Extract phone number from all common key names
-  if (!normalized.phone) {
-    normalized.phone =
-      normalized.phoneNumber ||
-      normalized.mobile ||
-      normalized.mobileNumber ||
-      normalized.contact ||
-      normalized.contactNumber ||
-      normalized.phone_number ||
-      normalized.profile?.phone ||
-      normalized.profile?.phoneNumber ||
-      '';
-  }
+  normalized.phone = (rawPhone !== undefined && rawPhone !== null) ? String(rawPhone).trim() : '';
+  normalized.phoneNumber = normalized.phone;
 
   // Normalize kyc status (handles kyc, kycStatus, uppercase/lowercase)
   if (normalized.kyc || normalized.kycStatus) {
