@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MessageSquare, Calendar, User, Mail, Phone, Trash2, Eye, ClipboardList } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Select, Textarea, DetailRow } from '../../components/ui';
-import { getEnquiryStats, getEnquiries, getEnquiry, updateEnquiryStatus, deleteEnquiry } from '../../api';
+import { getEnquiryStats, getEnquiries, getEnquiry, updateEnquiryStatus, deleteEnquiry, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const STATUS_MAP: Record<string, string> = {
@@ -202,14 +202,22 @@ export default function EnquiriesPage() {
       if (search) params.search = search;
 
       const listRes = await getEnquiries(params);
-      const items = listRes.data || listRes;
-      if (Array.isArray(items)) {
-        setEnquiries(items);
-      } else {
-        setEnquiries([]);
+      const items = extractDataList<Enquiry>(listRes);
+      const seen = new Set<string>();
+      const unique: Enquiry[] = [];
+      for (const item of items) {
+        const id = item.id || (item as any)._id;
+        if (id && !seen.has(String(id))) {
+          seen.add(String(id));
+          unique.push(item);
+        } else if (!id) {
+          unique.push(item);
+        }
       }
+      setEnquiries(unique);
     } catch (err: any) {
-      console.error('Failed to load enquiries', err);
+      console.warn('Failed to load enquiries:', err?.message || err);
+      setEnquiries([]);
     } finally {
       setLoading(false);
     }
@@ -234,8 +242,8 @@ export default function EnquiriesPage() {
   const FILTERS = ['All', 'New', 'In_Progress', 'Responded', 'Closed'];
 
   return (
-    <div className="flex flex-col gap-5 p-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard
           label="Total Enquiries"
           value={String(stats.total)}
@@ -309,17 +317,17 @@ export default function EnquiriesPage() {
                   return (
                     <Tr key={id}>
                       <Td>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-white">{e.name}</span>
-                          <span className="text-[10px] text-[#5c6370]">{e.email}</span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-white truncate max-w-[150px]">{e.name}</span>
+                          <span className="text-[10px] text-[#5c6370] truncate max-w-[150px]">{e.email}</span>
                         </div>
                       </Td>
                       <Td>
-                        <div className="max-w-xs truncate font-medium text-white">
+                        <div className="max-w-xs truncate font-medium text-white" title={e.subject || 'General Inquiry'}>
                           {e.subject || 'General Inquiry'}
                         </div>
                       </Td>
-                      <Td className="text-xs text-[#9ba3af]">
+                      <Td className="text-xs text-[#9ba3af] whitespace-nowrap">
                         {new Date(e.createdAt).toLocaleDateString('en-IN', {
                           day: 'numeric',
                           month: 'short',
@@ -332,7 +340,7 @@ export default function EnquiriesPage() {
                         </Badge>
                       </Td>
                       <Td>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
                           <button
                             onClick={() => setSelectedId(id)}
                             title="View Enquiry"

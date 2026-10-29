@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { UserPlus, Users, Wallet, AlertTriangle, Baby, ChevronDown, ChevronUp, Pencil, Ban, Trash2, MapPin, Mail, Phone, Calendar, Clock } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Input, Select, DetailRow } from '../../components/ui';
-import { getCustomers, updateCustomerStatus, deleteCustomer, uploadImage } from '../../api';
+import { getCustomers, updateCustomerStatus, deleteCustomer, uploadImage, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Customer } from '../../types';
 
@@ -44,9 +44,21 @@ export default function CustomersPage() {
   const load = useCallback(async () => {
     try {
       const res = await getCustomers({ limit: 100 });
-      const list = res.data || res.users || res.customers || (Array.isArray(res) ? res : []);
-      setCustomers(list);
-    } catch {
+      const list = extractDataList<Customer>(res);
+      const seen = new Set<string>();
+      const unique: Customer[] = [];
+      for (const c of list) {
+        const id = c.id || (c as any)._id;
+        if (id && !seen.has(String(id))) {
+          seen.add(String(id));
+          unique.push(c);
+        } else if (!id) {
+          unique.push(c);
+        }
+      }
+      setCustomers(unique);
+    } catch (e: any) {
+      console.warn('Failed to load customers:', e?.message || e);
       setCustomers([]);
     } finally {
       setLoading(false);
@@ -55,7 +67,8 @@ export default function CustomersPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = customers.filter(c => {
+  const customerList = Array.isArray(customers) ? customers : [];
+  const filtered = customerList.filter(c => {
     const matchSearch = search === '' ||
       `${c.firstName || ''} ${c.lastName || ''} ${c.email || ''} ${c.phone || ''}`.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filter === 'All' || c.status?.toLowerCase() === filter.toLowerCase();
@@ -117,9 +130,9 @@ export default function CustomersPage() {
   };
 
   return (
-    <div className="flex flex-col gap-5 p-5">
+    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total Users"  value={String(stats.total)}     icon={<Users className="h-4 w-4 text-blue-400"/>}         iconBg="bg-blue-400/10" />
         <StatCard label="Active"       value={String(stats.active)}    icon={<Users className="h-4 w-4 text-emerald-400"/>}       iconBg="bg-emerald-400/10" />
         <StatCard label="Flagged"      value={String(stats.flagged)}   icon={<AlertTriangle className="h-4 w-4 text-amber-400"/>} iconBg="bg-amber-400/10" />
@@ -132,10 +145,10 @@ export default function CustomersPage() {
           <CardTitle>Customers ({filtered.length})</CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
             <SearchBar value={search} onChange={setSearch} placeholder="Search customers..." />
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
               {FILTERS.map(f => <FilterPill key={f} label={f} active={filter === f} onClick={() => setFilter(f)} />)}
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
               {ROLE_FILTERS.map(f => <FilterPill key={f} label={f} active={roleFilter === f} onClick={() => setRoleFilter(f)} />)}
             </div>
           </div>
@@ -167,19 +180,19 @@ export default function CustomersPage() {
                   const isExpanded = expanded === c.id;
                   const initials = `${c.firstName?.[0] || ''}${c.lastName?.[0] || ''}` || '?';
                   return (
-                    <>
-                      <Tr key={c.id} onClick={() => { setSelected(c); setDetailOpen(true); }} className="cursor-pointer">
+                    <React.Fragment key={c.id}>
+                      <Tr onClick={() => { setSelected(c); setDetailOpen(true); }} className="cursor-pointer">
                         <Td onClick={e => { e.stopPropagation(); setExpanded(isExpanded ? null : c.id); }}>
                           <button className="text-[#5c6370] hover:text-white">
                             {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                           </button>
                         </Td>
                         <Td>
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <Avatar initials={initials} size={32} />
-                            <div>
-                              <p className="text-sm font-medium text-white">{(c.firstName || '') + ' ' + (c.lastName || '') || 'Unknown'}</p>
-                              <p className="text-[11px] text-[#5c6370]">{c.email || 'No email'}</p>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-white truncate max-w-[160px] sm:max-w-[200px]" title={(c.firstName || '') + ' ' + (c.lastName || '')}>{(c.firstName || '') + ' ' + (c.lastName || '') || 'Unknown'}</p>
+                              <p className="text-[11px] text-[#5c6370] truncate max-w-[160px] sm:max-w-[200px]" title={c.email}>{c.email || 'No email'}</p>
                             </div>
                           </div>
                         </Td>
@@ -190,7 +203,7 @@ export default function CustomersPage() {
                         <Td><span className="text-sm text-emerald-400 font-medium">₹{c.walletCredits || 0}</span></Td>
                         {can('customers_write') && (
                           <Td onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 whitespace-nowrap">
                               <Button variant="ghost" className="h-7 text-[10px] px-2 text-blue-400 hover:bg-blue-400/10"
                                 onClick={() => setAvatarUpload({ customerId: c.id, customerName: `${c.firstName} ${c.lastName}` })}>
                                 Avatar
@@ -218,7 +231,7 @@ export default function CustomersPage() {
                       {isExpanded && (
                         <Tr key={c.id + '-exp'}>
                           <Td colSpan={can('customers_write') ? 8 : 7}>
-                            <div className="px-4 py-3 bg-[#0e0f11] rounded-xl border border-[#2e3139] m-1 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                            <div className="px-4 py-3 bg-[#0e0f11] rounded-xl border border-[#2e3139] m-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                               <DetailRow label="Phone"   value={c.phone} />
                               <DetailRow label="Joined"  value={c.joined} />
                               {c.address && (
@@ -231,7 +244,7 @@ export default function CustomersPage() {
                           </Td>
                         </Tr>
                       )}
-                    </>
+                    </React.Fragment>
                   );
                 })}
               </Tbody>

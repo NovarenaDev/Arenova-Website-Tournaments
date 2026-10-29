@@ -20,16 +20,16 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-5 p-5 max-w-4xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Settings className="h-5 w-5 text-[#F05A22]" /> Portal Settings
+    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 max-w-4xl min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2 truncate">
+            <Settings className="h-5 w-5 text-[#F05A22] flex-shrink-0" /> Portal Settings
           </h2>
-          <p className="text-xs text-[#9ba3af]">Configure general platform preferences and system thresholds</p>
+          <p className="text-xs text-[#9ba3af] truncate">Configure general platform preferences and system thresholds</p>
         </div>
         {saved && (
-          <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs text-emerald-400">
+          <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs text-emerald-400 flex-shrink-0">
             <CheckCircle className="h-4 w-4" /> Settings saved successfully
           </div>
         )}

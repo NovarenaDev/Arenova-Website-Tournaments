@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ShieldAlert, Flag, Eye, Trash2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button, SearchBar, FilterPill, StatCard, Stars, ProgressBar, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, DetailRow } from '../../components/ui';
-import { getAdminReviews, flagReview, deleteReview, getAdminCoaches } from '../../api';
+import { getAdminReviews, flagReview, deleteReview, getAdminCoaches, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 
 type Review = { id: string; bookingId: string; user: string; coach: string; rating: number; text: string; tags: string[]; flagged: boolean; date: string; };
@@ -55,14 +55,40 @@ export default function RatingsPage() {
         getAdminReviews({ limit: 200 }).catch(() => ({ data: [] })),
         getAdminCoaches({ limit: 100 }).catch(() => ({ data: [] })),
       ]);
-      setReviews(reviewRes.data || []);
-      setCoaches(coachRes.data || []);
+      const rawReviews = extractDataList<Review>(reviewRes);
+      const seenR = new Set<string>();
+      const uniqueReviews: Review[] = [];
+      for (const r of rawReviews) {
+        const id = r.id || (r as any)._id;
+        if (id && !seenR.has(String(id))) {
+          seenR.add(String(id));
+          uniqueReviews.push(r);
+        } else if (!id) {
+          uniqueReviews.push(r);
+        }
+      }
+      setReviews(uniqueReviews);
+
+      const rawCoaches = extractDataList(coachRes);
+      const seenC = new Set<string>();
+      const uniqueCoaches: any[] = [];
+      for (const c of rawCoaches) {
+        const id = c.id || c._id;
+        if (id && !seenC.has(String(id))) {
+          seenC.add(String(id));
+          uniqueCoaches.push(c);
+        } else if (!id) {
+          uniqueCoaches.push(c);
+        }
+      }
+      setCoaches(uniqueCoaches);
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = reviews.filter(r => {
+  const reviewList = Array.isArray(reviews) ? reviews : [];
+  const filtered = reviewList.filter(r => {
     const matchSearch = `${r.user} ${r.coach} ${r.text}`.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === 'All' ? !r.flagged :
       (filter === 'Flagged' && r.flagged) ||
@@ -93,15 +119,15 @@ export default function RatingsPage() {
   const flaggedItems = reviews.filter(r => r.flagged);
 
   return (
-    <div className="flex flex-col gap-5 p-5">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard label="Avg Rating"      value={`${avgRating} ★`}           sub={`${reviews.length} reviews`} icon={<span style={{ fontSize: 14 }}>⭐</span>} iconBg="bg-amber-500/10"   subColor="text-emerald-400" />
         <StatCard label="5-Star Reviews"  value={`${reviews.length ? Math.round(reviews.filter(r => r.rating === 5).length / reviews.length * 100) : 0}%`} sub="of all reviews" icon={<span style={{ fontSize: 14 }}>🏆</span>} iconBg="bg-emerald-500/10" subColor="text-emerald-400" />
         <StatCard label="Flagged Reviews" value={String(flaggedItems.length)} sub="Needs moderation"           icon={<ShieldAlert className="h-4 w-4 text-amber-400" />} iconBg="bg-amber-500/10" subColor="text-amber-400" />
         <StatCard label="Total Reviews"   value={String(reviews.length)}      sub="All time"                   icon={<span style={{ fontSize: 14 }}>💬</span>} iconBg="bg-blue-500/10" subColor="text-[#5c6370]" />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-3 min-w-0">
         <Card>
           <CardHeader><CardTitle>Rating Distribution</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -117,7 +143,7 @@ export default function RatingsPage() {
               <Tbody>
                 {[...coaches].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 5).map(c => (
                   <Tr key={c.id}>
-                    <Td><div className="flex items-center gap-2"><Avatar initials={(c.name || 'U').split(' ').map((n: string) => n[0]).join('')} size={28} /><span className="text-xs text-white">{(c.name || '').split(' ')[0]} {(c.name || '').split(' ')[1]?.[0]}.</span></div></Td>
+                    <Td><div className="flex items-center gap-2 min-w-0"><Avatar initials={(c.name || 'U').split(' ').map((n: string) => n[0]).join('')} size={28} className="flex-shrink-0" /><span className="text-xs text-white truncate max-w-[120px]">{(c.name || '').split(' ')[0]} {(c.name || '').split(' ')[1]?.[0]}.</span></div></Td>
                     <Td><div className="flex items-center gap-1"><span className="text-amber-400" style={{ fontSize: 11 }}>★</span><span className="text-xs font-medium">{c.rating || 0}</span></div></Td>
                     <Td className="text-right text-[#9ba3af]">{Math.round((c.sessions || 0) * 0.6)}</Td>
                   </Tr>
@@ -132,16 +158,16 @@ export default function RatingsPage() {
           <CardContent className="flex flex-col gap-3">
             {flaggedItems.length === 0 ? <p className="text-xs text-[#5c6370] text-center py-4">No flagged reviews</p>
               : flaggedItems.map(r => (
-                <div key={r.id} className="rounded-xl border border-red-500/20 bg-red-500/10 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2"><Avatar initials={r.user.split(' ').map(n => n[0]).join('').slice(0, 2)} size={26} /><span className="text-xs font-medium text-white">{r.user}</span></div>
+                <div key={r.id} className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 min-w-0">
+                  <div className="flex items-center justify-between mb-2 gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0"><Avatar initials={r.user.split(' ').map(n => n[0]).join('').slice(0, 2)} size={26} className="flex-shrink-0" /><span className="text-xs font-medium text-white truncate max-w-[120px]">{r.user}</span></div>
                     <Stars rating={r.rating} />
                   </div>
-                  <p className="text-[11px] text-[#9ba3af] italic mb-2 leading-relaxed">"{r.text}"</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-[#5c6370]">Coach: {r.coach} · {r.date}</span>
+                  <p className="text-[11px] text-[#9ba3af] italic mb-2 leading-relaxed break-words">"{r.text}"</p>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[10px] text-[#5c6370] truncate">Coach: {r.coach} · {r.date}</span>
                     {can('ratings_write') && (
-                      <div className="flex gap-1.5">
+                      <div className="flex gap-1.5 whitespace-nowrap">
                         <Button variant="danger" className="h-6 text-[9px] px-2" onClick={() => setDeleteR(r)}>Remove</Button>
                         <Button variant="outline" className="h-6 text-[9px] px-2" onClick={() => handleUnflag(r.id)}>Dismiss</Button>
                       </div>
@@ -158,7 +184,7 @@ export default function RatingsPage() {
           <CardTitle>All Reviews ({filtered.length})</CardTitle>
           <SearchBar value={search} onChange={setSearch} placeholder="Search reviews..." />
         </CardHeader>
-        <div className="flex flex-wrap gap-2 border-b border-[#2e3139] px-5 pb-3">
+        <div className="flex flex-wrap gap-2 border-b border-[#2e3139] px-4 sm:px-5 pb-3">
           {FILTERS.map(f => <FilterPill key={f} label={f} active={filter === f} onClick={() => setFilter(f)} />)}
         </div>
         <CardContent className="px-0 pb-0">
@@ -172,7 +198,8 @@ export default function RatingsPage() {
                       : filtered.map(r => (
                         <Tr key={r.id}>
                           <Td className="text-[#5c6370] font-mono">{r.bookingId}</Td>
-                          <Td><div className="flex items-center gap-2"><Avatar initials={r.user.split(' ').map(n => n[0]).join('').slice(0, 2)} size={26} /><span className="text-xs text-white">{r.user}</span></div></Td>
+                          <Td><div className="flex items-center gap-2 min-w-0"><Avatar initials={r.user.split(' ').map(n => n[0]).join('').slice(0, 2)} size={26} className="flex-shrink-0" /><span className="text-xs text-white truncate max-w-[120px]">{r.user}</span></div></Td>
+                          <Td><div className="flex items-center gap-2 min-w-0"><Avatar initials={r.coach.split(' ').map(n => n[0]).join('').slice(0, 2)} size={26} className="flex-shrink-0" /><span className="text-xs text-[#9ba3af] truncate max-w-[120px]">{r.coach}</span></div></Td>
                           <Td><div className="flex items-center gap-2"><Avatar initials={r.coach.split(' ').map(n => n[0]).join('').slice(0, 2)} size={26} /><span className="text-xs text-[#9ba3af]">{r.coach}</span></div></Td>
                           <Td><Stars rating={r.rating} /></Td>
                           <Td><p className="max-w-[180px] truncate text-xs text-[#9ba3af]">"{r.text}"</p></Td>

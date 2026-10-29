@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Medal, Users, CalendarDays, Trophy, Plus, MapPin, Clock, Pencil, Trash2, Eye } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Input, Select, Textarea, DetailRow } from '../../components/ui';
-import { getAdminTournaments, createTournament, updateTournament, deleteTournament, getTournamentOptions, updateTournamentStatus, getTournamentRegistrations, exportTournamentRegistrations } from '../../api';
+import { getAdminTournaments, getPublicTournaments, createTournament, updateTournament, deleteTournament, getTournamentOptions, updateTournamentStatus, getTournamentRegistrations, exportTournamentRegistrations, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const STATUS_MAP: Record<string, string> = {
@@ -622,30 +622,30 @@ export default function TournamentsPage() {
   const load = useCallback(async () => {
     try {
       getTournamentOptions().then(res => {
-        if (res.success && res.data) {
-          setOptions(res.data);
-        } else if (res.data) {
+        if (res?.data) {
           setOptions(res.data);
         }
-      }).catch(err => console.error('Failed to fetch tournament options:', err));
+      }).catch(() => {});
 
-      const res = await getAdminTournaments();
-      if (res.data?.length) {
-        setTournaments(res.data);
-      } else if (Array.isArray(res)) {
-        setTournaments(res);
-      } else {
-        // Fallback mock data matching the schema
-        setTournaments([
-          { id: 'T001', title: 'Spring Badminton Open', sport: 'Badminton', registrationType: 'individual', startDate: '2026-04-25T09:00:00Z', endDate: '2026-04-26T18:00:00Z', registrationStartDate: '2026-04-01T00:00:00Z', registrationEndDate: '2026-04-20T23:59:59Z', status: 'upcoming' },
-          { id: 'T002', title: 'Cricket Premier League', sport: 'Cricket', registrationType: 'team', startDate: '2026-04-18T09:00:00Z', endDate: '2026-04-20T18:00:00Z', registrationStartDate: '2026-03-15T00:00:00Z', registrationEndDate: '2026-04-10T23:59:59Z', status: 'ongoing' },
-          { id: 'T003', title: 'Football 5s Challenge', sport: 'Football', registrationType: 'team', startDate: '2026-04-10T09:00:00Z', endDate: '2026-04-11T18:00:00Z', registrationStartDate: '2026-03-10T00:00:00Z', registrationEndDate: '2026-04-05T23:59:59Z', status: 'ongoing' },
-          { id: 'T004', title: 'Tennis Singles Open', sport: 'Tennis', registrationType: 'individual', startDate: '2026-03-01T09:00:00Z', endDate: '2026-03-02T18:00:00Z', registrationStartDate: '2026-02-01T00:00:00Z', registrationEndDate: '2026-02-25T23:59:59Z', status: 'completed' },
-          { id: 'T005', title: 'Swimming Championship', sport: 'Swimming', registrationType: 'individual', startDate: '2026-05-15T09:00:00Z', endDate: '2026-05-16T18:00:00Z', registrationStartDate: '2026-04-15T00:00:00Z', registrationEndDate: '2026-05-10T23:59:59Z', status: 'upcoming' },
-        ]);
+      const res = await getAdminTournaments().catch(() => getPublicTournaments()).catch(() => null);
+      const list = extractDataList<Tournament>(res);
+      
+      // Strictly deduplicate by ID to guarantee zero duplicates
+      const seen = new Set<string>();
+      const uniqueList: Tournament[] = [];
+      for (const t of list) {
+        const id = t._id || t.id;
+        if (id && !seen.has(String(id))) {
+          seen.add(String(id));
+          uniqueList.push(t);
+        } else if (!id) {
+          uniqueList.push(t);
+        }
       }
+      setTournaments(uniqueList);
     } catch (err: any) {
-      console.error(err);
+      console.warn('Tournaments load warning:', err?.message || err);
+      setTournaments([]);
     } finally {
       setLoading(false);
     }
@@ -696,8 +696,8 @@ export default function TournamentsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-5 p-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total"     value={String(stats.total)}     icon={<Trophy className="h-4 w-4 text-[#F05A22]" />}    iconBg="bg-[#F05A22]/10" />
         <StatCard label="Draft"     value={String(stats.draft)}     icon={<CalendarDays className="h-4 w-4 text-blue-400" />} iconBg="bg-blue-400/10" />
         <StatCard label="Published" value={String(stats.published)} icon={<Medal className="h-4 w-4 text-emerald-400" />}    iconBg="bg-emerald-400/10" />
@@ -725,14 +725,14 @@ export default function TournamentsPage() {
                     const regEndStr = formatDateTime(t.registrationEndDate);
                     return (
                       <Tr key={t._id || t.id}>
-                        <Td><div className="flex items-center gap-2"><span>{SPORT_ICONS[t.sport] || '🏆'}</span><span className="text-sm font-medium text-white">{t.title}</span></div></Td>
+                        <Td><div className="flex items-center gap-2 min-w-0"><span className="flex-shrink-0">{SPORT_ICONS[t.sport] || '🏆'}</span><span className="text-sm font-medium text-white truncate max-w-[170px]" title={t.title}>{t.title}</span></div></Td>
                         <Td><Badge className="badge-blue">{t.sport}</Badge></Td>
                         <Td className="capitalize text-xs text-[#9ba3af]">{t.categories && t.categories.length ? Array.from(new Set(t.categories.map(c => c.registrationType))).join(', ') : '—'}</Td>
-                        <Td className="text-xs text-[#9ba3af]">{startDateStr}</Td>
-                        <Td className="text-xs text-[#9ba3af]">Ends: {regEndStr}</Td>
+                        <Td className="text-xs text-[#9ba3af] whitespace-nowrap">{startDateStr}</Td>
+                        <Td className="text-xs text-[#9ba3af] whitespace-nowrap">Ends: {regEndStr}</Td>
                         <Td><Badge className={STATUS_MAP[t.status] || 'badge-gray'}>{t.status}</Badge></Td>
                         <Td>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
                             <button onClick={() => setViewT(t)} title="View Details" className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a]"><Eye className="h-3.5 w-3.5" /></button>
                             <button onClick={() => setRegsT(t)} title="View Registrations" className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a]"><Users className="h-3.5 w-3.5" /></button>
                             {can('sports_write') && (

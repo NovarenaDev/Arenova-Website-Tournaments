@@ -131,16 +131,48 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Fetch tournaments from API
+  // Fetch tournaments from API - strictly backend data without any mock/duplicate fallback
   const fetchTournaments = async () => {
     setLoadingTournaments(true);
     setTournamentsError('');
     try {
       const data = await api.getTournaments();
-      setTournaments(data.data || data || []);
+      const extractList = (res) => {
+        if (!res) return [];
+        if (Array.isArray(res)) return res;
+        if (Array.isArray(res.data)) return res.data;
+        if (Array.isArray(res.tournaments)) return res.tournaments;
+        if (res.data && typeof res.data === 'object') {
+          if (Array.isArray(res.data.tournaments)) return res.data.tournaments;
+          if (Array.isArray(res.data.data)) return res.data.data;
+          for (const v of Object.values(res.data)) {
+            if (Array.isArray(v)) return v;
+          }
+        }
+        for (const v of Object.values(res)) {
+          if (Array.isArray(v)) return v;
+        }
+        return [];
+      };
+
+      const rawList = extractList(data);
+      // Strictly deduplicate by ID so no tournament ever appears twice
+      const seen = new Set();
+      const uniqueList = [];
+      for (const t of rawList) {
+        const id = t._id || t.id;
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          uniqueList.push(t);
+        } else if (!id) {
+          uniqueList.push(t);
+        }
+      }
+      setTournaments(uniqueList);
     } catch (err) {
+      console.warn('Tournaments fetch error:', err?.message || err);
       setTournaments([]);
-      setTournamentsError(err.message || 'Unable to load live tournaments. Please check your internet connection.');
+      setTournamentsError(err.message || 'Unable to load tournaments from server.');
     } finally {
       setLoadingTournaments(false);
     }

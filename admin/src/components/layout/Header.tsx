@@ -32,14 +32,21 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const loadNotifications = async () => {
     try {
       const res = await getMyNotifications();
-      setNotifications(res.data || res || []);
+      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const seen = new Set<string>();
+      const unique = [];
+      for (const item of raw) {
+        const id = item?.id || item?._id;
+        if (id && !seen.has(String(id))) {
+          seen.add(String(id));
+          unique.push(item);
+        } else if (!id) {
+          unique.push(item);
+        }
+      }
+      setNotifications(unique);
     } catch {
-      // Fallback demo notifications
-      setNotifications([
-        { id: 'n1', title: 'New Coach Application', body: 'Coach Pavan Patel has applied for KYC approval.', read: false, createdAt: new Date().toISOString() },
-        { id: 'n2', title: 'Payout Request', body: 'Coach Rajesh Kumar has requested a payout of ₹15,000.', read: false, createdAt: new Date().toISOString() },
-        { id: 'n3', title: 'Flagged Post Alert', body: 'A post by Unknown User was flagged automatically.', read: true, createdAt: new Date(Date.now() - 3600000).toISOString() },
-      ]);
+      setNotifications([]);
     }
   };
 
@@ -79,24 +86,24 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <header className="flex h-[52px] flex-shrink-0 items-center justify-between border-b border-[#2e3139] bg-[#141518] px-5">
-      <div className="flex items-center gap-2">
+    <header className="flex h-[52px] flex-shrink-0 items-center justify-between border-b border-[#2e3139] bg-[#141518] px-3 sm:px-5">
+      <div className="flex items-center gap-2 min-w-0 mr-2">
         <button
           type="button"
           onClick={onMenuClick}
-          className="mr-1 rounded-lg p-1.5 hover:bg-gray-100 md:hidden cursor-pointer flex items-center justify-center border border-[#e5e7eb]"
+          className="mr-1 rounded-lg p-1.5 hover:bg-gray-100 md:hidden cursor-pointer flex items-center justify-center border border-[#e5e7eb] flex-shrink-0"
         >
           <Menu className="h-4 w-4 text-[#4b5563]" />
         </button>
-        <span className="h-4 w-1 rounded-full bg-[#F05A22] inline-block hidden md:inline-block" />
-        <h1 className="text-sm font-semibold text-white">{title}</h1>
+        <span className="h-4 w-1 rounded-full bg-[#F05A22] inline-block hidden md:inline-block flex-shrink-0" />
+        <h1 className="text-sm font-semibold text-white truncate">{title}</h1>
       </div>
       
-      <div className="flex items-center gap-2">
-        <button className="flex h-8 items-center gap-1.5 rounded-md border border-[#2e3139] bg-transparent px-3 text-[11px] text-[#9ba3af] hover:bg-[#21242a] hover:text-white transition-colors">
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button className="hidden sm:flex h-8 items-center gap-1.5 rounded-md border border-[#2e3139] bg-transparent px-3 text-[11px] text-[#9ba3af] hover:bg-[#21242a] hover:text-white transition-colors">
           <Calendar className="h-3 w-3" />Apr 2026
         </button>
-        <button className="flex h-8 items-center gap-1.5 rounded-md border border-[#2e3139] bg-transparent px-3 text-[11px] text-[#9ba3af] hover:bg-[#21242a] hover:text-white transition-colors">
+        <button className="hidden sm:flex h-8 items-center gap-1.5 rounded-md border border-[#2e3139] bg-transparent px-3 text-[11px] text-[#9ba3af] hover:bg-[#21242a] hover:text-white transition-colors">
           <Download className="h-3 w-3" />Export
         </button>
         
@@ -114,7 +121,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
           {/* Notifications Dropdown Panel */}
           {showNotifications && (
-            <div className="absolute right-0 top-[38px] z-50 w-80 rounded-xl border border-[#e5e7eb] bg-white p-4 shadow-xl space-y-3">
+            <div className="absolute right-0 top-[38px] z-50 w-[calc(100vw-1.5rem)] sm:w-80 max-w-sm rounded-xl border border-[#e5e7eb] bg-white p-4 shadow-xl space-y-3">
               <div className="flex items-center justify-between border-b border-[#e5e7eb] pb-2">
                 <span className="text-xs font-bold text-[#111827]">Notifications ({unreadCount} new)</span>
                 {unreadCount > 0 && (

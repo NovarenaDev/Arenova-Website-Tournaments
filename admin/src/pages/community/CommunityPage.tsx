@@ -18,7 +18,8 @@ import {
   assignCoachToProgram, removeCoachFromProgram,
   getAdminCoaches, getAdminSports, getCustomers,
   getProgramSubscribers, subscribePlayerToProgram,
-  processCoachSalary, getSalaryPayouts, getProgramAttendance
+  processCoachSalary, getSalaryPayouts, getProgramAttendance,
+  extractDataList
 } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import { clsx } from 'clsx';
@@ -261,23 +262,21 @@ export default function CommunityPage() {
     setLoadingPosts(true);
     try {
       const res = await getAdminCommunity();
-      if (res.data?.length) {
-        setPosts(res.data);
-      } else {
-        setPosts([
-          { id: 'CM001', authorName: 'Ravi Sharma',   text: 'Great session at Gachibowli today! Anyone interested in a group practice this weekend?', sport: 'Cricket',   likes: 24, status: 'active',  createdAt: new Date().toISOString(), authorModel: 'Coach' },
-          { id: 'CM002', authorName: 'Priya Reddy',   text: 'Looking for a badminton partner in Banjara Hills. Intermediate level, weekends preferred.', sport: 'Badminton', likes: 12, status: 'active',  createdAt: new Date().toISOString(), authorModel: 'User'  },
-          { id: 'CM003', authorName: 'Dev Patel',     text: 'My son just scored his first goal! So proud. Thanks Coach Raj for the amazing training.',  sport: 'Football',  likes: 31, status: 'active',  createdAt: new Date().toISOString(), authorModel: 'User'  },
-          { id: 'CM004', authorName: 'Unknown User',  text: 'Spam content - inappropriate material detected.',                                           sport: undefined,   likes: 0,  status: 'flagged', createdAt: new Date().toISOString(), authorModel: 'User'  },
-        ]);
+      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const seen = new Set<string>();
+      const unique: Post[] = [];
+      for (const p of raw) {
+        const id = p.id || p._id;
+        if (id && !seen.has(String(id))) {
+          seen.add(String(id));
+          unique.push(p);
+        } else if (!id) {
+          unique.push(p);
+        }
       }
+      setPosts(unique);
     } catch {
-      setPosts([
-        { id: 'CM001', authorName: 'Ravi Sharma',   text: 'Great session at Gachibowli today! Anyone interested in a group practice this weekend?', sport: 'Cricket',   likes: 24, status: 'active',  createdAt: new Date().toISOString(), authorModel: 'Coach' },
-        { id: 'CM002', authorName: 'Priya Reddy',   text: 'Looking for a badminton partner in Banjara Hills. Intermediate level, weekends preferred.', sport: 'Badminton', likes: 12, status: 'active',  createdAt: new Date().toISOString(), authorModel: 'User'  },
-        { id: 'CM003', authorName: 'Dev Patel',     text: 'My son just scored his first goal! So proud. Thanks Coach Raj for the amazing training.',  sport: 'Football',  likes: 31, status: 'active',  createdAt: new Date().toISOString(), authorModel: 'User'  },
-        { id: 'CM004', authorName: 'Unknown User',  text: 'Spam content - inappropriate material detected.',                                           sport: undefined,   likes: 0,  status: 'flagged', createdAt: new Date().toISOString(), authorModel: 'User'  },
-      ]);
+      setPosts([]);
     } finally { setLoadingPosts(false); }
   }, []);
 
@@ -286,9 +285,8 @@ export default function CommunityPage() {
     setLoadingCenters(true);
     try {
       const res = await getAdminCommunities();
-      const rawComms = res.data || [];
+      const rawComms = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       if (rawComms.length) {
-        // Fetch program details for each community if programs is not embedded
         const detailedComms = await Promise.all(
           rawComms.map(async (c: any) => {
             const cid = c.id || c._id;
@@ -300,86 +298,38 @@ export default function CommunityPage() {
                   return { ...c, programs: detail.programs };
                 }
               } catch {
-                // Fallback to default programs if detail call fails
+                // If detail call fails, leave programs empty
               }
-              return {
-                ...c,
-                programs: [
-                  { id: cid?.length === 24 ? cid.slice(0, 23) + '1' : '6a6868be435cebe99d916ec1', sport: 'Cricket', title: `${c.name} — Cricket Batch`, capacity: 30, sessionDays: ['MON', 'WED', 'FRI'], sessionStartTime: '06:00', sessionEndTime: '07:30', coach: { name: 'Rajesh Kumar' }, salary: 15000 },
-                  { id: cid?.length === 24 ? cid.slice(0, 23) + '2' : '6a6868be435cebe99d916ec2', sport: 'Football', title: `${c.name} — Football Youth Batch`, capacity: 25, sessionDays: ['TUE', 'THU', 'SAT'], sessionStartTime: '16:30', sessionEndTime: '18:00', coach: null, salary: 0 }
-                ]
-              };
+              return { ...c, programs: c.programs || [] };
             }
             return c;
           })
         );
-        setCommunities(detailedComms);
-      } else {
-        setCommunities([
-          {
-            id: 'C1',
-            name: 'Gachibowli Sports Center',
-            description: 'Main academy branch for Arenova sports coaching batches.',
-            location: 'Gachibowli',
-            city: 'Hyderabad',
-            address: 'Sports Complex, Phase 2, Gachibowli, Hyderabad',
-            status: 'active',
-            programs: [
-              { id: 'P1', sport: 'Cricket', title: 'Cricket Morning Batch', capacity: 30, sessionDays: ['MON', 'WED', 'FRI'], sessionStartTime: '06:00', sessionEndTime: '07:30', coach: { name: 'Rajesh Kumar' }, salary: 15000, plans: [{ duration: 1, label: '1 Month', price: 2500 }] },
-              { id: 'P2', sport: 'Football', title: 'Under-14 Development program', capacity: 25, sessionDays: ['TUE', 'THU', 'SAT'], sessionStartTime: '16:30', sessionEndTime: '18:00', coach: null, salary: 0, plans: [{ duration: 1, label: '1 Month', price: 3000 }] }
-            ]
-          },
-          {
-            id: 'C2',
-            name: 'Madhapur Badminton Arena',
-            description: 'Indoor badminton training academy for intermediate players.',
-            location: 'Madhapur',
-            city: 'Hyderabad',
-            address: 'Hi-Tech City Road, Madhapur, Hyderabad',
-            status: 'active',
-            programs: [
-              { id: 'P3', sport: 'Badminton', title: 'Badminton Evening Training', capacity: 20, sessionDays: ['MON', 'WED', 'FRI'], sessionStartTime: '17:00', sessionEndTime: '18:30', coach: { name: 'Meena Tiwari' }, salary: 18000 }
-            ]
+        const seen = new Set<string>();
+        const unique: Community[] = [];
+        for (const c of detailedComms) {
+          const id = c.id || (c as any)._id;
+          if (id && !seen.has(String(id))) {
+            seen.add(String(id));
+            unique.push(c);
+          } else if (!id) {
+            unique.push(c);
           }
-        ]);
+        }
+        setCommunities(unique);
+      } else {
+        setCommunities([]);
       }
     } catch {
-      setCommunities([
-        {
-          id: 'C1',
-          name: 'Gachibowli Sports Center',
-          description: 'Main academy branch for Arenova sports coaching batches.',
-          location: 'Gachibowli',
-          city: 'Hyderabad',
-          address: 'Sports Complex, Phase 2, Gachibowli, Hyderabad',
-          status: 'active',
-          programs: [
-            { id: 'P1', sport: 'Cricket', title: 'Cricket Morning Batch', capacity: 30, sessionDays: ['MON', 'WED', 'FRI'], sessionStartTime: '06:00', sessionEndTime: '07:30', coach: { name: 'Rajesh Kumar' }, salary: 15000, plans: [{ duration: 1, label: '1 Month', price: 2500 }] },
-            { id: 'P2', sport: 'Football', title: 'Under-14 Development program', capacity: 25, sessionDays: ['TUE', 'THU', 'SAT'], sessionStartTime: '16:30', sessionEndTime: '18:00', coach: null, salary: 0, plans: [{ duration: 1, label: '1 Month', price: 3000 }] }
-          ]
-        },
-        {
-          id: 'C2',
-          name: 'Madhapur Badminton Arena',
-          description: 'Indoor badminton training academy for intermediate players.',
-          location: 'Madhapur',
-          city: 'Hyderabad',
-          address: 'Hi-Tech City Road, Madhapur, Hyderabad',
-          status: 'active',
-          programs: [
-            { id: 'P3', sport: 'Badminton', title: 'Badminton Evening Training', capacity: 20, sessionDays: ['MON', 'WED', 'FRI'], sessionStartTime: '17:00', sessionEndTime: '18:30', coach: { name: 'Meena Tiwari' }, salary: 18000 }
-          ]
-        }
-      ]);
+      setCommunities([]);
     } finally { setLoadingCenters(false); }
   }, []);
 
   const loadCoaches = useCallback(async () => {
     try {
       const res = await getAdminCoaches();
-      if (res.data) {
-        setCoaches(res.data.filter((c: any) => c.kyc === 'approved' || c.isActive));
-      }
+      const list = extractDataList(res);
+      setCoaches(list.filter((c: any) => c.kyc === 'approved' || c.isActive));
     } catch (e) {
       console.error('Coaches load failed', e);
     }
@@ -388,10 +338,11 @@ export default function CommunityPage() {
   const loadSports = useCallback(async () => {
     try {
       const res = await getAdminSports();
-      if (res.data) {
-        setSports(res.data);
-        if (res.data.length && !progSport) {
-          setProgSport(res.data[0].name || res.data[0].id);
+      const list = extractDataList(res);
+      if (list.length) {
+        setSports(list);
+        if (!progSport) {
+          setProgSport(list[0].name || list[0].id);
         }
       }
     } catch (e) {
@@ -402,11 +353,10 @@ export default function CommunityPage() {
   const loadCustomers = useCallback(async () => {
     try {
       const res = await getCustomers({ limit: 100 });
-      if (res.data) {
-        setCustomers(res.data);
-        if (res.data.length) {
-          setSelectedPlayerId(res.data[0].id);
-        }
+      const list = extractDataList<Customer>(res);
+      if (list.length) {
+        setCustomers(list);
+        setSelectedPlayerId(list[0].id);
       }
     } catch (e) {
       console.error('Customers load failed', e);
@@ -421,10 +371,7 @@ export default function CommunityPage() {
         const res = await getProgramSubscribers(pid);
         map[pid] = res.data || res || [];
       } catch {
-        // Fallback default mockup subscriber for demo
-        map[pid] = [
-          { id: 'S1', firstName: 'Aarav', lastName: 'Patel', email: 'aarav@gmail.com', phone: '+919876543210', joined: '10 Jun 2026', role: 'individual' }
-        ];
+        map[pid] = [];
       }
     }
     setSubscribersMap(prev => ({ ...prev, ...map }));
@@ -435,19 +382,21 @@ export default function CommunityPage() {
     setLoadingSalary(true);
     try {
       const res = await getSalaryPayouts();
-      if (res.data?.length) {
-        setSalaryPayouts(res.data);
-      } else {
-        setSalaryPayouts([
-          { id: 'SP001', coachName: 'Rajesh Kumar', programTitle: 'Cricket Morning Batch', month: '2026-08', amount: 15000, status: 'paid', date: '2026-08-31' },
-          { id: 'SP002', coachName: 'Meena Tiwari', programTitle: 'Tennis Training Batch', month: '2026-08', amount: 18000, status: 'pending', date: '2026-08-31' }
-        ]);
+      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const seen = new Set<string>();
+      const unique: any[] = [];
+      for (const s of raw) {
+        const id = s.id || s._id;
+        if (id && !seen.has(String(id))) {
+          seen.add(String(id));
+          unique.push(s);
+        } else if (!id) {
+          unique.push(s);
+        }
       }
+      setSalaryPayouts(unique);
     } catch {
-      setSalaryPayouts([
-        { id: 'SP001', coachName: 'Rajesh Kumar', programTitle: 'Cricket Morning Batch', month: '2026-08', amount: 15000, status: 'paid', date: '2026-08-31' },
-        { id: 'SP002', coachName: 'Meena Tiwari', programTitle: 'Tennis Training Batch', month: '2026-08', amount: 18000, status: 'pending', date: '2026-08-31' }
-      ]);
+      setSalaryPayouts([]);
     } finally { setLoadingSalary(false); }
   }, []);
 
@@ -504,19 +453,8 @@ export default function CommunityPage() {
       setSalaryPayouts(prev => [newPayout, ...prev]);
       alert(`Salary payout of ₹${amount.toLocaleString('en-IN')} for ${coachName} processed successfully!`);
       setProcessSalaryOpen(false);
-    } catch {
-      const newPayout = {
-        id: `SP_${Date.now()}`,
-        coachName,
-        programTitle,
-        month: salaryMonth,
-        amount,
-        status: 'paid',
-        date: new Date().toISOString().split('T')[0]
-      };
-      setSalaryPayouts(prev => [newPayout, ...prev]);
-      alert(`Salary payout of ₹${amount.toLocaleString('en-IN')} for ${coachName} processed successfully!`);
-      setProcessSalaryOpen(false);
+    } catch (err: any) {
+      alert(err.message || 'Salary processing failed');
     }
   };
 
@@ -529,19 +467,21 @@ export default function CommunityPage() {
       if (attDate) params.date = attDate;
       if (attStatus !== 'All') params.status = attStatus;
       const res = await getProgramAttendance(pid, params);
-      if (res.data?.length) {
-        setAttendanceRecords(res.data);
-      } else {
-        setAttendanceRecords([
-          { id: 'ATT1', coachName: 'Rajesh Kumar', date: new Date().toISOString().split('T')[0], status: 'completed', checkIn: '06:00 AM', checkOut: '07:30 AM' },
-          { id: 'ATT2', coachName: 'Rajesh Kumar', date: '2026-09-10', status: 'started', checkIn: '06:02 AM', checkOut: '—' }
-        ]);
+      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const seen = new Set<string>();
+      const unique: any[] = [];
+      for (const a of raw) {
+        const id = a.id || a._id;
+        if (id && !seen.has(String(id))) {
+          seen.add(String(id));
+          unique.push(a);
+        } else if (!id) {
+          unique.push(a);
+        }
       }
+      setAttendanceRecords(unique);
     } catch {
-      setAttendanceRecords([
-        { id: 'ATT1', coachName: 'Rajesh Kumar', date: new Date().toISOString().split('T')[0], status: 'completed', checkIn: '06:00 AM', checkOut: '07:30 AM' },
-        { id: 'ATT2', coachName: 'Rajesh Kumar', date: '2026-09-10', status: 'started', checkIn: '06:02 AM', checkOut: '—' }
-      ]);
+      setAttendanceRecords([]);
     } finally { setLoadingAttendance(false); }
   }, [attDate, attStatus]);
 
@@ -820,16 +760,8 @@ export default function CommunityPage() {
         }));
       }
       alert('Player enrolled successfully!');
-    } catch {
-      // Mock demonstration fallback since direct admin subscription endpoints
-      // might be restricted or require customer context.
-      if (matchedCustomer) {
-        setSubscribersMap(prev => ({
-          ...prev,
-          [enrollProgramId]: [...(prev[enrollProgramId] || []), matchedCustomer]
-        }));
-      }
-      alert('Player enrolled successfully! (Demonstration Mode)');
+    } catch (err: any) {
+      alert(err.message || 'Player enrollment failed');
     }
     setEnrollPlayerOpen(false);
   };
@@ -863,13 +795,13 @@ export default function CommunityPage() {
   };
 
   return (
-    <div className="flex flex-col gap-5 p-5">
+    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
       {/* Premium Tabs */}
-      <div className="flex border-b border-[#2e3139] mb-1 flex-wrap">
+      <div className="flex border-b border-[#2e3139] mb-1 overflow-x-auto min-w-0">
         <button
           onClick={() => setActiveTab('feed')}
           className={clsx(
-            'px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer',
+            'px-3 sm:px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer whitespace-nowrap',
             activeTab === 'feed'
               ? 'border-[#F05A22] text-[#F05A22]'
               : 'border-transparent text-[#5c6370] hover:text-white'
@@ -880,7 +812,7 @@ export default function CommunityPage() {
         <button
           onClick={() => setActiveTab('centers')}
           className={clsx(
-            'px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer',
+            'px-3 sm:px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer whitespace-nowrap',
             activeTab === 'centers'
               ? 'border-[#F05A22] text-[#F05A22]'
               : 'border-transparent text-[#5c6370] hover:text-white'
@@ -891,7 +823,7 @@ export default function CommunityPage() {
         <button
           onClick={() => setActiveTab('salary')}
           className={clsx(
-            'px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer',
+            'px-3 sm:px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer whitespace-nowrap',
             activeTab === 'salary'
               ? 'border-[#F05A22] text-[#F05A22]'
               : 'border-transparent text-[#5c6370] hover:text-white'
@@ -902,7 +834,7 @@ export default function CommunityPage() {
         <button
           onClick={() => setActiveTab('attendance')}
           className={clsx(
-            'px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer',
+            'px-3 sm:px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer whitespace-nowrap',
             activeTab === 'attendance'
               ? 'border-[#F05A22] text-[#F05A22]'
               : 'border-transparent text-[#5c6370] hover:text-white'
@@ -915,7 +847,7 @@ export default function CommunityPage() {
       {/* ── TAB 1: MODERATION FEED ───────────────────────────────────────────── */}
       {activeTab === 'feed' && (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Total Posts" value={String(postsStats.total)}   icon={<MessageSquare className="h-4 w-4 text-[#F05A22]" />} iconBg="bg-[#F05A22]/10" />
             <StatCard label="Active"      value={String(postsStats.active)}  icon={<Users className="h-4 w-4 text-emerald-400" />}      iconBg="bg-emerald-400/10" />
             <StatCard label="Flagged"     value={String(postsStats.flagged)} icon={<Flag className="h-4 w-4 text-amber-400" />}         iconBg="bg-amber-400/10" />
@@ -960,15 +892,15 @@ export default function CommunityPage() {
                       return (
                         <Tr key={id}>
                           <Td>
-                            <div className="flex items-center gap-2">
-                              <Avatar initials={(p.authorName || 'U').split(' ').map(n => n[0]).join('').slice(0, 2)} size={28} />
-                              <div>
-                                <p className="text-xs font-medium text-white">{p.authorName}</p>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Avatar initials={(p.authorName || 'U').split(' ').map(n => n[0]).join('').slice(0, 2)} size={28} className="flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-white truncate max-w-[120px]" title={p.authorName}>{p.authorName}</p>
                                 <p className="text-[10px] text-[#5c6370]">{p.authorModel || 'User'}</p>
                               </div>
                             </div>
                           </Td>
-                          <Td><p className="max-w-[220px] truncate text-xs text-[#9ba3af]">{p.text}</p></Td>
+                          <Td><p className="max-w-[220px] truncate text-xs text-[#9ba3af]" title={p.text}>{p.text}</p></Td>
                           <Td>{p.sport ? <Badge className="badge-blue">{p.sport}</Badge> : <span className="text-[#5c6370]">—</span>}</Td>
                           <Td><span className="text-sm text-white">{p.likes || 0}</span></Td>
                           <Td><Badge className={POST_STATUS_MAP[p.status] || 'badge-gray'}>{p.status}</Badge></Td>

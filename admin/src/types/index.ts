@@ -80,6 +80,8 @@ export interface Customer {
   firstName: string;
   lastName:  string;
   email:     string;
+  emailId?:  string;
+  mailId?:   string;
   phone:     string;
   role:      'individual'|'parent';
   children:  number;
@@ -101,6 +103,8 @@ export interface Coach {
   id: string;
   name:     string;
   email:    string;
+  emailId?: string;
+  mailId?:  string;
   phone:    string;
   phoneNumber?: string;
   mobile?:  string;
@@ -125,6 +129,10 @@ export interface Coach {
   availability?: AvailabilitySlot[];
   requestedIndividualPrice?: number;
   requestedGroupPricePerPerson?: number;
+  requestedIndividualFee?: number;
+  requestedGroupFee?: number;
+  requestedPrice?: number;
+  requestedGroupPrice?: number;
   individualPrice?: number;
   groupPricePerPerson?: number;
   fee?:          number;

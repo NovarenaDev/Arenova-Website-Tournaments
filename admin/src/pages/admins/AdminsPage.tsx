@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { UserPlus, Shield, Trash2, Pencil, Eye } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button, SearchBar, Modal, Input, Select, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, ConfirmDialog, DetailRow } from '../../components/ui';
-import { getAdmins, createAdmin, updateAdmin, deleteAdmin, resetAdminPassword } from '../../api';
+import { getAdmins, createAdmin, updateAdmin, deleteAdmin, resetAdminPassword, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import type { AdminRole, AdminUser } from '../../types';
 import { ROLE_LABELS, ROLE_COLORS, ROLE_PERMISSIONS } from '../../types';
@@ -106,13 +106,29 @@ export default function AdminsPage() {
   const load = useCallback(async () => {
     try {
       const res = await getAdmins();
-      setAdmins(res.data || []);
+      const raw = extractDataList<AdminUser>(res);
+      const seen = new Set<string>();
+      const unique: AdminUser[] = [];
+      for (const a of raw) {
+        const id = a.id || (a as any)._id;
+        if (id && !seen.has(String(id))) {
+          seen.add(String(id));
+          unique.push(a);
+        } else if (!id) {
+          unique.push(a);
+        }
+      }
+      setAdmins(unique);
+    } catch (e: any) {
+      console.warn('Failed to load admins:', e?.message || e);
+      setAdmins([]);
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = admins.filter(a =>
+  const adminList = Array.isArray(admins) ? admins : [];
+  const filtered = adminList.filter(a =>
     search === '' || `${a.firstName} ${a.lastName} ${a.email} ${a.role}`.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -142,8 +158,8 @@ export default function AdminsPage() {
   const stats = { total: admins.length, active: admins.filter(a => a.isActive).length, roles: new Set(admins.map(a => a.role)).size };
 
   return (
-    <div className="flex flex-col gap-5 p-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <StatCard label="Total Admins" value={String(stats.total)}  icon={<Shield className="h-4 w-4 text-[#F05A22]" />} iconBg="bg-[#F05A22]/10" />
         <StatCard label="Active"       value={String(stats.active)} icon={<Shield className="h-4 w-4 text-emerald-400" />} iconBg="bg-emerald-400/10" />
         <StatCard label="Roles Used"   value={String(stats.roles)}  icon={<UserPlus className="h-4 w-4 text-blue-400" />}  iconBg="bg-blue-400/10" />
@@ -152,10 +168,10 @@ export default function AdminsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Admins ({filtered.length})</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
             <SearchBar value={search} onChange={setSearch} placeholder="Search admins..." />
             {can('admins_write') && (
-              <Button variant="primary" className="h-8 gap-1.5" onClick={() => { setEditA(null); setFormOpen(true); }}>
+              <Button variant="primary" className="h-8 gap-1.5 flex-shrink-0" onClick={() => { setEditA(null); setFormOpen(true); }}>
                 <UserPlus className="h-3.5 w-3.5" /> Add Admin
               </Button>
             )}
@@ -171,21 +187,21 @@ export default function AdminsPage() {
                   {filtered.map(a => (
                     <Tr key={a.id}>
                       <Td>
-                        <div className="flex items-center gap-2.5">
-                          <Avatar initials={`${a.firstName[0]}${a.lastName[0]}`} size={34} />
-                          <div>
-                            <p className="text-sm font-medium text-white">{a.firstName} {a.lastName}</p>
-                            <p className="text-[11px] text-[#5c6370]">{a.email}</p>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Avatar initials={`${a.firstName[0]}${a.lastName[0]}`} size={34} className="flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-white truncate max-w-[150px]">{a.firstName} {a.lastName}</p>
+                            <p className="text-[11px] text-[#5c6370] truncate max-w-[150px]">{a.email}</p>
                           </div>
                         </div>
                       </Td>
                       <Td><Badge className={ROLE_COLORS[a.role]}>{ROLE_LABELS[a.role]}</Badge></Td>
                       <Td><Badge className={a.isActive ? 'badge-green' : 'badge-gray'}>{a.isActive ? 'Active' : 'Inactive'}</Badge></Td>
-                      <Td className="text-xs text-[#5c6370]">{a.createdAt}</Td>
-                      <Td className="text-xs text-[#5c6370]">{a.lastLogin ? new Date(a.lastLogin).toLocaleDateString('en-IN') : '—'}</Td>
+                      <Td className="text-xs text-[#5c6370] whitespace-nowrap">{a.createdAt}</Td>
+                      <Td className="text-xs text-[#5c6370] whitespace-nowrap">{a.lastLogin ? new Date(a.lastLogin).toLocaleDateString('en-IN') : '—'}</Td>
                       {can('admins_write') && (
                         <Td>
-                          <div className="flex gap-1.5">
+                          <div className="flex gap-1.5 whitespace-nowrap">
                             <button onClick={() => setViewA(a)} className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a]"><Eye className="h-3.5 w-3.5" /></button>
                             {a.id !== currentAdmin?.id && a.role !== 'super_admin' && (
                               <>

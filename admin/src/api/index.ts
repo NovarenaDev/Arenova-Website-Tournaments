@@ -1,5 +1,7 @@
-import { get, post, put, del, getAdminToken, apiRequest } from './client';
+import { get, post, put, del, getAdminToken, apiRequest, extractDataList } from './client';
 import { BASE_URL } from './client';
+
+export { extractDataList };
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export const adminLogin = (email: string, password: string) =>
@@ -29,6 +31,28 @@ export const getAdminCoach = (id: string) => get(`/admin/coaches/${id}`);
 export const updateAdminCoach = (id: string, data: any) => put(`/admin/coaches/${id}`, data);
 export const approveKyc = (id: string, individualPrice: number, groupPricePerPerson: number) =>
   put(`/admin/coaches/${id}/kyc/approve`, { individualPrice, groupPricePerPerson });
+export const updateCoachPricing = async (id: string, individualPrice: number, groupPricePerPerson: number) => {
+  let res: any = null;
+  try {
+    res = await put(`/admin/coaches/${id}/kyc/approve`, { individualPrice, groupPricePerPerson });
+  } catch {
+    // If coach is already approved or not in pending state, fall back to updateAdminCoach
+    res = await put(`/admin/coaches/${id}`, {
+      individualPrice,
+      groupPricePerPerson,
+      requestedIndividualPrice: individualPrice,
+      requestedGroupPricePerPerson: groupPricePerPerson,
+      pricing: { individualPrice, groupPricePerPerson }
+    });
+  }
+  // Also sync on updateAdminCoach to guarantee persistence across all backend document models
+  await put(`/admin/coaches/${id}`, {
+    individualPrice,
+    groupPricePerPerson,
+    pricing: { individualPrice, groupPricePerPerson }
+  }).catch(() => {});
+  return res;
+};
 export const rejectKyc  = (id: string, reason: string) =>
   put(`/admin/coaches/${id}/kyc/reject`, { kycNote: reason });
 export const banCoach   = (id: string, reason: string) =>
@@ -63,6 +87,7 @@ export const deleteSport     = (id: string) => del(`/admin/sports/${id}`);
 
 // ── Tournaments ───────────────────────────────────────────────────────────────
 export const getTournamentOptions = () => get('/novare/tournaments/options');
+export const getPublicTournaments = () => get('/novare/tournaments');
 
 export const getAdminTournaments = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
@@ -231,7 +256,8 @@ export const rejectWithdrawal = (id: string, remarks?: string) =>
   put(`/admin/withdrawals/${id}/reject`, { remarks });
 
 // ── User Notifications ────────────────────────────────────────────────────────
-export const getMyNotifications = () => get('/notifications');
+export const getMyNotifications = () =>
+  get('/admin/notifications').catch(() => get('/notifications')).catch(() => ({ data: [] }));
 export const markNotificationRead = (id: string) => put(`/notifications/${id}/read`, {});
 export const markAllNotificationsRead = () => put('/notifications/read-all', {});
 export const deleteNotification = (id: string) => del(`/notifications/${id}`);

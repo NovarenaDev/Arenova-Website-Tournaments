@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Sidebar } from './Sidebar';
@@ -8,6 +8,17 @@ import type { Permission } from '../../types';
 export function Layout() {
   const { admin, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
+
+  useEffect(() => {
+    const handler = () => {
+      setRateLimited(true);
+      const timer = setTimeout(() => setRateLimited(false), 8000);
+      return () => clearTimeout(timer);
+    };
+    window.addEventListener('api:ratelimit', handler);
+    return () => window.removeEventListener('api:ratelimit', handler);
+  }, []);
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-[#0e0f11]"><div className="h-8 w-8 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" /></div>;
   if (!admin)  return <Navigate to="/login" replace />;
@@ -25,10 +36,16 @@ export function Layout() {
       {/* Responsive Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* Header with hamburger toggle */}
         <Header onMenuClick={() => setSidebarOpen(prev => !prev)} />
-        <main className="flex-1 overflow-y-auto bg-gray-50"><Outlet /></main>
+        {rateLimited && (
+          <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2.5 text-xs text-amber-300 flex items-center justify-between">
+            <span>⚠️ <strong>Server Rate Limit Active (HTTP 429)</strong>: The remote server is temporarily throttling requests from this IP. Please pause for 1-2 minutes for the window to reset.</span>
+            <button onClick={() => setRateLimited(false)} className="text-amber-400 font-bold ml-2 hover:text-white">✕</button>
+          </div>
+        )}
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-gray-50"><Outlet /></main>
       </div>
     </div>
   );

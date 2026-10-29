@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CalendarDays, CheckCircle, Clock, XCircle, AlertTriangle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState } from '../../components/ui';
-import { getAdminBookings, updateBookingStatus } from '../../api';
+import { getAdminBookings, updateBookingStatus, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Booking, BookingStatus } from '../../types';
 
@@ -66,10 +66,21 @@ export default function BookingsPage() {
   const load = useCallback(async () => {
     try {
       const res = await getAdminBookings({ limit: 200 });
-      const rawData = res.data || res || [];
-      setBookings(Array.isArray(rawData) ? rawData : []);
-    } catch (e) {
-      console.error('Failed to load bookings:', e);
+      const rawData = extractDataList<Booking>(res);
+      const seen = new Set<string>();
+      const unique: Booking[] = [];
+      for (const b of rawData) {
+        const id = b.id || (b as any)._id;
+        if (id && !seen.has(String(id))) {
+          seen.add(String(id));
+          unique.push(b);
+        } else if (!id) {
+          unique.push(b);
+        }
+      }
+      setBookings(unique);
+    } catch (e: any) {
+      console.warn('Failed to load bookings:', e?.message || e);
       setBookings([]);
     } finally { setLoading(false); }
   }, []);
@@ -108,8 +119,8 @@ export default function BookingsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-5 p-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total"     value={String(stats.total)}     icon={<CalendarDays className="h-4 w-4 text-[#F05A22]"/>}     iconBg="bg-[#F05A22]/10" />
         <StatCard label="Pending"   value={String(stats.pending)}   icon={<Clock className="h-4 w-4 text-amber-400"/>}            iconBg="bg-amber-400/10" />
         <StatCard label="Completed" value={String(stats.completed)} icon={<CheckCircle className="h-4 w-4 text-emerald-400"/>}    iconBg="bg-emerald-400/10" />
@@ -163,17 +174,17 @@ export default function BookingsPage() {
                   return (
                     <Tr key={bId || Math.random()}>
                       <Td><span className="text-[11px] font-mono text-[#5c6370]">#{bId ? bId.slice(-6).toUpperCase() : 'N/A'}</span></Td>
-                      <Td><span className="text-sm text-white font-medium">{userName}</span></Td>
-                      <Td><span className="text-sm text-white">{coachName}</span></Td>
+                      <Td><span className="text-sm text-white font-medium truncate max-w-[130px] block" title={userName}>{userName}</span></Td>
+                      <Td><span className="text-sm text-white truncate max-w-[130px] block" title={coachName}>{coachName}</span></Td>
                       <Td><Badge className="badge-blue">{sportName}</Badge></Td>
-                      <Td><span className="text-xs text-[#9ba3af]">{b.date || '—'} {b.time || ''}</span></Td>
-                      <Td><span className="text-xs text-[#9ba3af]">{locName}</span></Td>
+                      <Td><span className="text-xs text-[#9ba3af] whitespace-nowrap">{b.date || '—'} {b.time || ''}</span></Td>
+                      <Td><span className="text-xs text-[#9ba3af] truncate max-w-[130px] block" title={locName}>{locName}</span></Td>
                       <Td><span className="text-sm font-medium text-emerald-400">₹{amount}</span></Td>
                       <Td><Badge className={STATUS_MAP[statusStr] || 'badge-gray'}>{statusStr.replace('_', ' ')}</Badge></Td>
                       {can('bookings_write') && (
                         <Td>
                           {statusStr === 'requested' && (
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 whitespace-nowrap">
                               <Button variant="primary" className="h-6 text-[10px] px-2"
                                 onClick={() => handleStatus(bId, 'confirmed')}>Confirm</Button>
                               <Button variant="danger" className="h-6 text-[10px] px-2"
@@ -181,8 +192,10 @@ export default function BookingsPage() {
                             </div>
                           )}
                           {statusStr === 'confirmed' && (
-                            <Button variant="primary" className="h-6 text-[10px] px-2"
-                              onClick={() => handleStatus(bId, 'completed')}>Mark Done</Button>
+                            <div className="whitespace-nowrap">
+                              <Button variant="primary" className="h-6 text-[10px] px-2"
+                                onClick={() => handleStatus(bId, 'completed')}>Mark Done</Button>
+                            </div>
                           )}
                         </Td>
                       )}

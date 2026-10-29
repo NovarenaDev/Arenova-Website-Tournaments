@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Medal, Plus, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Input } from '../../components/ui';
-import { getAdminSports, createSport, updateSport, deleteSport, uploadImage } from '../../api';
+import { getAdminSports, createSport, updateSport, deleteSport, uploadImage, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Sport } from '../../types';
 
@@ -25,11 +25,28 @@ export default function SportsPage() {
   const load = useCallback(async () => {
     try {
       const res = await getAdminSports();
-      setSports(res.data || []);
+      const raw = extractDataList<Sport>(res);
+      const seen = new Set<string>();
+      const unique: Sport[] = [];
+      for (const s of raw) {
+        const id = s.id || (s as any)._id;
+        if (id && !seen.has(String(id))) {
+          seen.add(String(id));
+          unique.push(s);
+        } else if (!id) {
+          unique.push(s);
+        }
+      }
+      setSports(unique);
+    } catch (e: any) {
+      console.warn('Failed to load sports:', e?.message || e);
+      setSports([]);
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const sportsList = Array.isArray(sports) ? sports : [];
 
   const openCreate = () => { setEditing(null); setForm({ name: '', emoji: '', status: 'active', image: '' }); setModalOpen(true); };
   const openEdit   = (s: Sport) => { setEditing(s); setForm({ name: s.name, emoji: s.emoji, status: s.status, image: s.image || '' }); setModalOpen(true); };
@@ -73,26 +90,26 @@ export default function SportsPage() {
     finally { setToDelete(null); }
   };
 
-  const filtered = sports.filter(s =>
+  const filtered = sportsList.filter(s =>
     search === '' || s.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <div className="flex flex-col gap-5 p-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Total Sports"   value={String(sports.length)}                               icon={<Medal className="h-4 w-4 text-[#F05A22]"/>} iconBg="bg-[#F05A22]/10" />
-        <StatCard label="Active"         value={String(sports.filter(s => s.status === 'active').length)} icon={<Medal className="h-4 w-4 text-emerald-400"/>} iconBg="bg-emerald-400/10" />
-        <StatCard label="Total Bookings" value={String(sports.reduce((a, s) => a + (s.bookings || 0), 0))} icon={<Medal className="h-4 w-4 text-blue-400"/>} iconBg="bg-blue-400/10" />
-        <StatCard label="Total Revenue"  value={`₹${(sports.reduce((a, s) => a + (s.revenue || 0), 0) / 1000).toFixed(0)}K`} icon={<Medal className="h-4 w-4 text-amber-400"/>} iconBg="bg-amber-400/10" />
+    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Total Sports"   value={String(sportsList.length)}                               icon={<Medal className="h-4 w-4 text-[#F05A22]"/>} iconBg="bg-[#F05A22]/10" />
+        <StatCard label="Active"         value={String(sportsList.filter(s => s.status === 'active').length)} icon={<Medal className="h-4 w-4 text-emerald-400"/>} iconBg="bg-emerald-400/10" />
+        <StatCard label="Total Bookings" value={String(sportsList.reduce((a, s) => a + (s.bookings || 0), 0))} icon={<Medal className="h-4 w-4 text-blue-400"/>} iconBg="bg-blue-400/10" />
+        <StatCard label="Total Revenue"  value={`₹${(sportsList.reduce((a, s) => a + (s.revenue || 0), 0) / 1000).toFixed(0)}K`} icon={<Medal className="h-4 w-4 text-amber-400"/>} iconBg="bg-amber-400/10" />
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Sports ({filtered.length})</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
             <SearchBar value={search} onChange={setSearch} placeholder="Search sports..." />
             {can('sports_write') && (
-              <Button variant="primary" className="h-8 gap-1.5" onClick={openCreate}>
+              <Button variant="primary" className="h-8 gap-1.5 flex-shrink-0" onClick={openCreate}>
                 <Plus className="h-3.5 w-3.5" /> Add Sport
               </Button>
             )}

@@ -12,41 +12,47 @@ export function Card({ className, children }: { className?: string; children: Re
   return <div className={clsx('card', className)}>{children}</div>;
 }
 export function CardHeader({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={clsx('flex items-center justify-between px-5 pt-5 pb-3', className)}>{children}</div>;
+  return <div className={clsx('flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 pt-4 sm:pt-5 pb-3 min-w-0', className)}>{children}</div>;
 }
 export function CardTitle({ children, className }: { children: ReactNode; className?: string }) {
-  return <h3 className={clsx('text-sm font-semibold text-white', className)}>{children}</h3>;
+  return <h3 className={clsx('text-sm font-semibold text-white truncate min-w-0', className)}>{children}</h3>;
 }
 export function CardContent({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={clsx('px-5 pb-5', className)}>{children}</div>;
+  return <div className={clsx('px-4 sm:px-5 pb-4 sm:pb-5 min-w-0', className)}>{children}</div>;
 }
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
 interface StatCardProps { label: string; value: string; sub?: string; subColor?: string; icon: ReactNode; iconBg?: string; }
 export function StatCard({ label, value, sub, subColor = 'text-emerald-400', icon, iconBg = 'bg-emerald-500/10' }: StatCardProps) {
   return (
-    <div className="stat-card">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5c6370]">{label}</p>
-          <p className="mt-1.5 text-2xl font-bold tracking-tight text-white">{value}</p>
-          {sub && <p className={clsx('mt-1 text-[11px]', subColor)}>{sub}</p>}
+    <div className="stat-card min-w-0 w-full overflow-hidden">
+      <div className="flex items-start justify-between gap-2 min-w-0">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5c6370] truncate">{label}</p>
+          <p className="mt-1.5 text-xl sm:text-2xl font-bold tracking-tight text-white truncate">{value}</p>
+          {sub && <p className={clsx('mt-1 text-[11px] truncate', subColor)}>{sub}</p>}
         </div>
-        <div className={clsx('rounded-lg p-2', iconBg)}>{icon}</div>
+        <div className={clsx('rounded-lg p-2 flex-shrink-0', iconBg)}>{icon}</div>
       </div>
     </div>
   );
 }
 
 // ── Table ─────────────────────────────────────────────────────────────────────
-export function Table({ children }: { children: ReactNode }) { return <table className="w-full border-collapse text-[12px]">{children}</table>; }
+export function Table({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className="w-full overflow-x-auto min-w-0">
+      <table className={clsx('w-full border-collapse text-[12px] min-w-[550px]', className)}>{children}</table>
+    </div>
+  );
+}
 export function Thead({ children }: { children: ReactNode }) { return <thead>{children}</thead>; }
 export function Tbody({ children }: { children: ReactNode }) { return <tbody>{children}</tbody>; }
-export function Th({ children, className }: { children?: ReactNode; className?: string }) {
-  return <th className={clsx('px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-[#5c6370]', className)}>{children}</th>;
+export function Th({ children, className, title }: { children?: ReactNode; className?: string; title?: string }) {
+  return <th title={title} className={clsx('px-3 sm:px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-[#5c6370] whitespace-nowrap', className)}>{children}</th>;
 }
-export function Td({ children, className, colSpan, onClick }: { children: ReactNode; className?: string; colSpan?: number; onClick?: (e: React.MouseEvent<HTMLTableCellElement>) => void }) {
-  return <td colSpan={colSpan} onClick={onClick} className={clsx('px-4 py-3 text-white', className)}>{children}</td>;
+export function Td({ children, className, colSpan, onClick, title }: { children: ReactNode; className?: string; colSpan?: number; onClick?: (e: React.MouseEvent<HTMLTableCellElement>) => void; title?: string }) {
+  return <td title={title} colSpan={colSpan} onClick={onClick} className={clsx('px-3 sm:px-4 py-3 text-white', className)}>{children}</td>;
 }
 export function Tr({ children, className, onClick }: { children: ReactNode; className?: string; onClick?: (e: React.MouseEvent<HTMLTableRowElement>) => void }) {
   return <tr onClick={onClick} className={clsx('table-row last:border-0', className)}>{children}</tr>;
@@ -127,17 +133,17 @@ export function Modal({ open, onClose, title, children, size = 'md' }: { open: b
   if (!open) return null;
   const widths = { sm:'max-w-md', md:'max-w-lg', lg:'max-w-2xl', xl:'max-w-4xl' };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div className={clsx('relative w-full bg-[#141518] border border-[#2e3139] rounded-2xl shadow-2xl max-h-[90vh] flex flex-col', widths[size])}
+      <div className={clsx('relative w-full max-w-[calc(100vw-1rem)] bg-[#141518] border border-[#2e3139] rounded-2xl shadow-2xl max-h-[92vh] flex flex-col', widths[size])}
         onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2e3139] flex-shrink-0">
-          <h2 className="text-base font-semibold text-white">{title}</h2>
-          <button onClick={onClose} className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:bg-[#21242a] hover:text-white transition-colors">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#2e3139] flex-shrink-0">
+          <h2 className="text-base font-semibold text-white truncate min-w-0 pr-2">{title}</h2>
+          <button onClick={onClose} className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-lg text-[#5c6370] hover:bg-[#21242a] hover:text-white transition-colors cursor-pointer">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 px-6 py-5">{children}</div>
+        <div className="overflow-y-auto flex-1 px-4 sm:px-6 py-4 sm:py-5 min-w-0">{children}</div>
       </div>
     </div>
   );
@@ -148,16 +154,16 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
   { open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmLabel?: string; danger?: boolean }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm bg-[#141518] border border-[#2e3139] rounded-2xl shadow-2xl p-6">
+      <div className="relative w-full max-w-sm bg-[#141518] border border-[#2e3139] rounded-2xl shadow-2xl p-5 sm:p-6">
         <div className="flex items-start gap-3 mb-4">
           <div className={clsx('flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full', danger ? 'bg-red-500/10' : 'bg-amber-500/10')}>
             <AlertTriangle className={clsx('h-5 w-5', danger ? 'text-red-400' : 'text-amber-400')} />
           </div>
-          <div>
-            <h3 className="font-semibold text-white text-sm">{title}</h3>
-            <p className="text-xs text-[#9ba3af] mt-1 leading-relaxed">{message}</p>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-white text-sm truncate">{title}</h3>
+            <p className="text-xs text-[#9ba3af] mt-1 leading-relaxed break-words">{message}</p>
           </div>
         </div>
         <div className="flex justify-end gap-2">
@@ -170,12 +176,12 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
 }
 
 // ── Search Bar ────────────────────────────────────────────────────────────────
-export function SearchBar({ value, onChange, placeholder = 'Search...' }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+export function SearchBar({ value, onChange, placeholder = 'Search...', className }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
   return (
-    <div className="relative">
+    <div className={clsx("relative w-full sm:w-56 min-w-0 flex-shrink", className)}>
       <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#5c6370]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
       <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
-        className="h-8 w-52 rounded-lg border border-[#2e3139] bg-[#1a1c20] pl-8 pr-3 text-[12px] text-white placeholder-[#5c6370] focus:outline-none focus:border-[#F05A22] transition-colors"/>
+        className="h-8 w-full rounded-lg border border-[#2e3139] bg-[#1a1c20] pl-8 pr-3 text-[12px] text-white placeholder-[#5c6370] focus:outline-none focus:border-[#F05A22] transition-colors"/>
     </div>
   );
 }
@@ -232,8 +238,8 @@ export function EmptyState({ emoji, icon, text, title }: { emoji?: string; icon?
 // ── Section Header ────────────────────────────────────────────────────────────
 export function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
-    <div className="flex items-center justify-between mb-4">
-      <h2 className="text-base font-semibold text-white">{title}</h2>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 min-w-0">
+      <h2 className="text-base font-semibold text-white truncate min-w-0">{title}</h2>
       {action}
     </div>
   );
@@ -242,9 +248,9 @@ export function SectionHeader({ title, action }: { title: string; action?: React
 // ── Detail Row (for view modals) ──────────────────────────────────────────────
 export function DetailRow({ label, value, className }: { label: string; value: ReactNode; className?: string }) {
   return (
-    <div className={clsx('flex flex-col gap-0.5', className)}>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#5c6370]">{label}</p>
-      <div className="text-sm text-white">{value}</div>
+    <div className={clsx('flex flex-col gap-0.5 min-w-0', className)}>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#5c6370] truncate">{label}</p>
+      <div className="text-sm text-white break-words min-w-0">{value}</div>
     </div>
   );
 }

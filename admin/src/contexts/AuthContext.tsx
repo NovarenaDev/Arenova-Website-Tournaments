@@ -19,30 +19,42 @@ const TOKEN_KEY = 'kridext_admin_token';
 const USER_KEY  = 'kridext_admin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [admin, setAdmin]     = useState<AdminUser | null>(null);
+  const [admin, setAdmin] = useState<AdminUser | null>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(USER_KEY);
+      if (stored) {
+        try { return JSON.parse(stored); } catch {}
+      }
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
 
   // Restore session on mount
   useEffect(() => {
     const restore = async () => {
-      const token  = localStorage.getItem(TOKEN_KEY);
+      const token = localStorage.getItem(TOKEN_KEY);
       const stored = localStorage.getItem(USER_KEY);
-      if (token && stored) {
+      if (token) {
+        setAdminToken(token);
+        if (stored) {
+          try { setAdmin(JSON.parse(stored)); } catch {}
+        }
         try {
-          setAdminToken(token);
-          // Try to refresh admin data from API; fall back to cached if offline
-          try {
-            const res = await adminGetMe();
-            const adminData = res.data;
+          const res = await adminGetMe();
+          const adminData = res?.data || res;
+          if (adminData && (adminData.id || adminData._id || adminData.email)) {
             setAdmin(adminData);
             localStorage.setItem(USER_KEY, JSON.stringify(adminData));
-          } catch {
-            // API unreachable – use cached
-            setAdmin(JSON.parse(stored));
           }
-        } catch {
-          localStorage.removeItem(TOKEN_KEY);
-          localStorage.removeItem(USER_KEY);
+        } catch (err: any) {
+          console.warn('Session check warning:', err?.message || err);
+          if (err?.status === 401) {
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(USER_KEY);
+            setAdmin(null);
+            setAdminToken(null);
+          }
         }
       }
       setLoading(false);

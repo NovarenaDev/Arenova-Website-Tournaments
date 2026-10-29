@@ -20,7 +20,7 @@ import SettingsPage     from './pages/settings/SettingsPage';
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter basename="/admin">
+      <BrowserRouter basename="/admin" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />

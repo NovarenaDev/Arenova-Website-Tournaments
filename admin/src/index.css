@@ -4,6 +4,10 @@
 
 @layer base {
   * { box-sizing: border-box; }
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
   body {
     font-family: 'Inter', system-ui, sans-serif;
     background: #f9fafb !important;
@@ -19,7 +23,7 @@
   .sidebar-item { @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 cursor-pointer; }
   .sidebar-item-active { @apply bg-[#F05A22]/10 text-[#F05A22] !important; }
   .sidebar-item-inactive { @apply text-[#4b5563] hover:bg-[#f3f4f6] hover:text-[#111827] !important; }
-  .stat-card { @apply bg-white border border-[#e5e7eb] rounded-xl p-5 shadow-sm text-[#111827] !important; }
+  .stat-card { @apply bg-white border border-[#e5e7eb] rounded-xl p-3.5 sm:p-5 shadow-sm text-[#111827] !important; }
   .table-row { @apply border-b border-[#e5e7eb] hover:bg-[#f9fafb] transition-colors !important; }
   .badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border; }
   .badge-green  { @apply bg-emerald-500/10 text-emerald-600 border-emerald-500/25; }
