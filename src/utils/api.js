@@ -123,7 +123,13 @@ if (typeof window !== 'undefined') {
 // Helper for fetch with Authorization headers and user-friendly error formatting
 const request = async (endpoint, options = {}) => {
   const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
-  const isPublicAuthEndpoint = endpoint.includes('/auth/send-otp') || endpoint.includes('/auth/verify-otp') || endpoint.includes('/auth/register') || endpoint.includes('/auth/verify-email-otp');
+  const isPublicAuthEndpoint =
+    endpoint.includes('/auth/send-otp') ||
+    endpoint.includes('/auth/verify-otp') ||
+    endpoint.includes('/auth/coach/send-otp') ||
+    endpoint.includes('/auth/coach/verify-otp') ||
+    endpoint.includes('/auth/register') ||
+    endpoint.includes('/auth/verify-email-otp');
   
   const method = (options.method || 'GET').toUpperCase();
   const hasBody = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
@@ -268,20 +274,78 @@ export const api = {
     return data;
   },
 
-  sendPhoneOtp: async (phone) => {
+  // Phone Authentication: Player / Parent (with purpose: "register" | "login")
+  sendPhoneOtp: async (phoneOrPayload, purposeParam = 'login') => {
+    let phone, purpose;
+    if (typeof phoneOrPayload === 'object' && phoneOrPayload !== null) {
+      phone = String(phoneOrPayload.phone).trim();
+      purpose = phoneOrPayload.purpose || 'login';
+    } else {
+      phone = String(phoneOrPayload).trim();
+      purpose = purposeParam || 'login';
+    }
+
     return request('/api/auth/send-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ phone, purpose }),
     });
   },
 
   verifyPhoneOtp: async (payload) => {
-    // payload: { phone, otp } OR { phone, otp, firstName, lastName, role }
+    // payload: { phone, otp, purpose, firstName, lastName, role }
+    const purpose = payload.purpose || 'login';
+    const body = {
+      phone: String(payload.phone).trim(),
+      otp: String(payload.otp).trim(),
+      purpose,
+      ...(payload.firstName ? { firstName: String(payload.firstName).trim() } : {}),
+      ...(payload.lastName ? { lastName: String(payload.lastName).trim() } : {}),
+      ...(payload.role ? { role: String(payload.role).trim() } : {})
+    };
+
     const data = await request('/api/auth/verify-otp', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
-    if (data.success && data.token) {
+    if ((data.success || data.token) && data.token) {
+      setStoredAuth(data.token, data.refreshToken, data.data || {});
+    }
+    return data;
+  },
+
+  // Phone Authentication: Coach (with purpose: "register" | "login")
+  sendCoachOtp: async (phoneOrPayload, purposeParam = 'login') => {
+    let phone, purpose;
+    if (typeof phoneOrPayload === 'object' && phoneOrPayload !== null) {
+      phone = String(phoneOrPayload.phone).trim();
+      purpose = phoneOrPayload.purpose || 'login';
+    } else {
+      phone = String(phoneOrPayload).trim();
+      purpose = purposeParam || 'login';
+    }
+
+    return request('/api/auth/coach/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, purpose }),
+    });
+  },
+
+  verifyCoachOtp: async (payload) => {
+    // payload: { phone, otp, purpose, name, sports }
+    const purpose = payload.purpose || 'login';
+    const body = {
+      phone: String(payload.phone).trim(),
+      otp: String(payload.otp).trim(),
+      purpose,
+      ...(payload.name ? { name: String(payload.name).trim() } : {}),
+      ...(payload.sports ? { sports: Array.isArray(payload.sports) ? payload.sports : [payload.sports] } : {})
+    };
+
+    const data = await request('/api/auth/coach/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    if ((data.success || data.token) && data.token) {
       setStoredAuth(data.token, data.refreshToken, data.data || {});
     }
     return data;

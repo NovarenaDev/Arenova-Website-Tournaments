@@ -285,3 +285,27 @@ export const getAdminTransactions = (params: Record<string, any> = {}) => {
   return get(`/admin/transactions${q ? '?' + q : ''}`);
 };
 
+// ── Activity & Audit Logs ─────────────────────────────────────────────────────
+export const getAuditLogs = (params: Record<string, any> = {}) => {
+  const q = new URLSearchParams();
+  for (const [key, val] of Object.entries(params)) {
+    if (val !== undefined && val !== null && val !== '') {
+      q.append(key, String(val).trim());
+    }
+  }
+  const queryString = q.toString() ? `?${q.toString()}` : '';
+  return get(`/admin/audit-logs${queryString}`);
+};
+
+export const getAuditLogDetail = (id: string) => {
+  return get(`/admin/audit-logs/${id}`);
+};
+
+export const getAuditLogsSummary = (params: { startDate?: string; endDate?: string } = {}) => {
+  const q = new URLSearchParams();
+  if (params.startDate && params.startDate.trim()) q.append('startDate', params.startDate.trim());
+  if (params.endDate && params.endDate.trim()) q.append('endDate', params.endDate.trim());
+  const queryString = q.toString() ? `?${q.toString()}` : '';
+  return get(`/admin/audit-logs/summary${queryString}`);
+};
+

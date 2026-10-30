@@ -12,6 +12,7 @@ import PaymentsPage     from './pages/payments/PaymentsPage';
 import RatingsPage      from './pages/ratings/RatingsPage';
 import SportsPage       from './pages/sports/SportsPage';
 import AdminsPage       from './pages/admins/AdminsPage';
+import AuditLogsPage    from './pages/audit/AuditLogsPage';
 import TournamentsPage  from './pages/tournaments/TournamentsPage';
 import CommunityPage    from './pages/community/CommunityPage';
 import VenuesPage       from './pages/venues/VenuesPage';
@@ -61,6 +62,8 @@ export default function App() {
             <Route element={<ProtectedRoute permission="admins" />}>
               <Route path="/admins" element={<AdminsPage />} />
             </Route>
+
+            <Route path="/audit-logs" element={<AuditLogsPage />} />
 
             <Route path="/settings" element={<SettingsPage />} />
 

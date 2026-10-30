@@ -47,13 +47,14 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
   if (!isOpen) return null;
 
-  // Helper to format 10-digit Indian phone to E.164 (+91XXXXXXXXXX)
+  // Helper to format phone to string (e.g. 10 digits "9000000001")
   const formatPhoneNumber = (raw) => {
+    if (!raw) return '';
     const digits = raw.trim().replace(/\D/g, '');
-    if (digits.length === 10) return `+91${digits}`;
-    if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+    if (digits.length === 10) return digits;
+    if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
     if (raw.startsWith('+')) return raw.trim();
-    return `+91${digits.slice(-10)}`;
+    return digits.length > 10 ? digits.slice(-10) : digits;
   };
 
   const handleModeSwitch = (newMode) => {
@@ -124,7 +125,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           setLoading(false);
         }
       } else {
-        // Phone Registration: Step 1 (Send OTP)
+        // Phone Registration: Step 1 (Send OTP with purpose: "register")
         const cleanPhone = phone.trim().replace(/\D/g, '');
         if (cleanPhone.length < 10) {
           setErrorMsg('Please enter a valid 10-digit mobile number.');
@@ -134,12 +135,20 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         setLoading(true);
         try {
           const formattedPhone = formatPhoneNumber(phone);
-          const res = await api.sendPhoneOtp(formattedPhone);
-          setSuccessMsg(res?.message || 'Verification code sent via SMS.');
-          setAuthStep('otp');
-          setResendTimer(30);
+          const res = await api.sendPhoneOtp({
+            phone: formattedPhone,
+            purpose: 'register'
+          });
+          if (res && res.success !== false) {
+            setSuccessMsg(res?.message || 'Verification code sent via SMS.');
+            setAuthStep('otp');
+            setResendTimer(30);
+          } else {
+            setErrorMsg(res?.message || 'Failed to send OTP.');
+          }
         } catch (err) {
-          setErrorMsg(err.message || 'Failed to send OTP to this phone number.');
+          // Backend returns 409 if number is already registered
+          setErrorMsg(err.message || 'Failed to send OTP. This number may already be registered.');
         } finally {
           setLoading(false);
         }
@@ -170,7 +179,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           setLoading(false);
         }
       } else {
-        // Phone Login: Step 1 (Send OTP)
+        // Phone Login: Step 1 (Send OTP with purpose: "login")
         const cleanPhone = phone.trim().replace(/\D/g, '');
         if (cleanPhone.length < 10) {
           setErrorMsg('Please enter a valid 10-digit mobile number.');
@@ -180,12 +189,20 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         setLoading(true);
         try {
           const formattedPhone = formatPhoneNumber(phone);
-          const res = await api.sendPhoneOtp(formattedPhone);
-          setSuccessMsg(res?.message || 'Verification code sent via SMS.');
-          setAuthStep('otp');
-          setResendTimer(30);
+          const res = await api.sendPhoneOtp({
+            phone: formattedPhone,
+            purpose: 'login'
+          });
+          if (res && res.success !== false) {
+            setSuccessMsg(res?.message || 'Verification code sent via SMS.');
+            setAuthStep('otp');
+            setResendTimer(30);
+          } else {
+            setErrorMsg(res?.message || 'Failed to send OTP.');
+          }
         } catch (err) {
-          setErrorMsg(err.message || 'Failed to send OTP to this phone number.');
+          // An unregistered number returns 404: show backend message and do not navigate to OTP
+          setErrorMsg(err.message || 'Account not found. Please register or check your mobile number.');
         } finally {
           setLoading(false);
         }
@@ -211,22 +228,24 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           // Verify Email OTP
           await api.verifyEmailOtp(email.trim(), cleanOtp);
         } else {
-          // Verify Phone OTP with registration profile payload
+          // Verify Phone OTP with registration profile payload and purpose: "register"
           const formattedPhone = formatPhoneNumber(phone);
           await api.verifyPhoneOtp({
             phone: formattedPhone,
             otp: cleanOtp,
+            purpose: 'register',
             firstName: firstName.trim(),
             lastName: lastName.trim(),
             role
           });
         }
       } else {
-        // Login via Phone: verify phone OTP only
+        // Login via Phone: verify phone OTP with purpose: "login"
         const formattedPhone = formatPhoneNumber(phone);
         await api.verifyPhoneOtp({
           phone: formattedPhone,
-          otp: cleanOtp
+          otp: cleanOtp,
+          purpose: 'login'
         });
       }
 
@@ -261,8 +280,12 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         setSuccessMsg('A new verification code has been sent to your email.');
       } else {
         const formattedPhone = formatPhoneNumber(phone);
-        await api.sendPhoneOtp(formattedPhone);
-        setSuccessMsg('A new verification code has been sent to your phone.');
+        const currentPurpose = authMode === 'register' ? 'register' : 'login';
+        const res = await api.sendPhoneOtp({
+          phone: formattedPhone,
+          purpose: currentPurpose
+        });
+        setSuccessMsg(res?.message || 'A new verification code has been sent to your phone.');
       }
       setResendTimer(30);
     } catch (err) {

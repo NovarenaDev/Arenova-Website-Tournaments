@@ -506,8 +506,15 @@ export async function apiRequest<T = any>(
   }
 
   if (res.status === 403) {
-    alert('Access Restricted: Insufficient admin permissions.');
-    throw new Error('Forbidden');
+    let msg = 'Access Restricted: Insufficient admin permissions.';
+    try {
+      const errData = await res.json();
+      if (errData?.message) msg = errData.message;
+    } catch {}
+    const err: any = new Error(msg);
+    err.status = 403;
+    err.isForbidden = true;
+    throw err;
   }
 
   if (!res.ok) {

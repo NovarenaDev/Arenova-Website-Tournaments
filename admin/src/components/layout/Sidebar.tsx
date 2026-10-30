@@ -4,13 +4,20 @@ import { clsx } from 'clsx';
 import {
   LayoutDashboard, Users, UserCheck, CalendarDays,
   TrendingUp, Star, Trophy, Shield, Settings, LogOut,
-  Medal, MapPin, MessageSquare, Mail
+  Medal, MapPin, MessageSquare, Mail, History
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLE_LABELS, ROLE_COLORS } from '../../types';
 import { Badge } from '../ui';
 
-interface NavItem { href: string; label: string; icon: React.ElementType; permission: string; group?: string; }
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  permission?: string;
+  superAdminOnly?: boolean;
+  group?: string;
+}
 
 const NAV: NavItem[] = [
   { href:'/dashboard',    label:'Dashboard',      icon:LayoutDashboard, permission:'dashboard' },
@@ -19,6 +26,7 @@ const NAV: NavItem[] = [
   { href:'/bookings',     label:'Bookings',       icon:CalendarDays,    permission:'bookings',   group:'Activity' },
   { href:'/payments',     label:'Payments',       icon:TrendingUp,      permission:'payments',   group:'Activity' },
   { href:'/ratings',      label:'Ratings',        icon:Star,            permission:'ratings',    group:'Activity' },
+  { href:'/audit-logs',   label:'Audit Logs',     icon:History,         superAdminOnly:true,     group:'Activity' },
   { href:'/tournaments',  label:'Tournaments',    icon:Medal,           permission:'sports',     group:'Content' },
   { href:'/community',    label:'Community',      icon:MessageSquare,   permission:'sports',     group:'Content' },
   { href:'/venues',       label:'Venues',         icon:MapPin,          permission:'sports',     group:'Content' },
@@ -31,7 +39,12 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
   const location = useLocation();
   const initials = admin ? `${admin.firstName[0]}${admin.lastName[0]}` : 'AD';
 
-  const visibleNav = NAV.filter(n => hasPermission(n.permission as any));
+  const visibleNav = NAV.filter(n => {
+    if (n.superAdminOnly) {
+      return admin?.role === 'super_admin';
+    }
+    return n.permission ? hasPermission(n.permission as any) : true;
+  });
 
   // Group items for section labels
   const groups = ['', 'Users', 'Activity', 'Content'];

@@ -16,6 +16,7 @@ const TITLES: Record<string, string> = {
   '/community':   'Community Centers',
   '/venues':      'Venues',
   '/admins':      'Admin Management',
+  '/audit-logs':  'Admin Activity / Audit Logs',
   '/enquiries':   'Customer Enquiries',
   '/settings':    'Settings',
 };

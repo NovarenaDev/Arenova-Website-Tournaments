@@ -201,3 +201,54 @@ export interface Sport {
   trend:    string;
   trendUp:  boolean;
 }
+
+// ── Audit Logs ─────────────────────────────────────────────────────────────────
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE';
+export type AuditOutcome = 'SUCCESS' | 'FAILURE';
+
+export interface AuditLogItem {
+  _id: string;
+  actorId?: string;
+  actorEmail?: string;
+  actorRole?: string;
+  action: AuditAction | string;
+  resource: string;
+  resourceId?: string;
+  before?: Record<string, any> | null;
+  after?: Record<string, any> | null;
+  changedFields?: string[];
+  timestamp: string;
+  outcome: AuditOutcome | string;
+  ipAddress?: string;
+  requestId?: string;
+  httpStatus?: number;
+  snapshotTruncated?: boolean;
+  [key: string]: any;
+}
+
+export interface AuditLogPagination {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface AuditLogSummaryData {
+  totalActions: number;
+  CREATE: number;
+  UPDATE: number;
+  DELETE: number;
+  STATUS_CHANGE: number;
+}
+
+export interface AuditLogQueryFilter {
+  actorId?: string;
+  actorEmail?: string;
+  action?: string;
+  resource?: string;
+  outcome?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
