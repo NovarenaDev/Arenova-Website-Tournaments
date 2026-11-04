@@ -252,3 +252,66 @@ export interface AuditLogQueryFilter {
   page?: number;
   limit?: number;
 }
+
+// ── Super Admin Review & Settlement Tools ─────────────────────────────────────
+export interface DisputeItem {
+  id: string;
+  _id?: string;
+  bookingId: string;
+  booking?: any;
+  customer?: { id?: string; name?: string; email?: string; phone?: string; firstName?: string; lastName?: string };
+  coach?: { id?: string; name?: string; email?: string; phone?: string };
+  sport?: string;
+  amount: number;
+  grossPaid?: number;
+  commission?: number;
+  coachNetAmount?: number;
+  reason?: string;
+  complaint?: string;
+  financialHold?: boolean;
+  status: 'pending' | 'under_review' | 'resolved' | 'released' | 'refunded' | string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface SettlementDetail {
+  bookingId: string;
+  booking?: any;
+  attendanceTimestamps?: {
+    checkIn?: string;
+    checkOut?: string;
+    verified?: boolean;
+    durationMinutes?: number;
+  };
+  customerComplaints?: Array<{
+    text: string;
+    submittedAt?: string;
+    category?: string;
+  }>;
+  coachReports?: Array<{
+    text: string;
+    submittedAt?: string;
+    sessionStatus?: string;
+  }>;
+  grossPaid: number;
+  platformCommission: number;
+  coachNetAmount: number;
+  disputeStatus?: string;
+  financialHold?: boolean;
+}
+
+export interface RefundItem {
+  id: string;
+  _id?: string;
+  bookingId?: string;
+  userId?: string;
+  userName?: string;
+  userEmail?: string;
+  amount: number;
+  reason?: string;
+  sourceType: 'SESSION' | string;
+  status: 'pending' | 'approved' | 'rejected' | 'reconciled' | 'processed' | string;
+  gatewayReference?: string;
+  createdAt: string;
+  reconciledAt?: string;
+}

@@ -32,26 +32,47 @@ export const updateAdminCoach = (id: string, data: any) => put(`/admin/coaches/$
 export const approveKyc = (id: string, individualPrice: number, groupPricePerPerson: number) =>
   put(`/admin/coaches/${id}/kyc/approve`, { individualPrice, groupPricePerPerson });
 export const updateCoachPricing = async (id: string, individualPrice: number, groupPricePerPerson: number) => {
-  let res: any = null;
-  try {
-    res = await put(`/admin/coaches/${id}/kyc/approve`, { individualPrice, groupPricePerPerson });
-  } catch {
-    // If coach is already approved or not in pending state, fall back to updateAdminCoach
-    res = await put(`/admin/coaches/${id}`, {
-      individualPrice,
-      groupPricePerPerson,
-      requestedIndividualPrice: individualPrice,
-      requestedGroupPricePerPerson: groupPricePerPerson,
-      pricing: { individualPrice, groupPricePerPerson }
-    });
-  }
-  // Also sync on updateAdminCoach to guarantee persistence across all backend document models
-  await put(`/admin/coaches/${id}`, {
+  const payload = {
     individualPrice,
     groupPricePerPerson,
-    pricing: { individualPrice, groupPricePerPerson }
-  }).catch(() => {});
-  return res;
+    pricing: {
+      individualPrice,
+      groupPricePerPerson,
+      individual: individualPrice,
+      group: groupPricePerPerson,
+      sessionPrice: individualPrice
+    },
+    profile: {
+      individualPrice,
+      groupPricePerPerson,
+      pricing: {
+        individualPrice,
+        groupPricePerPerson
+      }
+    },
+    sessionFee: individualPrice,
+    individualFee: individualPrice
+  };
+
+  // 1. Direct coach update endpoint
+  try {
+    const res = await put(`/admin/coaches/${id}`, payload);
+    if (res && res.success !== false) return res;
+  } catch {}
+
+  // 2. Dedicated pricing endpoint if supported
+  try {
+    const res = await put(`/admin/coaches/${id}/pricing`, payload);
+    if (res && res.success !== false) return res;
+  } catch {}
+
+  // 3. KYC approve endpoint
+  try {
+    const res = await put(`/admin/coaches/${id}/kyc/approve`, { individualPrice, groupPricePerPerson });
+    if (res && res.success !== false) return res;
+  } catch {}
+
+  return updateAdminCoach(id, payload);
 };
 export const rejectKyc  = (id: string, reason: string) =>
   put(`/admin/coaches/${id}/kyc/reject`, { kycNote: reason });
@@ -307,5 +328,57 @@ export const getAuditLogsSummary = (params: { startDate?: string; endDate?: stri
   if (params.endDate && params.endDate.trim()) q.append('endDate', params.endDate.trim());
   const queryString = q.toString() ? `?${q.toString()}` : '';
   return get(`/admin/audit-logs/summary${queryString}`);
+};
+
+// ── Super Admin Review & Settlement Tools ─────────────────────────────────────
+// Dispute Queue: GET /api/admin/bookings/disputes?page=1&limit=50
+export const getAdminDisputes = (params: Record<string, any> = {}) => {
+  const q = new URLSearchParams();
+  for (const [key, val] of Object.entries(params)) {
+    if (val !== undefined && val !== null && val !== '') {
+      q.append(key, String(val).trim());
+    }
+  }
+  const queryString = q.toString() ? `?${q.toString()}` : '';
+  return get(`/admin/bookings/disputes${queryString}`);
+};
+
+// Settlement Evidence Detail: GET /api/admin/bookings/:bookingId/settlement
+export const getSettlementDetail = (bookingId: string) => {
+  return get(`/admin/bookings/${bookingId}/settlement`);
+};
+
+// Dispute Resolution Actions: POST /api/admin/bookings/:bookingId/resolve-dispute
+// Release to Coach: { action: 'RELEASE_TO_COACH', reason }
+// Refund to Customer: { action: 'REFUND_TO_CUSTOMER', reason, policyReference }
+export const resolveDispute = (
+  bookingId: string,
+  payload: { action: 'RELEASE_TO_COACH' | 'REFUND_TO_CUSTOMER'; reason?: string; policyReference?: string }
+) => {
+  return post(`/admin/bookings/${bookingId}/resolve-dispute`, payload);
+};
+
+// Refund Operations: GET /api/admin/refunds?sourceType=SESSION
+export const getAdminRefunds = (params: Record<string, any> = {}) => {
+  const q = new URLSearchParams();
+  for (const [key, val] of Object.entries(params)) {
+    if (val !== undefined && val !== null && val !== '') {
+      q.append(key, String(val).trim());
+    }
+  }
+  const queryString = q.toString() ? `?${q.toString()}` : '';
+  return get(`/admin/refunds${queryString}`);
+};
+
+export const approveRefund = (id: string, data: any = {}) => {
+  return put(`/admin/refunds/${id}/approve`, data);
+};
+
+export const rejectRefund = (id: string, reason?: string) => {
+  return put(`/admin/refunds/${id}/reject`, { reason });
+};
+
+export const reconcileRefund = (id: string, data: any = {}) => {
+  return post(`/admin/refunds/${id}/reconcile`, data);
 };
 

@@ -13,6 +13,7 @@ import RatingsPage      from './pages/ratings/RatingsPage';
 import SportsPage       from './pages/sports/SportsPage';
 import AdminsPage       from './pages/admins/AdminsPage';
 import AuditLogsPage    from './pages/audit/AuditLogsPage';
+import SettlementsPage  from './pages/settlements/SettlementsPage';
 import TournamentsPage  from './pages/tournaments/TournamentsPage';
 import CommunityPage    from './pages/community/CommunityPage';
 import VenuesPage       from './pages/venues/VenuesPage';
@@ -46,6 +47,10 @@ export default function App() {
 
             <Route element={<ProtectedRoute permission="payments" />}>
               <Route path="/payments" element={<PaymentsPage />} />
+              <Route path="/settlements" element={<SettlementsPage />} />
+              <Route path="/disputes" element={<SettlementsPage />} />
+              <Route path="/withdrawals" element={<SettlementsPage />} />
+              <Route path="/refunds" element={<SettlementsPage />} />
             </Route>
 
             <Route element={<ProtectedRoute permission="ratings" />}>

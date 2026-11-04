@@ -192,19 +192,20 @@ const getCoachEmail = (c: any): string => {
 };
 
 const getCoachIndPrice = (c: any): number => {
+  // Approved/Active prices set by admin take top precedence
   const candidates = [
+    c?.individualPrice,
+    c?.pricing?.individualPrice,
+    c?.profile?.individualPrice,
+    c?.pricing?.individual,
+    c?.sessionFee,
+    c?.individualFee,
+    c?.price,
+    c?.fee,
     c?.requestedIndividualPrice,
     c?.profile?.requestedIndividualPrice,
     c?.pricing?.requestedIndividualPrice,
-    c?.pricing?.individualPrice,
-    c?.profile?.individualPrice,
-    c?.individualPrice,
     c?.requestedIndividualFee,
-    c?.individualFee,
-    c?.fee,
-    c?.sessionFee,
-    c?.pricing?.individual,
-    c?.price,
   ];
 
   for (const val of candidates) {
@@ -223,18 +224,19 @@ const getCoachIndPrice = (c: any): number => {
 };
 
 const getCoachGrpPrice = (c: any): number => {
+  // Approved/Active group prices set by admin take top precedence
   const candidates = [
+    c?.groupPricePerPerson,
+    c?.pricing?.groupPricePerPerson,
+    c?.profile?.groupPricePerPerson,
+    c?.pricing?.group,
+    c?.groupPrice,
+    c?.groupFee,
     c?.requestedGroupPricePerPerson,
     c?.profile?.requestedGroupPricePerPerson,
     c?.pricing?.requestedGroupPricePerPerson,
-    c?.pricing?.groupPricePerPerson,
-    c?.profile?.groupPricePerPerson,
-    c?.groupPricePerPerson,
     c?.requestedGroupPrice,
     c?.requestedGroupFee,
-    c?.groupFee,
-    c?.groupPrice,
-    c?.pricing?.group,
   ];
 
   for (const val of candidates) {
@@ -247,6 +249,42 @@ const getCoachGrpPrice = (c: any): number => {
     if (val !== undefined && val !== null && val !== '') {
       const num = Number(val);
       if (!isNaN(num)) return num;
+    }
+  }
+  return 0;
+};
+
+// Specifically extracts coach's proposed rate requested during onboarding
+const getCoachRequestedIndPrice = (c: any): number => {
+  const candidates = [
+    c?.requestedIndividualPrice,
+    c?.profile?.requestedIndividualPrice,
+    c?.pricing?.requestedIndividualPrice,
+    c?.requestedIndividualFee,
+    c?.onboarding?.requestedIndividualPrice,
+  ];
+  for (const val of candidates) {
+    if (val !== undefined && val !== null && val !== '') {
+      const num = Number(val);
+      if (!isNaN(num) && num > 0) return num;
+    }
+  }
+  return 0;
+};
+
+const getCoachRequestedGrpPrice = (c: any): number => {
+  const candidates = [
+    c?.requestedGroupPricePerPerson,
+    c?.profile?.requestedGroupPricePerPerson,
+    c?.pricing?.requestedGroupPricePerPerson,
+    c?.requestedGroupPrice,
+    c?.requestedGroupFee,
+    c?.onboarding?.requestedGroupPricePerPerson,
+  ];
+  for (const val of candidates) {
+    if (val !== undefined && val !== null && val !== '') {
+      const num = Number(val);
+      if (!isNaN(num) && num > 0) return num;
     }
   }
   return 0;
@@ -306,6 +344,8 @@ export default function CoachesPage() {
     const coachId = coach.id || coach._id;
     const indPrice = getCoachIndPrice(coach);
     const grpPrice = getCoachGrpPrice(coach);
+    const reqInd = getCoachRequestedIndPrice(coach) || indPrice;
+    const reqGrp = getCoachRequestedGrpPrice(coach) || grpPrice;
     const coachPhone = getCoachPhone(coach);
     const coachEmail = getCoachEmail(coach);
 
@@ -314,10 +354,10 @@ export default function CoachesPage() {
       name: coach.name || 'Coach',
       phone: coachPhone,
       email: coachEmail,
-      individualPrice: indPrice ? String(indPrice) : '',
-      groupPricePerPerson: grpPrice ? String(grpPrice) : '',
-      requestedIndividualPrice: indPrice,
-      requestedGroupPricePerPerson: grpPrice,
+      individualPrice: indPrice ? String(indPrice) : (reqInd ? String(reqInd) : ''),
+      groupPricePerPerson: grpPrice ? String(grpPrice) : (reqGrp ? String(reqGrp) : ''),
+      requestedIndividualPrice: reqInd,
+      requestedGroupPricePerPerson: reqGrp,
     });
 
     // Asynchronously fetch latest details strictly from the backend coach record
@@ -329,6 +369,8 @@ export default function CoachesPage() {
         const freshPhone = getCoachPhone(detail) || coachPhone;
         const freshInd = getCoachIndPrice(detail) || indPrice;
         const freshGrp = getCoachGrpPrice(detail) || grpPrice;
+        const freshReqInd = getCoachRequestedIndPrice(detail) || freshInd;
+        const freshReqGrp = getCoachRequestedGrpPrice(detail) || freshGrp;
 
         if (freshEmail) {
           setCoaches(prev => prev.map(c => (c.id === coachId || (c as any)._id === coachId) ? { ...c, email: freshEmail } : c));
@@ -341,10 +383,10 @@ export default function CoachesPage() {
             ...prev,
             email: freshEmail || prev.email,
             phone: freshPhone || prev.phone,
-            requestedIndividualPrice: freshInd,
-            requestedGroupPricePerPerson: freshGrp,
-            individualPrice: prev.individualPrice || (freshInd ? String(freshInd) : ''),
-            groupPricePerPerson: prev.groupPricePerPerson || (freshGrp ? String(freshGrp) : ''),
+            requestedIndividualPrice: freshReqInd,
+            requestedGroupPricePerPerson: freshReqGrp,
+            individualPrice: prev.individualPrice || (freshInd ? String(freshInd) : (freshReqInd ? String(freshReqInd) : '')),
+            groupPricePerPerson: prev.groupPricePerPerson || (freshGrp ? String(freshGrp) : (freshReqGrp ? String(freshReqGrp) : '')),
           };
         });
       }
@@ -356,14 +398,16 @@ export default function CoachesPage() {
   const openPricingModal = (coach: any) => {
     const indPrice = getCoachIndPrice(coach);
     const grpPrice = getCoachGrpPrice(coach);
+    const reqInd = getCoachRequestedIndPrice(coach) || indPrice;
+    const reqGrp = getCoachRequestedGrpPrice(coach) || grpPrice;
 
     setPricingModal({
       id: coach.id || coach._id,
       name: coach.name || 'Coach',
       individualPrice: indPrice ? String(indPrice) : '',
       groupPricePerPerson: grpPrice ? String(grpPrice) : '',
-      requestedIndividualPrice: indPrice,
-      requestedGroupPricePerPerson: grpPrice,
+      requestedIndividualPrice: reqInd,
+      requestedGroupPricePerPerson: reqGrp,
     });
   };
 
@@ -395,6 +439,8 @@ export default function CoachesPage() {
 
         const indPrice = getCoachIndPrice(c);
         const grpPrice = getCoachGrpPrice(c);
+        const reqInd = getCoachRequestedIndPrice(c) || indPrice;
+        const reqGrp = getCoachRequestedGrpPrice(c) || grpPrice;
 
         return {
           ...c,
@@ -403,10 +449,22 @@ export default function CoachesPage() {
           phone,
           phoneNumber: phone,
           email,
-          requestedIndividualPrice: indPrice,
-          requestedGroupPricePerPerson: grpPrice,
+          requestedIndividualPrice: reqInd,
+          requestedGroupPricePerPerson: reqGrp,
           individualPrice: indPrice,
           groupPricePerPerson: grpPrice,
+          pricing: {
+            ...(c.pricing || {}),
+            individualPrice: indPrice,
+            groupPricePerPerson: grpPrice,
+            individual: indPrice,
+            group: grpPrice,
+          },
+          profile: {
+            ...(c.profile || {}),
+            individualPrice: indPrice,
+            groupPricePerPerson: grpPrice,
+          },
           kyc,
           isActive: c.isActive ?? (kyc === 'approved')
         };
@@ -475,6 +533,18 @@ export default function CoachesPage() {
         isActive: true,
         individualPrice: indPrice,
         groupPricePerPerson: grpPrice,
+        pricing: {
+          ...(c.pricing || {}),
+          individualPrice: indPrice,
+          groupPricePerPerson: grpPrice,
+          individual: indPrice,
+          group: grpPrice,
+        },
+        profile: {
+          ...(c.profile || {}),
+          individualPrice: indPrice,
+          groupPricePerPerson: grpPrice,
+        },
         phone: cleanPhone || c.phone,
         phoneNumber: cleanPhone || c.phoneNumber,
         email: cleanEmail || c.email
@@ -482,6 +552,7 @@ export default function CoachesPage() {
 
       setApps(prev => prev.filter(a => (a.id || a._id) !== id));
       setApproveModal(null);
+      load();
     } catch (err: any) {
       alert(err.message || 'Approval failed');
     } finally {
@@ -503,13 +574,38 @@ export default function CoachesPage() {
         ...c,
         individualPrice: indPrice,
         groupPricePerPerson: grpPrice,
+        pricing: {
+          ...(c.pricing || {}),
+          individualPrice: indPrice,
+          groupPricePerPerson: grpPrice,
+          individual: indPrice,
+          group: grpPrice,
+        },
+        profile: {
+          ...(c.profile || {}),
+          individualPrice: indPrice,
+          groupPricePerPerson: grpPrice,
+        }
       } : c));
       setApps(prev => prev.map(a => (a.id === id || (a as any)._id === id) ? {
         ...a,
         individualPrice: indPrice,
         groupPricePerPerson: grpPrice,
+        pricing: {
+          ...(a.pricing || {}),
+          individualPrice: indPrice,
+          groupPricePerPerson: grpPrice,
+          individual: indPrice,
+          group: grpPrice,
+        },
+        profile: {
+          ...(a.profile || {}),
+          individualPrice: indPrice,
+          groupPricePerPerson: grpPrice,
+        }
       } : a));
       setPricingModal(null);
+      load();
     } catch (err: any) {
       alert(err.message || 'Failed to update pricing');
     } finally {

@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import {
   LayoutDashboard, Users, UserCheck, CalendarDays,
   TrendingUp, Star, Trophy, Shield, Settings, LogOut,
-  Medal, MapPin, MessageSquare, Mail, History
+  Medal, MapPin, MessageSquare, Mail, History, Scale
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLE_LABELS, ROLE_COLORS } from '../../types';
@@ -25,6 +25,7 @@ const NAV: NavItem[] = [
   { href:'/coaches',      label:'Coaches',        icon:UserCheck,       permission:'coaches',    group:'Users' },
   { href:'/bookings',     label:'Bookings',       icon:CalendarDays,    permission:'bookings',   group:'Activity' },
   { href:'/payments',     label:'Payments',       icon:TrendingUp,      permission:'payments',   group:'Activity' },
+  { href:'/settlements',  label:'Settlements',    icon:Scale,           permission:'payments',   group:'Activity' },
   { href:'/ratings',      label:'Ratings',        icon:Star,            permission:'ratings',    group:'Activity' },
   { href:'/audit-logs',   label:'Audit Logs',     icon:History,         superAdminOnly:true,     group:'Activity' },
   { href:'/tournaments',  label:'Tournaments',    icon:Medal,           permission:'sports',     group:'Content' },
@@ -130,15 +131,15 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
           <Settings className={clsx('h-3.5 w-3.5 flex-shrink-0', location.pathname.startsWith('/settings') ? 'opacity-100' : 'opacity-60')} />
           <span className="flex-1 leading-none">Settings</span>
         </Link>
-        <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 mt-1">
+        <div className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 mt-1 bg-slate-50 border border-slate-100">
           <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#F05A22]/15 text-[10px] font-bold text-[#F05A22] ring-1 ring-[#F05A22]/30">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[12px] font-medium text-white">{admin?.firstName} {admin?.lastName}</p>
-            <p className="truncate text-[10px] text-[#9ba3af]">{admin?.email}</p>
+            <p className="truncate text-[12px] font-semibold text-slate-900">{admin?.firstName} {admin?.lastName}</p>
+            <p className="truncate text-[10px] text-slate-500">{admin?.email}</p>
           </div>
-          <button onClick={logout} title="Logout" className="text-[#5c6370] hover:text-red-400 transition-colors">
+          <button onClick={logout} title="Logout" className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-red-50 cursor-pointer">
             <LogOut className="h-3.5 w-3.5" />
           </button>
         </div>

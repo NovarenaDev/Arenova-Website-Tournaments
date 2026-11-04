@@ -10,6 +10,10 @@ const TITLES: Record<string, string> = {
   '/coaches':     'Coach Management',
   '/bookings':    'Bookings Management',
   '/payments':    'Payments & Payouts',
+  '/settlements': 'Review & Settlement Tools',
+  '/disputes':    'Dispute Queue & Arbitration',
+  '/withdrawals': 'Withdrawals Review',
+  '/refunds':     'Refund Operations',
   '/ratings':     'Ratings & Reviews',
   '/sports':      'Sports Management',
   '/tournaments': 'Tournaments',
@@ -87,44 +91,44 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <header className="flex h-[52px] flex-shrink-0 items-center justify-between border-b border-[#2e3139] bg-[#141518] px-3 sm:px-5">
-      <div className="flex items-center gap-2 min-w-0 mr-2">
+    <header className="flex h-[56px] flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
+      <div className="flex items-center gap-2.5 min-w-0 mr-2">
         <button
           type="button"
           onClick={onMenuClick}
-          className="mr-1 rounded-lg p-1.5 hover:bg-gray-100 md:hidden cursor-pointer flex items-center justify-center border border-[#e5e7eb] flex-shrink-0"
+          className="mr-1 rounded-xl p-1.5 hover:bg-slate-100 md:hidden cursor-pointer flex items-center justify-center border border-slate-200 flex-shrink-0"
         >
-          <Menu className="h-4 w-4 text-[#4b5563]" />
+          <Menu className="h-4 w-4 text-slate-600" />
         </button>
         <span className="h-4 w-1 rounded-full bg-[#F05A22] inline-block hidden md:inline-block flex-shrink-0" />
-        <h1 className="text-sm font-semibold text-white truncate">{title}</h1>
+        <h1 className="text-sm font-bold text-slate-900 truncate">{title}</h1>
       </div>
       
       <div className="flex items-center gap-2 flex-shrink-0">
-        <button className="hidden sm:flex h-8 items-center gap-1.5 rounded-md border border-[#2e3139] bg-transparent px-3 text-[11px] text-[#9ba3af] hover:bg-[#21242a] hover:text-white transition-colors">
-          <Calendar className="h-3 w-3" />Apr 2026
+        <button className="hidden sm:flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer">
+          <Calendar className="h-3 w-3 text-slate-400" />Today
         </button>
-        <button className="hidden sm:flex h-8 items-center gap-1.5 rounded-md border border-[#2e3139] bg-transparent px-3 text-[11px] text-[#9ba3af] hover:bg-[#21242a] hover:text-white transition-colors">
-          <Download className="h-3 w-3" />Export
+        <button className="hidden sm:flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer">
+          <Download className="h-3 w-3 text-slate-400" />Export
         </button>
         
         {/* Notifications Dropdown Bell */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowNotifications(prev => !prev)}
-            className="relative flex h-8 w-8 items-center justify-center rounded-md border border-[#2e3139] text-[#9ba3af] hover:bg-[#21242a] hover:text-white transition-colors cursor-pointer"
+            className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
           >
             <Bell className="h-3.5 w-3.5" />
             {unreadCount > 0 && (
-              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-[#F05A22]" />
+              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#F05A22] ring-2 ring-white" />
             )}
           </button>
 
           {/* Notifications Dropdown Panel */}
           {showNotifications && (
-            <div className="absolute right-0 top-[38px] z-50 w-[calc(100vw-1.5rem)] sm:w-80 max-w-sm rounded-xl border border-[#e5e7eb] bg-white p-4 shadow-xl space-y-3">
-              <div className="flex items-center justify-between border-b border-[#e5e7eb] pb-2">
-                <span className="text-xs font-bold text-[#111827]">Notifications ({unreadCount} new)</span>
+            <div className="absolute right-0 top-[42px] z-50 w-[calc(100vw-1.5rem)] sm:w-80 max-w-sm rounded-2xl border border-slate-200 bg-white p-4 shadow-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className="text-xs font-bold text-slate-900">Notifications ({unreadCount} new)</span>
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllRead}
@@ -137,7 +141,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
               <div className="max-h-60 overflow-y-auto space-y-2">
                 {notifications.length === 0 ? (
-                  <p className="text-[11px] text-[#5c6370] italic text-center py-4">No notifications</p>
+                  <p className="text-[11px] text-slate-400 italic text-center py-4">No notifications</p>
                 ) : (
                   notifications.map(n => (
                     <div key={n.id} className={clsx(
