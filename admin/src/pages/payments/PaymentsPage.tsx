@@ -2,22 +2,51 @@ import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, ArrowDownToLine, Wallet, AlertTriangle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button, SearchBar, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, FilterPill } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAdminWithdrawals, getAdminTransactions, approveWithdrawal, rejectWithdrawal, verifySubscriptionPayment, extractDataList } from '../../api';
+import { getAdminWithdrawals, getAdminTransactions, approveWithdrawal, rejectWithdrawal, getAdminCoaches, getCustomers, extractDataList } from '../../api';
 
 const TXN_TYPE_MAP: Record<string, string> = { credit_purchase: 'badge-green', subscription: 'badge-purple', booking_debit: 'badge-red', refund: 'badge-blue', payout: 'badge-amber' };
-const PAYOUT_MAP:  Record<string, string> = { pending: 'badge-amber', processed: 'badge-green', failed: 'badge-red' };
+const PAYOUT_MAP:  Record<string, string> = { pending: 'badge-amber', processed: 'badge-green', approved: 'badge-green', failed: 'badge-red', rejected: 'badge-red' };
 const METHOD_MAP:  Record<string, string> = { UPI: 'badge-blue', NEFT: 'badge-gray', IMPS: 'badge-teal' };
 const fmt = (n: number) => '₹' + (n || 0).toLocaleString('en-IN');
 
-const getTxnUser = (t: any) => {
-  if (!t.user && !t.userId) return 'User';
-  const u = t.user || t.userId;
-  if (typeof u === 'object') {
+const getTxnUser = (t: any, userMap: Record<string, string> = {}) => {
+  if (!t) return 'User';
+  if (t.customerName) return t.customerName;
+  if (t.userName) return t.userName;
+  const u = t.user || t.userId || t.customer;
+  if (typeof u === 'object' && u !== null) {
     const fn = u.firstName || u.name || '';
     const ln = u.lastName || '';
-    return `${fn} ${ln}`.trim() || 'User';
+    const full = `${fn} ${ln}`.trim();
+    if (full) return full;
+    if (u.email) return u.email.split('@')[0];
   }
-  return String(u);
+  const idStr = String(u || '');
+  if (idStr && userMap[idStr]) return userMap[idStr];
+  if (/^[0-9a-fA-F]{24}$/.test(idStr)) {
+    return `Player #${idStr.slice(-4).toUpperCase()}`;
+  }
+  if (idStr && idStr !== '[object Object]') return idStr;
+  return 'Customer';
+};
+
+const getPayoutCoach = (p: any, coachMap: Record<string, string> = {}) => {
+  if (!p) return 'Coach';
+  if (p.coachName) return p.coachName;
+  if (p.coachDetails?.name) return p.coachDetails.name;
+  const c = p.coach || p.coachId;
+  if (typeof c === 'object' && c !== null) {
+    const n = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim();
+    if (n) return n;
+    if (c.email) return c.email.split('@')[0];
+  }
+  const idStr = String(c || '');
+  if (idStr && coachMap[idStr]) return coachMap[idStr];
+  if (/^[0-9a-fA-F]{24}$/.test(idStr)) {
+    return `Coach #${idStr.slice(-4).toUpperCase()}`;
+  }
+  if (idStr && idStr !== '[object Object]') return idStr;
+  return 'Coach';
 };
 
 export default function PaymentsPage() {
@@ -26,16 +55,42 @@ export default function PaymentsPage() {
   const [search, setSearch]   = useState('');
   const [payouts, setPayouts] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [coachMap, setCoachMap] = useState<Record<string, string>>({});
+  const [userMap, setUserMap]   = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [payoutFilter, setPayoutFilter] = useState<'Pending' | 'Processed' | 'Failed'>('Pending');
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [wRes, tRes] = await Promise.allSettled([
+      const [wRes, tRes, cRes, uRes] = await Promise.allSettled([
         getAdminWithdrawals(),
-        getAdminTransactions()
+        getAdminTransactions(),
+        getAdminCoaches({ limit: 200 }),
+        getCustomers({ limit: 200 })
       ]);
+
+      const cm: Record<string, string> = {};
+      if (cRes.status === 'fulfilled') {
+        const rawC = extractDataList(cRes.value);
+        for (const c of rawC) {
+          const id = String(c.id || c._id || '');
+          const n = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim();
+          if (id && n) cm[id] = n;
+        }
+        setCoachMap(cm);
+      }
+
+      const um: Record<string, string> = {};
+      if (uRes.status === 'fulfilled') {
+        const rawU = extractDataList(uRes.value);
+        for (const u of rawU) {
+          const id = String(u.id || u._id || '');
+          const n = u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim();
+          if (id && n) um[id] = n;
+        }
+        setUserMap(um);
+      }
 
       if (wRes.status === 'fulfilled') {
         const rawW = extractDataList(wRes.value);
@@ -47,7 +102,7 @@ export default function PaymentsPage() {
           if (id) seenW.add(String(id));
           mappedW.push({
             id,
-            coach: p.coach?.name || p.coach?.email || 'Coach',
+            coach: getPayoutCoach(p, cm),
             amount: p.amount || 0,
             method: p.method || 'UPI',
             account: p.account || p.upiId || '—',
@@ -70,7 +125,7 @@ export default function PaymentsPage() {
           if (id) seenT.add(String(id));
           mappedT.push({
             id: id || `TXN_${Math.random().toString(36).substring(7)}`,
-            user: getTxnUser(t),
+            user: getTxnUser(t, um),
             type: t.type || t.category || 'credit_purchase',
             credits: t.credits || 0,
             amountInr: t.amountInr || t.amount || 0,
@@ -83,37 +138,28 @@ export default function PaymentsPage() {
       } else {
         setTransactions([]);
       }
-    } catch (e: any) {
-      console.warn('Failed to load payments:', e?.message || e);
-      setPayouts(prev => prev.length > 0 ? prev : []);
-      setTransactions(prev => prev.length > 0 ? prev : []);
+    } catch {
+      setPayouts([]);
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const handleApprove = async (id: string) => {
     try {
-      await approveWithdrawal(id, 'Approved via Admin Panel');
-      setPayouts(prev => prev.map(p => p.id === id ? { ...p, status: 'processed' } : p));
-      alert('Withdrawal approved successfully!');
-    } catch (err: any) {
-      alert(err.message || 'Failed to approve');
-    }
+      await approveWithdrawal(id);
+      setPayouts(p => p.map(x => x.id === id ? { ...x, status: 'processed' } : x));
+    } catch (err: any) { alert(err.message || 'Approval failed'); }
   };
 
   const handleReject = async (id: string) => {
     try {
-      await rejectWithdrawal(id, 'Rejected via Admin Panel');
-      setPayouts(prev => prev.map(p => p.id === id ? { ...p, status: 'failed' } : p));
-      alert('Withdrawal rejected successfully!');
-    } catch (err: any) {
-      alert(err.message || 'Failed to reject');
-    }
+      await rejectWithdrawal(id);
+      setPayouts(p => p.map(x => x.id === id ? { ...x, status: 'failed' } : x));
+    } catch (err: any) { alert(err.message || 'Rejection failed'); }
   };
 
   const totalRevenue = transactions
@@ -141,16 +187,24 @@ export default function PaymentsPage() {
 
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard label="Gross Revenue"       value={fmt(totalRevenue)}                                     sub="Total processed"   icon={<TrendingUp       className="h-4 w-4 text-emerald-400" />} iconBg="bg-emerald-500/10" subColor="text-emerald-400" />
-        <StatCard label="Platform Commission" value={fmt(Math.round(totalRevenue * 0.2))}                  sub="20% avg"           icon={<Wallet           className="h-4 w-4 text-blue-400" />}    iconBg="bg-blue-500/10"    subColor="text-[#5c6370]" />
-        <StatCard label="Pending Payouts"     value={fmt(totalPending)}                                    sub={`${payouts.filter(p => p.status === 'pending').length} requests`} icon={<ArrowDownToLine className="h-4 w-4 text-amber-400" />} iconBg="bg-amber-500/10" subColor="text-amber-400" />
-        <StatCard label="Failed Transactions" value={String(failedCount)}                                  sub="Needs follow-up"   icon={<AlertTriangle    className="h-4 w-4 text-red-400" />}     iconBg="bg-red-500/10"    subColor="text-red-400" />
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <StatCard label="Gross Revenue"       value={fmt(totalRevenue)}                                     sub="Total processed"   icon={<TrendingUp       className="h-4 w-4 text-emerald-500" />} iconBg="bg-emerald-50" subColor="text-emerald-600" />
+        <StatCard label="Platform Commission" value={fmt(Math.round(totalRevenue * 0.2))}                  sub="20% avg"           icon={<Wallet           className="h-4 w-4 text-[#F05A22]" />}    iconBg="bg-[#F05A22]/10" subColor="text-slate-600" />
+        <StatCard label="Pending Payouts"     value={fmt(totalPending)}                                    sub={`${payouts.filter(p => p.status === 'pending').length} requests`} icon={<ArrowDownToLine className="h-4 w-4 text-amber-500" />} iconBg="bg-amber-50" subColor="text-amber-600" />
+        <StatCard label="Failed Transactions" value={String(failedCount)}                                  sub="Needs follow-up"   icon={<AlertTriangle    className="h-4 w-4 text-rose-500" />}     iconBg="bg-rose-50"    subColor="text-rose-600" />
       </div>
 
       <div className="flex gap-2 flex-wrap">
         {(['transactions', 'payouts'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${tab === t ? 'bg-[#F05A22] text-white' : 'btn-outline'}`}>{t === 'payouts' ? 'Payout Queue' : 'Transactions'}</button>
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold capitalize transition-all cursor-pointer ${
+              tab === t ? 'bg-[#F05A22] text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            {t === 'payouts' ? 'Payout Queue' : 'Transactions'}
+          </button>
         ))}
       </div>
 
@@ -163,21 +217,26 @@ export default function PaymentsPage() {
           <CardContent className="px-0 pb-0">
             <div className="overflow-x-auto">
               <Table>
-                <Thead><Tr className="hover:bg-transparent"><Th>ID</Th><Th>User</Th><Th>Type</Th><Th className="text-right">Credits</Th><Th className="text-right">Amount</Th><Th>Method</Th><Th>Status</Th><Th>Date</Th></Tr></Thead>
+                <Thead><Tr className="hover:bg-transparent"><Th>ID</Th><Th>User / Customer</Th><Th>Type</Th><Th className="text-right">Credits</Th><Th className="text-right">Amount</Th><Th>Method</Th><Th>Status</Th><Th>Date</Th></Tr></Thead>
                 <Tbody>
                   {loading ? (
                     <tr><td colSpan={8} className="text-center py-8"><div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin inline-block" /></td></tr>
-                  ) : filteredTxns.length === 0 ? <tr><td colSpan={8}><EmptyState icon={<Wallet className="h-8 w-8" />} title="No transactions found" /></td></tr>
+                  ) : filteredTxns.length === 0 ? <tr><td colSpan={8}><EmptyState icon={<Wallet className="h-8 w-8 text-slate-300" />} title="No transactions found" /></td></tr>
                     : filteredTxns.map(t => (
                       <Tr key={t.id}>
-                        <Td className="text-[#5c6370] font-mono text-[10px]">{t.id ? String(t.id).slice(-8) : '—'}</Td>
-                        <Td><div className="flex items-center gap-2 min-w-0"><Avatar initials={String(t.user).split(' ').map(n => n[0]).join('')} size={28} className="flex-shrink-0" /><span className="text-xs text-white truncate max-w-[130px]" title={t.user}>{t.user}</span></div></Td>
+                        <Td className="text-slate-500 font-mono text-[11px] font-medium">#{t.id ? String(t.id).slice(-8).toUpperCase() : '—'}</Td>
+                        <Td>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar initials={String(t.user).split(' ').map(n => n[0]).join('').slice(0, 2)} size={28} className="flex-shrink-0" />
+                            <span className="text-xs font-semibold text-slate-900 truncate max-w-[140px]" title={t.user}>{t.user}</span>
+                          </div>
+                        </Td>
                         <Td><Badge className={TXN_TYPE_MAP[t.type] || 'badge-gray'}>{String(t.type).replace('_', ' ')}</Badge></Td>
-                        <Td className={`text-right tabular-nums font-semibold ${t.credits > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{t.credits > 0 ? `+${t.credits}` : t.credits}</Td>
-                        <Td className="text-right tabular-nums text-white">{t.amountInr > 0 ? fmt(t.amountInr) : '—'}</Td>
-                        <Td className="text-[#9ba3af] text-xs whitespace-nowrap">{t.method || '—'}</Td>
+                        <Td className={`text-right tabular-nums font-semibold ${t.credits > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{t.credits > 0 ? `+${t.credits}` : t.credits}</Td>
+                        <Td className="text-right tabular-nums font-bold text-slate-900">{t.amountInr > 0 ? fmt(t.amountInr) : '—'}</Td>
+                        <Td className="text-slate-600 text-xs whitespace-nowrap">{t.method || '—'}</Td>
                         <Td><Badge className={t.status === 'success' ? 'badge-green' : t.status === 'failed' ? 'badge-red' : 'badge-amber'}>{t.status}</Badge></Td>
-                        <Td className="text-[#5c6370] whitespace-nowrap">{t.createdAt}</Td>
+                        <Td className="text-slate-500 whitespace-nowrap text-xs">{t.createdAt}</Td>
                       </Tr>
                     ))}
                 </Tbody>
@@ -190,7 +249,7 @@ export default function PaymentsPage() {
       {tab === 'payouts' && (
         <Card>
           <CardHeader>
-            <CardTitle>Payout Queue ({filteredPayouts.length})</CardTitle>
+            <CardTitle>Coach Payout Queue ({filteredPayouts.length})</CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
               <SearchBar value={search} onChange={setSearch} placeholder="Search coaches..." />
               <div className="flex gap-1 flex-wrap">
@@ -203,26 +262,31 @@ export default function PaymentsPage() {
           <CardContent className="px-0 pb-0">
             <div className="overflow-x-auto">
               <Table>
-                <Thead><Tr className="hover:bg-transparent"><Th>Coach</Th><Th className="text-right">Amount</Th><Th>Method</Th><Th>Account/UPI</Th><Th>Status</Th><Th>Date</Th>{can('payments_write') && <Th></Th>}</Tr></Thead>
+                <Thead><Tr className="hover:bg-transparent"><Th>Coach</Th><Th className="text-right">Amount</Th><Th>Method</Th><Th>Account / UPI</Th><Th>Status</Th><Th>Date</Th>{can('payments_write') && <Th className="text-right">Actions</Th>}</Tr></Thead>
                 <Tbody>
                   {loading ? (
                     <tr><td colSpan={7} className="text-center py-6"><div className="h-5 w-5 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin inline-block" /></td></tr>
                   ) : filteredPayouts.length === 0 ? (
-                    <tr><td colSpan={7}><EmptyState icon={<Wallet className="h-8 w-8" />} title="No payouts found" /></td></tr>
+                    <tr><td colSpan={7}><EmptyState icon={<Wallet className="h-8 w-8 text-slate-300" />} title="No payouts found" /></td></tr>
                   ) : filteredPayouts.map(p => (
                     <Tr key={p.id}>
-                      <Td><div className="flex items-center gap-2 min-w-0"><Avatar initials={String(p.coach).split(' ').map((n: string) => n[0]).join('')} size={28} className="flex-shrink-0" /><span className="text-xs text-white font-medium truncate max-w-[130px]" title={p.coach}>{p.coach}</span></div></Td>
-                      <Td className="text-right tabular-nums font-bold text-white">{fmt(p.amount)}</Td>
+                      <Td>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar initials={String(p.coach).split(' ').map((n: string) => n[0]).join('').slice(0, 2)} size={28} className="flex-shrink-0" />
+                          <span className="text-xs font-semibold text-slate-900 truncate max-w-[140px]" title={p.coach}>{p.coach}</span>
+                        </div>
+                      </Td>
+                      <Td className="text-right tabular-nums font-bold text-slate-900">{fmt(p.amount)}</Td>
                       <Td><Badge className={METHOD_MAP[p.method] || 'badge-gray'}>{p.method}</Badge></Td>
-                      <Td className="font-mono text-[10px] text-[#9ba3af] truncate max-w-[120px]" title={p.account}>{p.account}</Td>
-                      <Td><Badge className={PAYOUT_MAP[p.status]}>{p.status}</Badge></Td>
-                      <Td className="text-[#5c6370] whitespace-nowrap">{p.date}</Td>
+                      <Td className="font-mono text-xs text-slate-600 truncate max-w-[130px]" title={p.account}>{p.account}</Td>
+                      <Td><Badge className={PAYOUT_MAP[p.status] || 'badge-gray'}>{p.status}</Badge></Td>
+                      <Td className="text-slate-500 whitespace-nowrap text-xs">{p.date}</Td>
                       {can('payments_write') && (
-                        <Td className="pr-4">
+                        <Td className="text-right pr-4">
                           {p.status === 'pending' && (
-                            <div className="flex gap-1.5 whitespace-nowrap">
-                              <Button variant="primary" className="h-7 text-[10px] px-2 text-emerald-400 hover:bg-emerald-400/10 border-emerald-500/25" onClick={() => handleApprove(p.id)}>Approve</Button>
-                              <Button variant="danger"  className="h-7 text-[10px] px-2" onClick={() => handleReject(p.id)}>Reject</Button>
+                            <div className="flex justify-end gap-1.5 whitespace-nowrap">
+                              <Button variant="primary" className="h-7 text-[10px] px-2.5 bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white" onClick={() => handleApprove(p.id)}>Approve</Button>
+                              <Button variant="danger"  className="h-7 text-[10px] px-2.5" onClick={() => handleReject(p.id)}>Reject</Button>
                             </div>
                           )}
                         </Td>
@@ -238,4 +302,3 @@ export default function PaymentsPage() {
     </div>
   );
 }
-

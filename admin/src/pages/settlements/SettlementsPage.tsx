@@ -9,6 +9,7 @@ import {
   getAdminDisputes, getSettlementDetail, resolveDispute,
   getAdminWithdrawals, approveWithdrawal, rejectWithdrawal,
   getAdminRefunds, approveRefund, rejectRefund, reconcileRefund,
+  getAdminCoaches, getCustomers,
   extractDataList
 } from '../../api';
 import { DisputeItem, SettlementDetail, RefundItem } from '../../types';
@@ -80,6 +81,38 @@ export default function SettlementsPage() {
     notes?: string;
   } | null>(null);
   const [processingRefund, setProcessingRefund] = useState(false);
+
+  // Name Resolution Maps
+  const [coachMap, setCoachMap] = useState<Record<string, string>>({});
+  const [userMap, setUserMap]   = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    Promise.allSettled([
+      getAdminCoaches({ limit: 300 }),
+      getCustomers({ limit: 300 })
+    ]).then(([cRes, uRes]) => {
+      if (cRes.status === 'fulfilled') {
+        const rawC = extractDataList(cRes.value);
+        const cm: Record<string, string> = {};
+        for (const c of rawC) {
+          const id = String(c.id || c._id || '');
+          const n = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim();
+          if (id && n) cm[id] = n;
+        }
+        setCoachMap(cm);
+      }
+      if (uRes.status === 'fulfilled') {
+        const rawU = extractDataList(uRes.value);
+        const um: Record<string, string> = {};
+        for (const u of rawU) {
+          const id = String(u.id || u._id || '');
+          const n = u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim();
+          if (id && n) um[id] = n;
+        }
+        setUserMap(um);
+      }
+    });
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // LOADERS
@@ -446,8 +479,8 @@ export default function SettlementsPage() {
                 ) : (
                   filteredDisputes.map(d => {
                     const bId = d.bookingId || d.id || d._id;
-                    const custName = d.customer?.name || (d.customer?.firstName ? `${d.customer.firstName} ${d.customer.lastName || ''}` : 'Customer');
-                    const coachName = d.coach?.name || 'Coach';
+                    const custName = d.customer?.name || (d.customer && typeof d.customer === 'string' && userMap[d.customer]) || (d.customer?.firstName ? `${d.customer.firstName} ${d.customer.lastName || ''}`.trim() : '') || (userMap[String(d.booking?.userId || '')]) || 'Customer';
+                    const coachName = d.coach?.name || (d.coach && typeof d.coach === 'string' && coachMap[d.coach]) || (d as any).coachName || (coachMap[String(d.booking?.coachId || '')]) || 'Coach';
                     const isHold = d.financialHold;
 
                     return (
@@ -603,7 +636,7 @@ export default function SettlementsPage() {
                 ) : (
                   withdrawals.map(w => {
                     const id = w.id || w._id;
-                    const coachName = w.coach?.name || w.coachName || 'Coach';
+                    const coachName = w.coach?.name || (w.coach && typeof w.coach === 'string' && coachMap[w.coach]) || w.coachName || (w.coachId && coachMap[w.coachId]) || 'Coach';
                     const isPending = w.status === 'pending';
 
                     return (
@@ -769,6 +802,7 @@ export default function SettlementsPage() {
                 ) : (
                   refunds.map(r => {
                     const id = String(r.id || r._id || '');
+                    const userName = r.userName || (r.userId && userMap[r.userId]) || 'Customer';
                     const isPending = r.status === 'pending';
 
                     return (

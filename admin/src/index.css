@@ -47,15 +47,15 @@
 
   /* Cards & Containers */
   .card {
-    @apply bg-white border border-slate-200/80 rounded-2xl shadow-[0_1px_3px_rgba(15,23,42,0.04)] transition-all;
+    @apply bg-white border border-slate-200/90 rounded-2xl shadow-[0_1px_3px_rgba(15,23,42,0.04)] text-slate-900 transition-all;
   }
   .stat-card {
-    @apply bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-[0_1px_3px_rgba(15,23,42,0.04)] text-slate-900;
+    @apply bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-[0_1px_3px_rgba(15,23,42,0.04)] text-slate-900;
   }
 
   /* Tables */
   .table-row {
-    @apply border-b border-slate-100 hover:bg-slate-50/80 transition-colors;
+    @apply border-b border-slate-100 hover:bg-slate-50/80 transition-colors text-slate-900;
   }
 
   /* Badges */
@@ -98,6 +98,49 @@
   }
 }
 
+/* Ensure text on all pages, cards, and tables defaults to sharp, legible dark slate */
+main, table, tbody, td, th, .card, .stat-card {
+  color: #0f172a;
+}
+
+/* Reconcile legacy text-white inside tables and light cards so names are always visible */
+table td .text-white,
+table td p.text-white,
+table td span.text-white,
+.card p.text-white,
+.card span.text-white,
+.card h2.text-white,
+.card h3.text-white,
+.card h4.text-white {
+  color: #0f172a;
+}
+
+/* Preserve crisp white text on buttons, badges, and dark pill backgrounds */
+button.btn-primary,
+button.btn-primary *,
+button.btn-danger,
+.badge-green,
+.badge-red,
+.badge-blue,
+.badge-amber,
+.badge-purple,
+button[class*="bg-[#F05A22]"],
+button[class*="bg-[#F05A22]"] *,
+button[class*="bg-emerald-600"],
+button[class*="bg-emerald-600"] *,
+button[class*="bg-rose-600"],
+button[class*="bg-rose-600"] * {
+  color: inherit;
+}
+
+/* Clean muted text across legacy gray utility names */
+.text-\[\#9ba3af\] {
+  color: #64748b;
+}
+.text-\[\#5c6370\] {
+  color: #64748b;
+}
+
 /* Reconcile legacy dark-background utility references across existing pages */
 .bg-\[\#0e0f11\], .bg-\[\#101114\], .bg-\[\#141518\], .bg-\[\#1a1c20\] {
   background-color: #ffffff;
@@ -107,9 +150,4 @@
 .bg-black\/70 {
   background-color: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(4px);
-}
-
-/* Ensure headings and titles default to clear dark text in light surfaces */
-.card h2, .card h3, .card h4, .stat-card h2, .stat-card h3, .stat-card h4 {
-  color: #0f172a;
 }

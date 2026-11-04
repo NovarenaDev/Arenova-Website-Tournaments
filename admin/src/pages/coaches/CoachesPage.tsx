@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Star, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp,
-  Ban, Trash2, Phone, Mail, Award, RotateCw, Edit2, Coins, RotateCcw
+  Ban, Trash2, Phone, Mail, Award, RotateCw, Edit2, Coins, RotateCcw,
+  ChevronRight, Upload
 } from 'lucide-react';
 import {
   Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button,
@@ -339,6 +340,9 @@ export default function CoachesPage() {
   // Avatar Upload
   const [avatarUpload, setAvatarUpload] = useState<{ coachId: string; coachName: string } | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Consolidated Single Action Modal
+  const [actionCoach, setActionCoach] = useState<any | null>(null);
 
   const openApproveModal = async (coach: any) => {
     const coachId = coach.id || coach._id;
@@ -890,27 +894,13 @@ export default function CoachesPage() {
 
                     {/* Right: Actions */}
                     {can('coaches_write') && (
-                      <div className="flex flex-row lg:flex-col items-stretch justify-center gap-2 shrink-0 flex-wrap">
-                        <Button
-                          variant="primary"
-                          className="h-9 text-xs px-4 font-bold shadow-xs flex items-center justify-center gap-1.5"
-                          onClick={() => openApproveModal(app)}
-                        >
-                          <CheckCircle className="h-3.5 w-3.5" /> Verify & Set Rates
-                        </Button>
+                      <div className="flex items-center justify-center shrink-0">
                         <Button
                           variant="outline"
-                          className="h-8 text-xs px-3 font-semibold text-slate-700 hover:text-slate-900 border-slate-300 hover:bg-slate-50 flex items-center justify-center gap-1.5"
-                          onClick={() => openPricingModal(app)}
+                          className="h-8 text-xs px-3.5 font-semibold text-slate-700 hover:text-slate-900 border-slate-300 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          onClick={() => setActionCoach(app)}
                         >
-                          <Edit2 className="h-3 w-3 text-[#F05A22]" /> Edit Pricing
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="h-8 text-xs px-3 text-rose-600 hover:text-rose-700 hover:bg-rose-50 flex items-center justify-center gap-1.5"
-                          onClick={() => setRejectModal({ id: app._id || app.id, name: app.name, reason: '' })}
-                        >
-                          <XCircle className="h-3.5 w-3.5" /> Reject
+                          Actions <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
                         </Button>
                       </div>
                     )}
@@ -1055,93 +1045,14 @@ export default function CoachesPage() {
                           </Badge>
                         </Td>
                         {can('coaches_write') && (
-                          <Td>
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {(c.kyc === 'under_review' || c.kyc === 'pending') ? (
-                                <>
-                                  <Button
-                                    variant="primary"
-                                    className="h-7 text-[10px] px-2.5 font-bold shadow-xs"
-                                    onClick={() => openApproveModal(c)}
-                                  >
-                                    <CheckCircle className="h-3 w-3 mr-1" /> Verify
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    className="h-7 text-[10px] px-2 text-gray-600 hover:text-gray-900"
-                                    onClick={() => openPricingModal(c)}
-                                    title="Edit Pricing"
-                                  >
-                                    <Coins className="h-3 w-3 mr-1 text-[#F05A22]" /> Pricing
-                                  </Button>
-                                  <Button
-                                    variant="danger"
-                                    className="h-7 text-[10px] px-2"
-                                    onClick={() => setRejectModal({ id: c.id || (c as any)._id, name: c.name, reason: '' })}
-                                  >
-                                    Reject
-                                  </Button>
-                                </>
-                              ) : c.kyc === 'approved' ? (
-                                <>
-                                  <Button
-                                    variant="outline"
-                                    className="h-7 text-[10px] px-2 text-gray-600 hover:text-gray-900"
-                                    onClick={() => openPricingModal(c)}
-                                    title="Edit Pricing"
-                                  >
-                                    <Coins className="h-3 w-3 mr-1 text-gray-500" /> Pricing
-                                  </Button>
-                                  {c.isActive ? (
-                                    <Button
-                                      variant="ghost"
-                                      className="h-7 text-[10px] px-2 text-red-600 hover:bg-red-50"
-                                      onClick={() => setBanModal({ id: c.id, name: c.name, reason: '' })}
-                                    >
-                                      Ban
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      variant="ghost"
-                                      className="h-7 text-[10px] px-2 text-emerald-600 hover:bg-emerald-50"
-                                      onClick={() => handleActivateConfirm(c.id)}
-                                    >
-                                      Activate
-                                    </Button>
-                                  )}
-                                </>
-                              ) : c.kyc === 'rejected' ? (
-                                <>
-                                  <Button
-                                    variant="primary"
-                                    className="h-7 text-[10px] px-2"
-                                    onClick={() => openApproveModal(c)}
-                                  >
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    className="h-7 text-[10px] px-2"
-                                    onClick={() => openPricingModal(c)}
-                                  >
-                                    Pricing
-                                  </Button>
-                                </>
-                              ) : null}
-                              <Button
-                                variant="ghost"
-                                className="h-7 text-[10px] px-2 text-gray-600 hover:text-gray-900"
-                                onClick={() => setAvatarUpload({ coachId: c.id, coachName: c.name })}
-                              >
-                                Avatar
-                              </Button>
-                              <button
-                                className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
-                                onClick={() => setDeleteModal({ id: c.id, name: c.name })}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
+                          <Td className="text-right">
+                            <Button
+                              variant="outline"
+                              className="h-7 text-xs px-2.5 font-semibold text-slate-700 hover:text-slate-900 border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                              onClick={() => setActionCoach(c)}
+                            >
+                              Actions <ChevronDown className="h-3 w-3 text-slate-400" />
+                            </Button>
                           </Td>
                         )}
                       </Tr>
@@ -1528,6 +1439,203 @@ export default function CoachesPage() {
             <Button variant="danger" onClick={handleBanConfirm}>Ban Coach</Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Unified Coach Actions Popup Modal */}
+      <Modal
+        open={Boolean(actionCoach)}
+        onClose={() => setActionCoach(null)}
+        title="Manage Coach"
+        size="md"
+      >
+        {actionCoach && (
+          <div className="space-y-4">
+            {/* Coach Banner */}
+            <div className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
+              <Avatar initials={actionCoach.name ? actionCoach.name.slice(0, 2) : 'CO'} size={44} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-slate-900 text-sm truncate">
+                    {actionCoach.name || 'Coach'}
+                  </h3>
+                  <Badge className={
+                    actionCoach.kyc === 'approved' ? 'badge-green' :
+                    actionCoach.kyc === 'rejected' ? 'badge-red' : 'badge-amber'
+                  }>
+                    KYC: {actionCoach.kyc || 'Pending'}
+                  </Badge>
+                  <Badge className={actionCoach.isActive ? 'badge-green' : 'badge-red'}>
+                    {actionCoach.isActive ? 'Active' : 'Banned/Inactive'}
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                  {getCoachEmail(actionCoach) || 'No email'} · {getCoachPhone(actionCoach) || 'No phone'}
+                </p>
+                <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-700">
+                  <span>Ind: <strong className="text-slate-900">{fmt(getCoachIndPrice(actionCoach))}</strong></span>
+                  <span>Grp: <strong className="text-slate-900">{fmt(getCoachGrpPrice(actionCoach))}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions List */}
+            <div className="space-y-2">
+              <button
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
+                onClick={() => {
+                  const target = actionCoach;
+                  setActionCoach(null);
+                  openApproveModal(target);
+                }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600"><CheckCircle className="h-4 w-4" /></div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">Verify KYC & Set Approved Rates</p>
+                    <p className="text-[11px] text-slate-500">Approve coach credentials and decide session pricing</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </button>
+
+              <button
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
+                onClick={() => {
+                  const target = actionCoach;
+                  setActionCoach(null);
+                  openPricingModal(target);
+                }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-amber-50 text-amber-600"><Coins className="h-4 w-4" /></div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">Update Session Pricing</p>
+                    <p className="text-[11px] text-slate-500">Change 1-on-1 individual and group session rates</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
+                  onClick={() => {
+                    const id = actionCoach.id || actionCoach._id;
+                    const phone = getCoachPhone(actionCoach);
+                    const name = actionCoach.name || 'Coach';
+                    setActionCoach(null);
+                    setPhoneModal({ id, name, phone });
+                  }}
+                >
+                  <div className="p-2 rounded-lg bg-blue-50 text-blue-600"><Phone className="h-4 w-4" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-900">Edit Phone</p>
+                    <p className="text-[10px] text-slate-500 truncate">{getCoachPhone(actionCoach) || 'Add phone'}</p>
+                  </div>
+                </button>
+
+                <button
+                  className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
+                  onClick={() => {
+                    const id = actionCoach.id || actionCoach._id;
+                    const email = getCoachEmail(actionCoach);
+                    const name = actionCoach.name || 'Coach';
+                    setActionCoach(null);
+                    setEmailModal({ id, name, email });
+                  }}
+                >
+                  <div className="p-2 rounded-lg bg-purple-50 text-purple-600"><Mail className="h-4 w-4" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-900">Edit Email</p>
+                    <p className="text-[10px] text-slate-500 truncate">{getCoachEmail(actionCoach) || 'Add email'}</p>
+                  </div>
+                </button>
+              </div>
+
+              <button
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
+                onClick={() => {
+                  const target = actionCoach;
+                  setActionCoach(null);
+                  setAvatarUpload({ coachId: target.id || target._id, coachName: target.name || 'Coach' });
+                }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-teal-50 text-teal-600"><Upload className="h-4 w-4" /></div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">Upload Profile Avatar</p>
+                    <p className="text-[11px] text-slate-500">Update coach profile picture</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </button>
+
+              {/* Status & Moderation Controls */}
+              <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                {actionCoach.isActive ? (
+                  <button
+                    className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
+                    onClick={() => {
+                      const id = actionCoach.id || actionCoach._id;
+                      const name = actionCoach.name || 'Coach';
+                      setActionCoach(null);
+                      setBanModal({ id, name, reason: '' });
+                    }}
+                  >
+                    Ban / Suspend Coach
+                  </button>
+                ) : (
+                  <button
+                    className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
+                    onClick={() => {
+                      const id = actionCoach.id || actionCoach._id;
+                      setActionCoach(null);
+                      handleActivateConfirm(id);
+                    }}
+                  >
+                    Activate Coach
+                  </button>
+                )}
+
+                {(actionCoach.kyc === 'under_review' || actionCoach.kyc === 'pending') && (
+                  <button
+                    className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
+                    onClick={() => {
+                      const id = actionCoach.id || actionCoach._id;
+                      const name = actionCoach.name || 'Coach';
+                      setActionCoach(null);
+                      setRejectModal({ id, name, reason: '' });
+                    }}
+                  >
+                    Reject Application
+                  </button>
+                )}
+              </div>
+
+              {/* Danger: Delete */}
+              <div className="pt-2 border-t border-slate-100">
+                <button
+                  className="w-full flex items-center justify-between p-3 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+                  onClick={() => {
+                    const id = actionCoach.id || actionCoach._id;
+                    const name = actionCoach.name || 'Coach';
+                    setActionCoach(null);
+                    setDeleteModal({ id, name });
+                  }}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-rose-100 text-rose-600"><Trash2 className="h-4 w-4" /></div>
+                    <div>
+                      <p className="text-xs font-bold text-rose-700">Delete Coach Record</p>
+                      <p className="text-[11px] text-rose-500">Permanently remove coach from system</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-rose-400" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Delete Confirmation Dialog */}
