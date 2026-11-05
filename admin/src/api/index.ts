@@ -250,16 +250,28 @@ export const resetAdminPassword = (id: string, newPassword: string) =>
   put(`/admin/admins/${id}/reset-password`, { newPassword });
 
 // Upload
-export const uploadImage = (file: File) => {
+export const uploadImage = async (file: File) => {
   const formData = new FormData();
   formData.append('image', file);
-  return fetch(`${BASE_URL}/upload/image`, {
+  const token = getAdminToken();
+  const res = await fetch(`${BASE_URL}/upload/image`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${getAdminToken()}`
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     },
     body: formData
-  }).then(res => res.json());
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.success === false) {
+    if (data?.message === 'User not found' || String(data?.message).toLowerCase().includes('user not found')) {
+      throw new Error(
+        "Upload failed: The backend '/api/upload/image' route is currently configured with User authentication instead of Admin authentication (backend returned 'User not found'). Please paste a direct image URL or have the backend developer allow Admin tokens on /api/upload/image."
+      );
+    }
+    throw new Error(data?.message || `Upload failed with HTTP status ${res.status}`);
+  }
+  return data;
 };
 
 // ── Notifications ─────────────────────────────────────────────────────────────

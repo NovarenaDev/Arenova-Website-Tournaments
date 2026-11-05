@@ -29,6 +29,13 @@ const LINK_PRESETS = [
   { label: '🎟️ Membership', value: '/membership' },
 ];
 
+const PRESET_BANNERS = [
+  { label: '🏸 Badminton Open', url: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=1200&auto=format&fit=crop&q=80' },
+  { label: '🏏 Cricket Championship', url: 'https://images.unsplash.com/photo-1531415074868-036b1c57e329?w=1200&auto=format&fit=crop&q=80' },
+  { label: '🎾 Tennis Camp', url: 'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=1200&auto=format&fit=crop&q=80' },
+  { label: '⚽ Football Training', url: 'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?w=1200&auto=format&fit=crop&q=80' },
+];
+
 export default function BannersPage() {
   const { can } = useAuth();
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -44,6 +51,7 @@ export default function BannersPage() {
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string>('');
 
   // Form Fields
   const [formType, setFormType] = useState<BannerTargetType>('player');
@@ -91,6 +99,7 @@ export default function BannersPage() {
     setFormIsActive(true);
     setFormTitle('');
     setCreateForBoth(false);
+    setUploadError('');
     setModalOpen(true);
   };
 
@@ -104,6 +113,7 @@ export default function BannersPage() {
     setFormIsActive(banner.isActive ?? true);
     setFormTitle(banner.title || '');
     setCreateForBoth(false);
+    setUploadError('');
     setModalOpen(true);
   };
 
@@ -112,6 +122,7 @@ export default function BannersPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setUploadError('');
     try {
       setUploadingImage(true);
       const res = await uploadImage(file);
@@ -119,12 +130,13 @@ export default function BannersPage() {
       if (uploadedUrl) {
         setFormImageUrl(uploadedUrl);
       } else {
-        alert(res?.message || 'Image upload succeeded but no URL returned.');
+        setUploadError(res?.message || 'Upload succeeded but no image URL was returned.');
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to upload banner image.');
+      setUploadError(err.message || 'Failed to upload banner image.');
     } finally {
       setUploadingImage(false);
+      e.target.value = '';
     }
   };
 
@@ -900,6 +912,51 @@ export default function BannersPage() {
               </label>
             </div>
 
+            {/* Upload Error / Backend Warning Notice */}
+            {uploadError && (
+              <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-amber-900">Backend Upload Issue Detected</p>
+                    <p className="text-amber-800 leading-relaxed">
+                      {uploadError}
+                    </p>
+                    <p className="font-semibold text-amber-900 pt-0.5">
+                      💡 Solution: Simply paste any image link directly into the "Image URL" field below, or click one of our sample presets.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Preset Sample Banners */}
+            <div>
+              <span className="text-[11px] font-semibold text-slate-500 block mb-1.5">
+                Quick Sample Presets (Click to use):
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {PRESET_BANNERS.map(p => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => {
+                      setFormImageUrl(p.url);
+                      setUploadError('');
+                    }}
+                    className={clsx(
+                      "px-2.5 py-1 rounded-xl text-xs font-medium border transition-colors cursor-pointer",
+                      formImageUrl === p.url
+                        ? "bg-[#F05A22] text-white border-[#F05A22]"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-[#F05A22]/50 hover:bg-orange-50/40"
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Or Paste Direct Image URL */}
             <div>
               <span className="text-[11px] font-semibold text-slate-500 block mb-1">
@@ -908,8 +965,11 @@ export default function BannersPage() {
               <input
                 type="url"
                 value={formImageUrl}
-                onChange={e => setFormImageUrl(e.target.value)}
-                placeholder="https://..."
+                onChange={e => {
+                  setFormImageUrl(e.target.value);
+                  setUploadError('');
+                }}
+                placeholder="https://images.unsplash.com/..."
                 required
                 className="input-field text-xs font-mono"
               />
@@ -1055,3 +1115,4 @@ export default function BannersPage() {
     </div>
   );
 }
+
