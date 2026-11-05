@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import {
   LayoutDashboard, Users, UserCheck, CalendarDays,
   TrendingUp, Star, Trophy, Shield, Settings, LogOut,
-  Medal, MapPin, MessageSquare, Mail, History, Scale
+  Medal, MapPin, MessageSquare, Mail, History, Scale, ImageIcon
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLE_LABELS, ROLE_COLORS } from '../../types';
@@ -32,6 +32,7 @@ const NAV: NavItem[] = [
   { href:'/community',    label:'Community',      icon:MessageSquare,   permission:'sports',     group:'Content' },
   { href:'/venues',       label:'Venues',         icon:MapPin,          permission:'sports',     group:'Content' },
   { href:'/sports',       label:'Sports',         icon:Trophy,          permission:'sports',     group:'Content' },
+  { href:'/banners',      label:'Banners',        icon:ImageIcon,       permission:'sports',     group:'Content' },
   { href:'/admins',       label:'Manage Admins',  icon:Shield,          permission:'admins' },
 ];
 

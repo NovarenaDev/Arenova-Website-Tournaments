@@ -39,6 +39,7 @@ export function extractDataList<T = any>(res: any): T[] {
   if (Array.isArray(res.transactions)) return res.transactions;
   if (Array.isArray(res.payouts)) return res.payouts;
   if (Array.isArray(res.withdrawals)) return res.withdrawals;
+  if (Array.isArray(res.banners)) return res.banners;
   if (Array.isArray(res.items)) return res.items;
   if (Array.isArray(res.results)) return res.results;
   if (Array.isArray(res.records)) return res.records;
@@ -57,6 +58,7 @@ export function extractDataList<T = any>(res: any): T[] {
     if (Array.isArray(res.data.posts)) return res.data.posts;
     if (Array.isArray(res.data.enquiries)) return res.data.enquiries;
     if (Array.isArray(res.data.admins)) return res.data.admins;
+    if (Array.isArray(res.data.banners)) return res.data.banners;
     if (Array.isArray(res.data.transactions)) return res.data.transactions;
     if (Array.isArray(res.data.payouts)) return res.data.payouts;
     if (Array.isArray(res.data.withdrawals)) return res.data.withdrawals;

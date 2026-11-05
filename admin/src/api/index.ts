@@ -382,3 +382,38 @@ export const reconcileRefund = (id: string, data: any = {}) => {
   return post(`/admin/refunds/${id}/reconcile`, data);
 };
 
+// ── Admin Banners ─────────────────────────────────────────────────────────────
+export const getAdminBanners = (params: { type?: 'coach' | 'player' } = {}) => {
+  const q = new URLSearchParams();
+  if (params.type) q.append('type', params.type);
+  const qs = q.toString() ? `?${q.toString()}` : '';
+  return get(`/admin/banners${qs}`);
+};
+
+export const createAdminBanner = (data: {
+  type: 'coach' | 'player';
+  imageUrl: string;
+  link?: string;
+  order?: number;
+  isActive?: boolean;
+  title?: string;
+}) => post('/admin/banners', data);
+
+export const updateAdminBanner = (
+  id: string,
+  data: Partial<{
+    type: 'coach' | 'player';
+    imageUrl: string;
+    link?: string;
+    order?: number;
+    isActive?: boolean;
+    title?: string;
+  }>
+) => put(`/admin/banners/${id}`, data);
+
+export const deleteAdminBanner = (id: string) => del(`/admin/banners/${id}`);
+
+export const reorderAdminBanners = (banners: Array<{ id: string; order: number }>) =>
+  put('/admin/banners/reorder', { banners });
+
+

@@ -17,6 +17,7 @@ import SettlementsPage  from './pages/settlements/SettlementsPage';
 import TournamentsPage  from './pages/tournaments/TournamentsPage';
 import CommunityPage    from './pages/community/CommunityPage';
 import VenuesPage       from './pages/venues/VenuesPage';
+import BannersPage      from './pages/banners/BannersPage';
 import SettingsPage     from './pages/settings/SettingsPage';
 
 export default function App() {
@@ -60,6 +61,7 @@ export default function App() {
             <Route element={<ProtectedRoute permission="sports" />}>
               <Route path="/sports"       element={<SportsPage />} />
               <Route path="/tournaments"  element={<TournamentsPage />} />
+              <Route path="/banners"      element={<BannersPage />} />
               <Route path="/community"    element={<CommunityPage />} />
               <Route path="/venues"       element={<VenuesPage />} />
             </Route>

@@ -19,6 +19,7 @@ const TITLES: Record<string, string> = {
   '/tournaments': 'Tournaments',
   '/community':   'Community Centers',
   '/venues':      'Venues',
+  '/banners':     'App Banners Management',
   '/admins':      'Admin Management',
   '/audit-logs':  'Admin Activity / Audit Logs',
   '/enquiries':   'Customer Enquiries',

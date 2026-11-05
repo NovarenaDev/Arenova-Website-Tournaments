@@ -315,3 +315,20 @@ export interface RefundItem {
   createdAt: string;
   reconciledAt?: string;
 }
+
+// ── Admin Banners ─────────────────────────────────────────────────────────────
+export type BannerTargetType = 'coach' | 'player';
+
+export interface Banner {
+  id: string;
+  _id?: string;
+  type: BannerTargetType;
+  imageUrl: string;
+  link?: string;
+  order: number;
+  isActive: boolean;
+  title?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
