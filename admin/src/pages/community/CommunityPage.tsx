@@ -1,920 +1,1666 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  MessageSquare, Users, Flag, Trash2, Eye, Plus, MapPin,
-  Calendar, Trophy, Clock, Trash, Pencil, ShieldAlert,
-  UserCheck, UserPlus, ChevronDown, ChevronUp, DollarSign, ClipboardCheck
+  Building2, Shield, Calendar, Clock, MapPin, Users, UserCheck,
+  DollarSign, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Plus,
+  Edit2, Trash2, ChevronRight, ChevronDown, ChevronUp, Search, Eye,
+  Filter, Sparkles, AlertCircle, FileText, ArrowRight, ArrowUpRight,
+  Scale, Undo2, Lock, Unlock, HelpCircle, Landmark, Check, X,
+  MessageSquare, UserPlus, Layers, History, Award, Trophy
 } from 'lucide-react';
 import {
-  Card, CardHeader, CardTitle, CardContent, Badge, Avatar,
-  Button, SearchBar, FilterPill, StatCard, Table, Thead,
-  Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, DetailRow,
-  Input, Textarea, Select
-} from '../../components/ui';
-import {
-  getAdminCommunity, removeCommunityPost,
-  getAdminCommunities, getAdminCommunityDetail,
-  createCommunity, updateCommunity, updateCommunityStatus,
-  addCommunityProgram, updateCommunityProgram,
-  assignCoachToProgram, removeCoachFromProgram,
-  getAdminCoaches, getAdminSports, getCustomers,
-  getProgramSubscribers, subscribePlayerToProgram,
-  processCoachSalary, getSalaryPayouts, getProgramAttendance,
-  extractDataList
+  getAdminCommunities, getAdminCommunityDetail, createCommunity,
+  updateCommunity, updateCommunityStatus, addCommunityProgram,
+  updateCommunityProgram, assignCoachToProgram, getProgramCoachesHistory,
+  updateProgramCoachSalary, removeCoachFromProgram, assignCommunityAdmin,
+  getProgramAttendance, reviewCommunityAttendance, getCommunityComplaints,
+  resolveCommunityComplaint, cancelCommunityProgram, getProgramCancellation,
+  retryProgramCancellation, getCommunityRefunds, reconcileCommunityRefund,
+  approveCommunityRefund, processCoachSalary, getSalaryPayouts,
+  getProgramSubscriptions, getCommunityLedger, getAdminCommunity,
+  removeCommunityPost, getAdminCoaches, getAdminSports, getAdmins,
+  getCustomers, subscribePlayerToProgram, extractDataList
 } from '../../api';
+import {
+  Community, CommunityProgram, CommunityPlan, CommunityStatus,
+  CoachSalaryHistory, CommunityAttendanceRecord, CommunityComplaint,
+  CommunityLedgerEntry, Coach, AdminUser, Customer
+} from '../../types';
+import {
+  Card, CardHeader, CardTitle, CardContent, Badge, Button,
+  StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog
+} from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
 import { clsx } from 'clsx';
-import type { Customer } from '../../types';
 
-// Type definitions
-type Post = {
-  _id?: string;
-  id?: string;
-  authorName: string;
-  text: string;
-  sport?: string;
-  likes: number;
-  status: string;
-  createdAt: string;
-  authorModel?: string;
-};
-
-type Community = {
-  id?: string;
-  _id?: string;
-  name: string;
-  description?: string;
-  location?: string;
-  city?: string;
-  address?: string;
-  imageUrl?: string;
-  status: 'active' | 'inactive' | 'draft' | 'archived';
-  programs?: any[];
-};
-
-type Program = {
-  id?: string;
-  _id?: string;
-  sport: string;
-  title?: string;
-  startDate?: string;
-  endDate?: string;
-  sessionDays?: string[];
-  sessionStartTime?: string;
-  sessionEndTime?: string;
-  capacity?: number;
-  status?: string;
-  plans?: { duration: number; label: string; price: number }[];
-  coach?: any;
-  coachId?: string;
-  salary?: number;
-};
-
-const POST_STATUS_MAP: Record<string, string> = {
-  active: 'badge-green',
-  flagged: 'badge-amber',
-  removed: 'badge-red'
-};
-
-const COMM_STATUS_MAP: Record<string, string> = {
-  active: 'badge-green',
-  inactive: 'badge-gray',
-  draft: 'badge-amber',
-  archived: 'badge-red'
-};
-
-const FILTERS = ['All', 'Active', 'Flagged', 'Removed'];
-const COMM_FILTERS = ['All', 'Active', 'Inactive', 'Draft', 'Archived'];
+// Constants
 const DAYS_OF_WEEK = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const CITIES = ['All', 'Hyderabad', 'Bengaluru', 'Chennai', 'Mumbai', 'Delhi NCR', 'Pune', 'Kolkata'];
+const STATUS_OPTIONS: CommunityStatus[] = ['active', 'inactive', 'draft', 'archived'];
 
-function PostDetailModal({ p, open, onClose }: { p: Post | null; open: boolean; onClose: () => void }) {
-  if (!p) return null;
-  return (
-    <Modal open={open} onClose={onClose} title="Post Details" size="md">
-      <div className="space-y-4">
-        <div className="flex items-start gap-3">
-          <Avatar initials={(p.authorName || 'U').split(' ').map(n => n[0]).join('').slice(0, 2)} size={40} />
-          <div>
-            <p className="font-semibold text-white">{p.authorName}</p>
-            <p className="text-xs text-[#5c6370]">{p.authorModel || 'User'} · {new Date(p.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-          </div>
-        </div>
-        <div className="bg-[#0e0f11] border border-[#2e3139] rounded-xl p-4">
-          <p className="text-sm text-[#9ba3af] leading-relaxed">{p.text}</p>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <DetailRow label="Sport"  value={p.sport || '—'} />
-          <DetailRow label="Likes"  value={String(p.likes || 0)} />
-          <DetailRow label="Status" value={<Badge className={POST_STATUS_MAP[p.status] || 'badge-gray'}>{p.status}</Badge>} />
-          <DetailRow label="Posted" value={new Date(p.createdAt).toLocaleDateString('en-IN')} />
-        </div>
-      </div>
-    </Modal>
-  );
-}
+const SCOPED_PERMISSIONS = [
+  { id: 'programs', label: 'Programs & Schedules', desc: 'Create and edit sports batches' },
+  { id: 'assignments', label: 'Coach Assignments', desc: 'Assign/remove coaching staff' },
+  { id: 'salary', label: 'Salary Contracts', desc: 'Manage contracted monthly amounts' },
+  { id: 'attendance', label: 'Attendance Review', desc: 'Review GPS check-in exceptions' },
+  { id: 'complaints', label: 'Complaint Resolution', desc: 'Resolve player/parent session issues' },
+  { id: 'refunds', label: 'Refunds & Cancellations', desc: 'Trigger pro-rata refund workflows' },
+  { id: 'subscriptions', label: 'Subscriptions', desc: 'Inspect enrolled player contracts' },
+  { id: 'reports', label: 'Ledger & Reports', desc: 'Read academy financial ledger' },
+];
 
 export default function CommunityPage() {
-  const { can } = useAuth();
-  const [activeTab, setActiveTab] = useState<'feed' | 'centers' | 'salary' | 'attendance'>('feed');
+  const { admin, can } = useAuth();
+  const isSuperAdmin = admin?.role === 'super_admin';
 
-  // ── Tab 1: Moderation Feed State ─────────────────────────────────────────────
-  const [posts, setPosts]       = useState<Post[]>([]);
-  const [loadingPosts, setLoadingPosts] = useState(true);
-  const [search, setSearch]     = useState('');
-  const [filter, setFilter]     = useState('All');
-  const [viewP, setViewP]       = useState<Post | null>(null);
-  const [removeP, setRemoveP]   = useState<Post | null>(null);
+  // Navigation tab
+  const [activeTab, setActiveTab] = useState<'academies' | 'attendance' | 'complaints' | 'payroll' | 'ledger' | 'feed'>('academies');
 
-  // ── Tab 2: Community Centers State ───────────────────────────────────────────
+  // Shared master data
   const [communities, setCommunities] = useState<Community[]>([]);
-  const [loadingCenters, setLoadingCenters] = useState(true);
-  const [searchCenter, setSearchCenter] = useState('');
-  const [filterStatus, setFilterStatus] = useState('All');
-  const [coaches, setCoaches] = useState<any[]>([]);
+  const [loadingCommunities, setLoadingCommunities] = useState(true);
+  const [coaches, setCoaches] = useState<Coach[]>([]);
   const [sports, setSports] = useState<any[]>([]);
+  const [adminsList, setAdminsList] = useState<AdminUser[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [subscribersMap, setSubscribersMap] = useState<Record<string, any[]>>({});
-  const [expandedPrograms, setExpandedPrograms] = useState<Record<string, boolean>>({});
 
-  // ── Tab 3: Salary Payouts & Processing State ───────────────────────────
-  const [salaryPayouts, setSalaryPayouts] = useState<any[]>([]);
-  const [loadingSalary, setLoadingSalary] = useState(false);
-  const [processSalaryOpen, setProcessSalaryOpen] = useState(false);
-  const [salaryCoachId, setSalaryCoachId] = useState('');
-  const [salaryProgramId, setSalaryProgramId] = useState('');
-  const [salaryAmountInput, setSalaryAmountInput] = useState('15000');
-  const [salaryMonth, setSalaryMonth] = useState('2026-09');
+  // Filters for Academies
+  const [selectedCity, setSelectedCity] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedCommunityIds, setExpandedCommunityIds] = useState<Record<string, boolean>>({});
 
-  // ── Tab 4: Program Attendance State ─────────────────────────────────────
-  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
-  const [loadingAttendance, setLoadingAttendance] = useState(false);
-  const [selectedAttProgramId, setSelectedAttProgramId] = useState('');
-  const [attDate, setAttDate] = useState('');
-  const [attStatus, setAttStatus] = useState('All');
+  // ── Modal States ─────────────────────────────────────────────────────────────
+  // 1. Academy Modal (Create / Edit)
+  const [academyModalOpen, setAcademyModalOpen] = useState(false);
+  const [editingAcademy, setEditingAcademy] = useState<Community | null>(null);
+  const [savingAcademy, setSavingAcademy] = useState(false);
+  const [academyForm, setAcademyForm] = useState({
+    name: '',
+    description: '',
+    city: 'Hyderabad',
+    address: '',
+    latitude: 17.4375,
+    longitude: 78.4483,
+    attendanceRadius: 100,
+    timeZone: 'Asia/Kolkata',
+    attendanceEarlyMinutes: 15,
+    attendanceGraceMinutes: 30,
+    attendanceEndEarlyMinutes: 15
+  });
 
-  // Helper helpers for salary payouts
-  const getSalaryCoachName = (sp: any) => {
-    if (sp.coachName && typeof sp.coachName === 'string') return sp.coachName;
-    if (sp.coachId && typeof sp.coachId === 'object') {
-      const c = sp.coachId;
-      return c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.email || 'Coach';
-    }
-    if (sp.coach && typeof sp.coach === 'object') {
-      const c = sp.coach;
-      return c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.email || 'Coach';
-    }
-    const rawId = typeof sp.coachId === 'string' ? sp.coachId : (typeof sp.coach === 'string' ? sp.coach : null);
-    if (rawId) {
-      const found = coaches.find(c => (c.id || c._id) === rawId);
-      if (found) return getCoachName(found);
-    }
-    return sp.coachName || 'Coach';
-  };
+  // 2. Program Modal (Create / Edit)
+  const [programModalOpen, setProgramModalOpen] = useState(false);
+  const [targetCommunity, setTargetCommunity] = useState<Community | null>(null);
+  const [editingProgram, setEditingProgram] = useState<CommunityProgram | null>(null);
+  const [savingProgram, setSavingProgram] = useState(false);
+  const [programForm, setProgramForm] = useState<{
+    sport: string;
+    title: string;
+    startDate: string;
+    endDate: string;
+    sessionDays: string[];
+    sessionStartTime: string;
+    sessionEndTime: string;
+    capacity: number;
+    plans: CommunityPlan[];
+  }>({
+    sport: '',
+    title: '',
+    startDate: '',
+    endDate: '',
+    sessionDays: ['MON', 'WED', 'FRI'],
+    sessionStartTime: '10:00',
+    sessionEndTime: '11:00',
+    capacity: 20,
+    plans: [
+      { duration: 1, unit: 'week', price: 700, label: 'Weekly', isActive: true },
+      { duration: 1, unit: 'month', price: 2000, label: 'Monthly', isActive: true },
+      { duration: 3, unit: 'month', price: 5000, label: 'Quarterly', isActive: true }
+    ]
+  });
 
-  const getSalaryProgramTitle = (sp: any) => {
-    if (sp.programTitle && typeof sp.programTitle === 'string') return sp.programTitle;
-    if (sp.programId && typeof sp.programId === 'object') {
-      const p = sp.programId;
-      return p.title || p.name || p.sport || 'Program Batch';
-    }
-    if (sp.program && typeof sp.program === 'object') {
-      const p = sp.program;
-      return p.title || p.name || p.sport || 'Program Batch';
-    }
-    const rawId = typeof sp.programId === 'string' ? sp.programId : (typeof sp.program === 'string' ? sp.program : null);
-    if (rawId) {
-      const allProgs = communities.flatMap(c => (c.programs || []).map(p => ({ ...p, communityName: c.name })));
-      const found = allProgs.find(p => (p.id || p._id) === rawId);
-      if (found) return `${found.communityName} — ${found.title || found.sport}`;
-    }
-    return 'Community Program';
-  };
-
-  const getSalaryAmount = (sp: any) => {
-    const val = sp.amount ?? sp.amountInr ?? sp.salary ?? sp.payoutAmount;
-    return val !== undefined && val !== null ? Number(val) : 0;
-  };
-
-  const getSalaryPayoutDate = (sp: any) => {
-    const d = sp.paidAt || sp.createdAt || sp.date || sp.updatedAt;
-    if (!d) return 'N/A';
-    try {
-      return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-    } catch {
-      return String(d);
-    }
-  };
-
-  // Modals & Active objects
-  const [createCommOpen, setCreateCommOpen] = useState(false);
-  const [editingComm, setEditingComm] = useState<Community | null>(null);
-  const [viewingComm, setViewingComm] = useState<Community | null>(null);
-  
-  const [createProgOpen, setCreateProgOpen] = useState(false);
-  const [editingProg, setEditingProg] = useState<Program | null>(null);
-  
-  const [assignCoachOpen, setAssignCoachOpen] = useState(false);
-  const [targetProgramId, setTargetProgramId] = useState<string | null>(null);
-  
-  const [enrollPlayerOpen, setEnrollPlayerOpen] = useState(false);
-  const [enrollProgramId, setEnrollProgramId] = useState<string | null>(null);
-
-  // Form Fields: Community
-  const [commName, setCommName] = useState('');
-  const [commDesc, setCommDesc] = useState('');
-  const [commLoc, setCommLoc] = useState('');
-  const [commCity, setCommCity] = useState('Hyderabad');
-  const [commAddr, setCommAddr] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState('');
-
-  // Form Fields: Program
-  const [progSport, setProgSport] = useState('');
-  const [progTitle, setProgTitle] = useState('');
-  const [progStartDate, setProgStartDate] = useState('');
-  const [progEndDate, setProgEndDate] = useState('');
-  const [progDays, setProgDays] = useState<string[]>([]);
-  const [progStartTime, setProgStartTime] = useState('');
-  const [progEndTime, setProgEndTime] = useState('');
-  const [progCapacity, setProgCapacity] = useState(30);
-  const [progPrice, setProgPrice] = useState('');
-
-  // Form Fields: Coach Assignment
+  // 3. Coach Assignment & Salary Contract Modal
+  const [coachModalOpen, setCoachModalOpen] = useState(false);
+  const [targetProgram, setTargetProgram] = useState<CommunityProgram | null>(null);
   const [selectedCoachId, setSelectedCoachId] = useState('');
-  const [salaryInput, setSalaryInput] = useState('15000');
+  const [contractSalary, setContractSalary] = useState<number>(20000);
+  const [savingCoachAssignment, setSavingCoachAssignment] = useState(false);
+  const [salaryHistory, setSalaryHistory] = useState<CoachSalaryHistory[]>([]);
+  const [loadingSalaryHistory, setLoadingSalaryHistory] = useState(false);
 
-  // Form Fields: Player Enrollment
-  const [selectedPlayerId, setSelectedPlayerId] = useState('');
+  // 4. Scoped Staff Admin Access Modal
+  const [staffModalOpen, setStaffModalOpen] = useState(false);
+  const [staffTargetCommunity, setStaffTargetCommunity] = useState<Community | null>(null);
+  const [selectedAdminId, setSelectedAdminId] = useState('');
+  const [assignedPermissions, setAssignedPermissions] = useState<string[]>([
+    'programs', 'assignments', 'attendance', 'subscriptions'
+  ]);
+  const [staffActive, setStaffActive] = useState(true);
+  const [savingStaff, setSavingStaff] = useState(false);
 
-  // Helper helper to get coach name
-  const getCoachName = (c: any) => {
-    if (!c) return '—';
-    return c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.email || 'Coach';
-  };
+  // 5. Program Cancellation & Refunds Modal
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelTargetProgram, setCancelTargetProgram] = useState<CommunityProgram | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancellingProgram, setCancellingProgram] = useState(false);
+  const [cancellationProgress, setCancellationProgress] = useState<any>(null);
+  const [loadingCancellationProgress, setLoadingCancellationProgress] = useState(false);
 
-  // Helper helper to get player name
-  const getPlayerFullName = (p: any) => {
-    if (!p) return '—';
-    return p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email || 'Player';
-  };
+  // 6. Program Subscriptions Drawer
+  const [subscriptionsModalOpen, setSubscriptionsModalOpen] = useState(false);
+  const [subscriptionsProgram, setSubscriptionsProgram] = useState<CommunityProgram | null>(null);
+  const [subscriptionsList, setSubscriptionsList] = useState<any[]>([]);
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
 
-  // ── Load Moderation Feed ─────────────────────────────────────────────────────
-  const loadPosts = useCallback(async () => {
-    setLoadingPosts(true);
+  // ── Tab 2: Attendance Review State ───────────────────────────────────────────
+  const [selectedAttProgramId, setSelectedAttProgramId] = useState('');
+  const [attDate, setAttDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [attRecords, setAttRecords] = useState<CommunityAttendanceRecord[]>([]);
+  const [loadingAtt, setLoadingAtt] = useState(false);
+  const [reviewingAttRecord, setReviewingAttRecord] = useState<CommunityAttendanceRecord | null>(null);
+  const [reviewAction, setReviewAction] = useState<'ACKNOWLEDGED' | 'EXCUSED' | 'NEEDS_FOLLOW_UP'>('ACKNOWLEDGED');
+  const [reviewReason, setReviewReason] = useState('');
+  const [savingAttReview, setSavingAttReview] = useState(false);
+
+  // ── Tab 3: Complaints Queue State ────────────────────────────────────────────
+  const [complaints, setComplaints] = useState<CommunityComplaint[]>([]);
+  const [loadingComplaints, setLoadingComplaints] = useState(false);
+  const [complaintFilterStatus, setComplaintFilterStatus] = useState<string>('OPEN');
+  const [complaintProgramId, setComplaintProgramId] = useState<string>('');
+  const [resolvingComplaint, setResolvingComplaint] = useState<CommunityComplaint | null>(null);
+  const [resolutionStatus, setResolutionStatus] = useState<'RESOLVED' | 'MANUAL_REVIEW'>('RESOLVED');
+  const [resolutionReason, setResolutionReason] = useState('');
+  const [savingComplaintResolution, setSavingComplaintResolution] = useState(false);
+
+  // ── Tab 4: Monthly Payroll & Coach Salary State ──────────────────────────────
+  const [payrollMonth, setPayrollMonth] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [payrollCommunityId, setPayrollCommunityId] = useState('');
+  const [salaryPayouts, setSalaryPayouts] = useState<any[]>([]);
+  const [loadingPayroll, setLoadingPayroll] = useState(false);
+  const [payrollModalOpen, setPayrollModalOpen] = useState(false);
+  const [payrollCoachId, setPayrollCoachId] = useState('');
+  const [payrollProgramId, setPayrollProgramId] = useState('');
+  const [isExceptionApproval, setIsExceptionApproval] = useState(false);
+  const [exceptionAmountInr, setExceptionAmountInr] = useState<number>(0);
+  const [exceptionReference, setExceptionReference] = useState('');
+  const [exceptionReason, setExceptionReason] = useState('');
+  const [processingPayroll, setProcessingPayroll] = useState(false);
+
+  // ── Tab 5: Community Financial Ledger State ──────────────────────────────────
+  const [ledgerCommunityId, setLedgerCommunityId] = useState('');
+  const [ledgerEntries, setLedgerEntries] = useState<CommunityLedgerEntry[]>([]);
+  const [loadingLedger, setLoadingLedger] = useState(false);
+  const [refundsQueue, setRefundsQueue] = useState<any[]>([]);
+  const [loadingRefundsQueue, setLoadingRefundsQueue] = useState(false);
+  const [reconcilingRefundId, setReconcilingRefundId] = useState<string | null>(null);
+
+  // ── Tab 6: Feed Moderation State ─────────────────────────────────────────────
+  const [feedPosts, setFeedPosts] = useState<any[]>([]);
+  const [loadingFeed, setLoadingFeed] = useState(false);
+  const [postToRemove, setPostToRemove] = useState<any | null>(null);
+
+  // ── 1. Fetch Communities & Master Data ───────────────────────────────────────
+  const fetchCommunities = useCallback(async () => {
     try {
-      const res = await getAdminCommunity();
-      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      const seen = new Set<string>();
-      const unique: Post[] = [];
-      for (const p of raw) {
-        const id = p.id || p._id;
-        if (id && !seen.has(String(id))) {
-          seen.add(String(id));
-          unique.push(p);
-        } else if (!id) {
-          unique.push(p);
-        }
-      }
-      setPosts(unique);
-    } catch {
-      setPosts([]);
-    } finally { setLoadingPosts(false); }
-  }, []);
+      setLoadingCommunities(true);
+      const params: Record<string, string> = {};
+      if (selectedCity !== 'All') params.city = selectedCity;
+      if (selectedStatus !== 'All') params.status = selectedStatus;
 
-  // ── Load Communities & Aux Data ──────────────────────────────────────────────
-  const loadCommunities = useCallback(async () => {
-    setLoadingCenters(true);
-    try {
-      const res = await getAdminCommunities();
-      const rawComms = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      if (rawComms.length) {
-        const detailedComms = await Promise.all(
-          rawComms.map(async (c: any) => {
-            const cid = c.id || c._id;
-            if (!c.programs || c.programs.length === 0) {
-              try {
-                const detailRes = await getAdminCommunityDetail(cid);
-                const detail = detailRes.data || detailRes;
-                if (detail?.programs?.length) {
-                  return { ...c, programs: detail.programs };
-                }
-              } catch {
-                // If detail call fails, leave programs empty
-              }
-              return { ...c, programs: c.programs || [] };
-            }
-            return c;
-          })
-        );
-        const seen = new Set<string>();
-        const unique: Community[] = [];
-        for (const c of detailedComms) {
-          const id = c.id || (c as any)._id;
-          if (id && !seen.has(String(id))) {
-            seen.add(String(id));
-            unique.push(c);
-          } else if (!id) {
-            unique.push(c);
+      const res = await getAdminCommunities(params);
+      const list = extractDataList<Community>(res);
+
+      // Fetch detail for each community to ensure programs and subscriber counts are loaded
+      const detailed = await Promise.all(
+        list.map(async (comm) => {
+          const id = comm.id || comm._id;
+          if (!id) return comm;
+          try {
+            const dRes = await getAdminCommunityDetail(id);
+            const d = dRes?.data || dRes;
+            return { ...comm, ...d };
+          } catch {
+            return comm;
           }
-        }
-        setCommunities(unique);
-      } else {
-        setCommunities([]);
-      }
-    } catch {
+        })
+      );
+      setCommunities(detailed);
+    } catch (err: any) {
+      console.warn('Failed to load communities:', err);
       setCommunities([]);
-    } finally { setLoadingCenters(false); }
-  }, []);
+    } finally {
+      setLoadingCommunities(false);
+    }
+  }, [selectedCity, selectedStatus]);
 
-  const loadCoaches = useCallback(async () => {
+  const fetchAuxMasterData = useCallback(async () => {
     try {
-      const res = await getAdminCoaches();
-      const list = extractDataList(res);
-      setCoaches(list.filter((c: any) => c.kyc === 'approved' || c.isActive));
-    } catch (e) {
-      console.error('Coaches load failed', e);
+      const [coachesRes, sportsRes, adminsRes, customersRes] = await Promise.allSettled([
+        getAdminCoaches(),
+        getAdminSports(),
+        getAdmins(),
+        getCustomers({ limit: 100 })
+      ]);
+
+      if (coachesRes.status === 'fulfilled') setCoaches(extractDataList(coachesRes.value));
+      if (sportsRes.status === 'fulfilled') setSports(extractDataList(sportsRes.value));
+      if (adminsRes.status === 'fulfilled') setAdminsList(extractDataList(adminsRes.value));
+      if (customersRes.status === 'fulfilled') setCustomers(extractDataList(customersRes.value));
+    } catch (err) {
+      console.warn('Aux master data error:', err);
     }
   }, []);
 
-  const loadSports = useCallback(async () => {
-    try {
-      const res = await getAdminSports();
-      const list = extractDataList(res);
-      if (list.length) {
-        setSports(list);
-        if (!progSport) {
-          setProgSport(list[0].name || list[0].id);
-        }
-      }
-    } catch (e) {
-      console.error('Sports load failed', e);
+  useEffect(() => {
+    fetchCommunities();
+    fetchAuxMasterData();
+  }, [fetchCommunities, fetchAuxMasterData]);
+
+  // Expand first community by default on initial load
+  useEffect(() => {
+    if (communities.length > 0 && Object.keys(expandedCommunityIds).length === 0) {
+      const firstId = communities[0].id || communities[0]._id;
+      if (firstId) setExpandedCommunityIds({ [firstId]: true });
     }
-  }, [progSport]);
+  }, [communities]);
 
-  const loadCustomers = useCallback(async () => {
-    try {
-      const res = await getCustomers({ limit: 100 });
-      const list = extractDataList<Customer>(res);
-      if (list.length) {
-        setCustomers(list);
-        setSelectedPlayerId(list[0].id);
-      }
-    } catch (e) {
-      console.error('Customers load failed', e);
-    }
-  }, []);
-
-  const loadSubscribersForPrograms = useCallback(async (programs: any[]) => {
-    const map: Record<string, any[]> = {};
-    for (const p of programs) {
-      const pid = p.id || p._id;
-      try {
-        const res = await getProgramSubscribers(pid);
-        map[pid] = res.data || res || [];
-      } catch {
-        map[pid] = [];
-      }
-    }
-    setSubscribersMap(prev => ({ ...prev, ...map }));
-  }, []);
-
-  // ── Salary Payouts & Processing Callbacks ──────────────────────────────────────
-  const loadSalaryPayouts = useCallback(async () => {
-    setLoadingSalary(true);
-    try {
-      const res = await getSalaryPayouts();
-      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      const seen = new Set<string>();
-      const unique: any[] = [];
-      for (const s of raw) {
-        const id = s.id || s._id;
-        if (id && !seen.has(String(id))) {
-          seen.add(String(id));
-          unique.push(s);
-        } else if (!id) {
-          unique.push(s);
-        }
-      }
-      setSalaryPayouts(unique);
-    } catch {
-      setSalaryPayouts([]);
-    } finally { setLoadingSalary(false); }
-  }, []);
-
-  const toValidObjectId = (idStr?: string, suffix: string = '0'): string => {
-    if (!idStr) return '6a6868be435cebe99d916ec0';
-    if (/^[0-9a-fA-F]{24}$/.test(idStr)) return idStr;
-    const clean = idStr.replace(/[^0-9a-fA-F]/g, '');
-    if (clean.length >= 24) return clean.slice(0, 24).toLowerCase();
-    const pad = (clean + '6a6868be435cebe99d916ec4').slice(0, 24 - suffix.length) + suffix;
-    return pad.toLowerCase();
-  };
-
-  const handleProgramSelectChange = (progId: string) => {
-    setSalaryProgramId(progId);
-    const allProgs = communities.flatMap(c => (c.programs || []).map((p: any) => ({ ...p, communityName: c.name })));
-    const p = allProgs.find(item => (item.id || item._id) === progId);
-    if (p) {
-      if (p.salary) setSalaryAmountInput(String(p.salary));
-      if (p.coach) {
-        const cid = typeof p.coach === 'object' ? (p.coach.id || p.coach._id) : p.coach;
-        if (cid) setSalaryCoachId(cid);
-      }
-    }
-  };
-
-  const handleProcessSalary = async () => {
-    if (!salaryCoachId || !salaryProgramId || !salaryMonth) {
-      alert('Please fill all required fields');
+  // ── Tab 2: Fetch Attendance ──────────────────────────────────────────────────
+  const fetchAttendance = useCallback(async (programId: string, date: string) => {
+    if (!programId) {
+      setAttRecords([]);
       return;
     }
-
-    const matchedCoach = coaches.find(c => (c.id || c._id) === salaryCoachId);
-    const allProgs = communities.flatMap(c => (c.programs || []).map(p => ({ ...p, communityName: c.name })));
-    const matchedProg = allProgs.find(p => (p.id || p._id) === salaryProgramId);
-
-    const coachName = matchedCoach ? getCoachName(matchedCoach) : 'Coach';
-    const programTitle = matchedProg ? `${matchedProg.communityName} — ${matchedProg.title || matchedProg.sport}` : 'Program Batch';
-    const amount = Number(salaryAmountInput) || matchedProg?.salary || 15000;
-
-    const validProgramId = toValidObjectId(salaryProgramId, '1');
-    const validCoachId = toValidObjectId(salaryCoachId, 'a');
-
     try {
-      await processCoachSalary(validCoachId, validProgramId, salaryMonth);
-      const newPayout = {
-        id: `SP_${Date.now()}`,
-        coachName,
-        programTitle,
-        month: salaryMonth,
-        amount,
-        status: 'paid',
-        date: new Date().toISOString().split('T')[0]
-      };
-      setSalaryPayouts(prev => [newPayout, ...prev]);
-      alert(`Salary payout of ₹${amount.toLocaleString('en-IN')} for ${coachName} processed successfully!`);
-      setProcessSalaryOpen(false);
-    } catch (err: any) {
-      alert(err.message || 'Salary processing failed');
+      setLoadingAtt(true);
+      const res = await getProgramAttendance(programId, { date });
+      setAttRecords(extractDataList<CommunityAttendanceRecord>(res));
+    } catch (err) {
+      console.warn('Failed to fetch attendance:', err);
+      setAttRecords([]);
+    } finally {
+      setLoadingAtt(false);
     }
-  };
+  }, []);
 
-  // ── Attendance Callbacks ───────────────────────────────────────────────────────
-  const loadAttendance = useCallback(async (pid: string) => {
-    if (!pid) return;
-    setLoadingAttendance(true);
-    try {
-      const params: any = {};
-      if (attDate) params.date = attDate;
-      if (attStatus !== 'All') params.status = attStatus;
-      const res = await getProgramAttendance(pid, params);
-      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      const seen = new Set<string>();
-      const unique: any[] = [];
-      for (const a of raw) {
-        const id = a.id || a._id;
-        if (id && !seen.has(String(id))) {
-          seen.add(String(id));
-          unique.push(a);
-        } else if (!id) {
-          unique.push(a);
-        }
-      }
-      setAttendanceRecords(unique);
-    } catch {
-      setAttendanceRecords([]);
-    } finally { setLoadingAttendance(false); }
-  }, [attDate, attStatus]);
-
-  // Tab switching effect
   useEffect(() => {
-    if (activeTab === 'feed') {
-      loadPosts();
-    } else if (activeTab === 'centers') {
-      loadCommunities();
-      loadCoaches();
-      loadSports();
-      loadCustomers();
-    } else if (activeTab === 'salary') {
-      loadSalaryPayouts();
-      loadCoaches();
-      loadCommunities();
-    } else if (activeTab === 'attendance') {
-      loadCommunities();
-      if (selectedAttProgramId) {
-        loadAttendance(selectedAttProgramId);
-      }
+    if (activeTab === 'attendance' && selectedAttProgramId) {
+      fetchAttendance(selectedAttProgramId, attDate);
     }
-  }, [activeTab, loadPosts, loadCommunities, loadCoaches, loadSports, loadCustomers, loadSalaryPayouts, loadAttendance, selectedAttProgramId]);
+  }, [activeTab, selectedAttProgramId, attDate, fetchAttendance]);
 
-  // Load subscribers when community details open
-  useEffect(() => {
-    if (viewingComm?.programs?.length) {
-      loadSubscribersForPrograms(viewingComm.programs);
-    }
-  }, [viewingComm, loadSubscribersForPrograms]);
-
-  // ── Moderation Handlers ──────────────────────────────────────────────────────
-  const handleRemovePost = async () => {
-    if (!removeP) return;
-    const id = removeP._id || removeP.id!;
+  // ── Tab 3: Fetch Complaints ──────────────────────────────────────────────────
+  const fetchComplaints = useCallback(async () => {
     try {
-      await removeCommunityPost(id);
-      setPosts(prev => prev.map(p => (p._id || p.id) === id ? { ...p, status: 'removed' } : p));
-    } catch (err: any) {
-      alert(err.message || 'Remove failed');
+      setLoadingComplaints(true);
+      const params: Record<string, string> = {};
+      if (complaintFilterStatus) params.status = complaintFilterStatus;
+      if (complaintProgramId) params.programId = complaintProgramId;
+      const res = await getCommunityComplaints(params);
+      setComplaints(extractDataList<CommunityComplaint>(res));
+    } catch (err) {
+      console.warn('Failed to load complaints:', err);
+      setComplaints([]);
+    } finally {
+      setLoadingComplaints(false);
     }
-    setRemoveP(null);
-  };
+  }, [complaintFilterStatus, complaintProgramId]);
 
-  // ── Community Center Handlers ────────────────────────────────────────────────
-  const openCreateComm = () => {
-    setEditingComm(null);
-    setCommName('');
-    setCommDesc('');
-    setCommLoc('');
-    setCommCity('Hyderabad');
-    setCommAddr('');
-    setImageFile(null);
-    setImagePreview('');
-    setCreateCommOpen(true);
-  };
+  useEffect(() => {
+    if (activeTab === 'complaints') fetchComplaints();
+  }, [activeTab, fetchComplaints]);
 
-  const openEditComm = (c: Community) => {
-    setEditingComm(c);
-    setCommName(c.name);
-    setCommDesc(c.description || '');
-    setCommLoc(c.location || '');
-    setCommCity(c.city || 'Hyderabad');
-    setCommAddr(c.address || '');
-    setImageFile(null);
-    setImagePreview(c.imageUrl || '');
-    setCreateCommOpen(true);
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+  // ── Tab 4: Fetch Payroll ─────────────────────────────────────────────────────
+  const fetchPayroll = useCallback(async () => {
+    try {
+      setLoadingPayroll(true);
+      const params: Record<string, string> = { month: payrollMonth };
+      if (payrollCommunityId) params.communityId = payrollCommunityId;
+      const res = await getSalaryPayouts(params);
+      setSalaryPayouts(extractDataList(res));
+    } catch (err) {
+      console.warn('Failed to load salary payouts:', err);
+      setSalaryPayouts([]);
+    } finally {
+      setLoadingPayroll(false);
     }
+  }, [payrollMonth, payrollCommunityId]);
+
+  useEffect(() => {
+    if (activeTab === 'payroll') fetchPayroll();
+  }, [activeTab, fetchPayroll]);
+
+  // ── Tab 5: Fetch Ledger & Community Refunds ──────────────────────────────────
+  const fetchLedger = useCallback(async (communityId: string) => {
+    if (!communityId) {
+      setLedgerEntries([]);
+      return;
+    }
+    try {
+      setLoadingLedger(true);
+      const res = await getCommunityLedger(communityId);
+      setLedgerEntries(extractDataList<CommunityLedgerEntry>(res));
+    } catch (err) {
+      console.warn('Failed to load community ledger:', err);
+      setLedgerEntries([]);
+    } finally {
+      setLoadingLedger(false);
+    }
+  }, []);
+
+  const fetchSubscriptionRefunds = useCallback(async () => {
+    try {
+      setLoadingRefundsQueue(true);
+      const res = await getCommunityRefunds();
+      setRefundsQueue(extractDataList(res));
+    } catch (err) {
+      console.warn('Failed to load subscription refunds:', err);
+      setRefundsQueue([]);
+    } finally {
+      setLoadingRefundsQueue(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'ledger') {
+      if (ledgerCommunityId) fetchLedger(ledgerCommunityId);
+      fetchSubscriptionRefunds();
+    }
+  }, [activeTab, ledgerCommunityId, fetchLedger, fetchSubscriptionRefunds]);
+
+  // ── Tab 6: Feed Moderation ───────────────────────────────────────────────────
+  const fetchFeed = useCallback(async () => {
+    try {
+      setLoadingFeed(true);
+      const res = await getAdminCommunity();
+      setFeedPosts(extractDataList(res));
+    } catch (err) {
+      setFeedPosts([]);
+    } finally {
+      setLoadingFeed(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'feed') fetchFeed();
+  }, [activeTab, fetchFeed]);
+
+  // ── Academy CRUD Handlers ────────────────────────────────────────────────────
+  const openCreateAcademy = () => {
+    setEditingAcademy(null);
+    setAcademyForm({
+      name: '',
+      description: '',
+      city: 'Hyderabad',
+      address: '',
+      latitude: 17.4375,
+      longitude: 78.4483,
+      attendanceRadius: 100,
+      timeZone: 'Asia/Kolkata',
+      attendanceEarlyMinutes: 15,
+      attendanceGraceMinutes: 30,
+      attendanceEndEarlyMinutes: 15
+    });
+    setAcademyModalOpen(true);
   };
 
-  const handleSaveCommunity = async (e: React.FormEvent) => {
+  const openEditAcademy = (comm: Community) => {
+    setEditingAcademy(comm);
+    setAcademyForm({
+      name: comm.name || '',
+      description: comm.description || '',
+      city: comm.city || 'Hyderabad',
+      address: comm.address || '',
+      latitude: Number(comm.latitude) || 17.4375,
+      longitude: Number(comm.longitude) || 78.4483,
+      attendanceRadius: Number(comm.attendanceRadius) || 100,
+      timeZone: comm.timeZone || 'Asia/Kolkata',
+      attendanceEarlyMinutes: Number(comm.attendanceEarlyMinutes) || 15,
+      attendanceGraceMinutes: Number(comm.attendanceGraceMinutes) || 30,
+      attendanceEndEarlyMinutes: Number(comm.attendanceEndEarlyMinutes) || 15
+    });
+    setAcademyModalOpen(true);
+  };
+
+  const handleSaveAcademy = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commName.trim()) return;
-
-    const fd = new FormData();
-    fd.append('name', commName);
-    fd.append('description', commDesc);
-    fd.append('location', commLoc);
-    fd.append('city', commCity);
-    fd.append('address', commAddr);
-    if (imageFile) {
-      fd.append('image', imageFile);
-    }
-
     try {
-      if (editingComm) {
-        const id = editingComm.id || editingComm._id!;
-        await updateCommunity(id, fd);
+      setSavingAcademy(true);
+      const payload = {
+        name: academyForm.name.trim(),
+        description: academyForm.description.trim(),
+        city: academyForm.city.trim(),
+        address: academyForm.address.trim(),
+        latitude: Number(academyForm.latitude),
+        longitude: Number(academyForm.longitude),
+        attendanceRadius: Number(academyForm.attendanceRadius),
+        timeZone: academyForm.timeZone.trim() || 'Asia/Kolkata',
+        attendanceEarlyMinutes: Number(academyForm.attendanceEarlyMinutes),
+        attendanceGraceMinutes: Number(academyForm.attendanceGraceMinutes),
+        attendanceEndEarlyMinutes: Number(academyForm.attendanceEndEarlyMinutes)
+      };
+
+      if (editingAcademy) {
+        const id = editingAcademy.id || editingAcademy._id;
+        await updateCommunity(id!, payload);
       } else {
-        await createCommunity(fd);
+        await createCommunity(payload);
       }
-      setCreateCommOpen(false);
-      setEditingComm(null);
-      loadCommunities();
+
+      setAcademyModalOpen(false);
+      fetchCommunities();
     } catch (err: any) {
-      alert(err.message || 'Failed to save community center');
+      alert(err.message || 'Failed to save academy');
+    } finally {
+      setSavingAcademy(false);
     }
   };
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
+  const handleUpdateStatus = async (comm: Community, newStatus: CommunityStatus) => {
+    const id = comm.id || comm._id;
+    if (!id) return;
+    if (newStatus === 'inactive' || newStatus === 'archived') {
+      if (!confirm(`Warning: Deactivation is blocked if there are active subscriptions or open attendance records. Are you sure you want to set status to "${newStatus}"?`)) {
+        return;
+      }
+    }
     try {
       await updateCommunityStatus(id, newStatus);
-      setCommunities(prev => prev.map(c => (c.id || c._id) === id ? { ...c, status: newStatus as any } : c));
+      fetchCommunities();
     } catch (err: any) {
-      alert(err.message || 'Failed to update community status');
+      alert(err.message || `Failed to update status to ${newStatus}`);
     }
   };
 
-  // ── Programs Handlers ────────────────────────────────────────────────────────
-  const openViewCommunity = async (c: Community) => {
-    setViewingComm(c);
-    try {
-      const detail = await getAdminCommunityDetail(c.id || c._id!);
-      setViewingComm(detail.data || detail);
-    } catch {
-      // Keep state as-is if API detail fails (will use listed programs)
-    }
+  // ── Program CRUD Handlers ────────────────────────────────────────────────────
+  const openCreateProgram = (comm: Community) => {
+    setTargetCommunity(comm);
+    setEditingProgram(null);
+    const today = new Date();
+    const nextQuarter = new Date();
+    nextQuarter.setMonth(today.getMonth() + 4);
+
+    setProgramForm({
+      sport: sports[0]?.name || 'Badminton',
+      title: 'Morning Badminton Batch',
+      startDate: today.toISOString().split('T')[0],
+      endDate: nextQuarter.toISOString().split('T')[0],
+      sessionDays: ['MON', 'WED', 'FRI'],
+      sessionStartTime: '10:00',
+      sessionEndTime: '11:00',
+      capacity: 20,
+      plans: [
+        { duration: 1, unit: 'week', price: 700, label: 'Weekly', isActive: true },
+        { duration: 1, unit: 'month', price: 2000, label: 'Monthly', isActive: true },
+        { duration: 3, unit: 'month', price: 5000, label: 'Quarterly', isActive: true }
+      ]
+    });
+    setProgramModalOpen(true);
   };
 
-  const openCreateProgram = () => {
-    setEditingProg(null);
-    setProgTitle('');
-    setProgDays([]);
-    setProgStartTime('06:00');
-    setProgEndTime('07:30');
-    setProgCapacity(30);
-    setProgPrice('2000');
-    setProgStartDate('');
-    setProgEndDate('');
-    if (sports.length && !progSport) {
-      setProgSport(sports[0].name || sports[0].id);
-    }
-    setCreateProgOpen(true);
-  };
-
-  const openEditProgram = (p: Program) => {
-    setEditingProg(p);
-    setProgTitle(p.title || '');
-    setProgSport(p.sport);
-    setProgDays(p.sessionDays || []);
-    setProgStartTime(p.sessionStartTime || '06:00');
-    setProgEndTime(p.sessionEndTime || '07:30');
-    setProgCapacity(p.capacity || 30);
-    setProgPrice(p.plans?.[0]?.price ? String(p.plans[0].price) : '');
-    setProgStartDate(p.startDate ? p.startDate.split('T')[0] : '');
-    setProgEndDate(p.endDate ? p.endDate.split('T')[0] : '');
-    setCreateProgOpen(true);
-  };
-
-  const toggleDay = (day: string) => {
-    setProgDays(prev =>
-      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
-    );
+  const openEditProgram = (comm: Community, prog: CommunityProgram) => {
+    setTargetCommunity(comm);
+    setEditingProgram(prog);
+    setProgramForm({
+      sport: prog.sport || '',
+      title: prog.title || '',
+      startDate: prog.startDate ? prog.startDate.split('T')[0] : '',
+      endDate: prog.endDate ? prog.endDate.split('T')[0] : '',
+      sessionDays: prog.sessionDays || ['MON', 'WED', 'FRI'],
+      sessionStartTime: prog.sessionStartTime || '10:00',
+      sessionEndTime: prog.sessionEndTime || '11:00',
+      capacity: Number(prog.capacity) || 20,
+      plans: prog.plans && prog.plans.length > 0 ? prog.plans : [
+        { duration: 1, unit: 'week', price: 700, label: 'Weekly', isActive: true },
+        { duration: 1, unit: 'month', price: 2000, label: 'Monthly', isActive: true }
+      ]
+    });
+    setProgramModalOpen(true);
   };
 
   const handleSaveProgram = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!progTitle.trim() || !progSport || !progStartTime || !progEndTime) {
-      alert('Please fill in all required fields.');
+    if (!targetCommunity) return;
+    const commId = targetCommunity.id || targetCommunity._id;
+    if (!commId) return;
+
+    try {
+      setSavingProgram(true);
+      const payload = {
+        sport: programForm.sport.trim(),
+        title: programForm.title.trim(),
+        startDate: programForm.startDate,
+        endDate: programForm.endDate,
+        sessionDays: programForm.sessionDays,
+        sessionStartTime: programForm.sessionStartTime,
+        sessionEndTime: programForm.sessionEndTime,
+        capacity: Number(programForm.capacity),
+        plans: programForm.plans.map(p => ({
+          ...(p._id ? { _id: p._id } : {}),
+          duration: Number(p.duration) || 1,
+          unit: p.unit || 'month',
+          price: Number(p.price) || 0,
+          label: p.label || `${p.duration} ${p.unit}`,
+          isActive: p.isActive ?? true
+        }))
+      };
+
+      if (editingProgram) {
+        const progId = editingProgram.id || editingProgram._id;
+        await updateCommunityProgram(commId, progId!, payload);
+      } else {
+        await addCommunityProgram(commId, payload);
+      }
+
+      setProgramModalOpen(false);
+      fetchCommunities();
+    } catch (err: any) {
+      alert(err.message || 'Failed to save community program');
+    } finally {
+      setSavingProgram(false);
+    }
+  };
+
+  // ── Coach Assignment & Salary Handlers ───────────────────────────────────────
+  const openCoachAssignment = async (comm: Community, prog: CommunityProgram) => {
+    setTargetCommunity(comm);
+    setTargetProgram(prog);
+    const existingCoachId = prog.coachId || (prog.coach && (prog.coach.id || prog.coach._id)) || '';
+    setSelectedCoachId(existingCoachId);
+    setContractSalary(prog.salary || 20000);
+    setCoachModalOpen(true);
+
+    const progId = prog.id || prog._id;
+    if (progId) {
+      try {
+        setLoadingSalaryHistory(true);
+        const res = await getProgramCoachesHistory(progId);
+        setSalaryHistory(extractDataList<CoachSalaryHistory>(res));
+      } catch (err) {
+        setSalaryHistory([]);
+      } finally {
+        setLoadingSalaryHistory(false);
+      }
+    }
+  };
+
+  const handleSaveCoachAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetProgram || !selectedCoachId) return;
+    const progId = targetProgram.id || targetProgram._id;
+    if (!progId) return;
+
+    try {
+      setSavingCoachAssignment(true);
+      const currentCoachId = targetProgram.coachId || (targetProgram.coach && (targetProgram.coach.id || targetProgram.coach._id));
+
+      if (currentCoachId && currentCoachId === selectedCoachId) {
+        // Prospective salary update
+        await updateProgramCoachSalary(progId, selectedCoachId, Number(contractSalary));
+      } else {
+        // Fresh assignment
+        await assignCoachToProgram(progId, selectedCoachId, Number(contractSalary));
+      }
+
+      setCoachModalOpen(false);
+      fetchCommunities();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update coach contract');
+    } finally {
+      setSavingCoachAssignment(false);
+    }
+  };
+
+  const handleEndCoachAssignment = async () => {
+    if (!targetProgram || !selectedCoachId) return;
+    const progId = targetProgram.id || targetProgram._id;
+    if (!progId) return;
+    if (!confirm('Are you sure you want to end this coach assignment? Historical attendance and salary records will be safely preserved.')) {
       return;
     }
 
-    const programData: any = {
-      sport: progSport,
-      title: progTitle,
-      startDate: progStartDate || undefined,
-      endDate: progEndDate || undefined,
-      sessionDays: progDays,
-      sessionStartTime: progStartTime,
-      sessionEndTime: progEndTime,
-      capacity: Number(progCapacity),
-    };
-
-    if (progPrice) {
-      programData.plans = [{
-        duration: 1,
-        label: '1 Month',
-        price: Number(progPrice)
-      }];
+    try {
+      setSavingCoachAssignment(true);
+      await removeCoachFromProgram(progId, selectedCoachId);
+      setCoachModalOpen(false);
+      fetchCommunities();
+    } catch (err: any) {
+      alert(err.message || 'Failed to end coach assignment');
+    } finally {
+      setSavingCoachAssignment(false);
     }
+  };
 
-    if (!viewingComm) return;
-    const communityId = viewingComm.id || viewingComm._id!;
+  // ── Scoped Staff Admin Access Handlers ───────────────────────────────────────
+  const openStaffModal = (comm: Community) => {
+    setStaffTargetCommunity(comm);
+    setSelectedAdminId(adminsList[0]?._id || adminsList[0]?.id || '');
+    setAssignedPermissions(['programs', 'assignments', 'attendance', 'subscriptions']);
+    setStaffActive(true);
+    setStaffModalOpen(true);
+  };
+
+  const handleSaveStaffGrants = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffTargetCommunity || !selectedAdminId) return;
+    const commId = staffTargetCommunity.id || staffTargetCommunity._id;
+    if (!commId) return;
 
     try {
-      if (editingProg) {
-        const programId = editingProg.id || editingProg._id!;
-        await updateCommunityProgram(communityId, programId, programData);
+      setSavingStaff(true);
+      await assignCommunityAdmin(commId, {
+        adminId: selectedAdminId,
+        permissions: assignedPermissions,
+        active: staffActive
+      });
+      alert('Community administrator scoped permissions saved successfully');
+      setStaffModalOpen(false);
+      fetchCommunities();
+    } catch (err: any) {
+      alert(err.message || 'Failed to assign community permissions');
+    } finally {
+      setSavingStaff(false);
+    }
+  };
+
+  // ── Program Cancellation & Pro-Rata Refunds Handlers ─────────────────────────
+  const openCancelProgramModal = async (comm: Community, prog: CommunityProgram) => {
+    setTargetCommunity(comm);
+    setCancelTargetProgram(prog);
+    setCancelReason('Facility structural maintenance; remaining sessions cancelled');
+    setCancellationProgress(null);
+    setCancelModalOpen(true);
+
+    const progId = prog.id || prog._id;
+    if (progId) {
+      try {
+        setLoadingCancellationProgress(true);
+        const res = await getProgramCancellation(progId);
+        setCancellationProgress(res?.data || res);
+      } catch {
+        setCancellationProgress(null);
+      } finally {
+        setLoadingCancellationProgress(false);
+      }
+    }
+  };
+
+  const handleExecuteCancellation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cancelTargetProgram) return;
+    const progId = cancelTargetProgram.id || cancelTargetProgram._id;
+    if (!progId) return;
+
+    if (!confirm('WARNING: Cancelling this program will freeze future activation and queue deterministic, pro-rata subscriber refunds. Are you sure you want to proceed?')) {
+      return;
+    }
+
+    try {
+      setCancellingProgram(true);
+      const res = await cancelCommunityProgram(progId, cancelReason.trim());
+      alert(res?.message || 'Program cancellation initiated. Pro-rata refund batch queued.');
+      const progressRes = await getProgramCancellation(progId);
+      setCancellationProgress(progressRes?.data || progressRes);
+      fetchCommunities();
+    } catch (err: any) {
+      alert(err.message || 'Failed to cancel program');
+    } finally {
+      setCancellingProgram(false);
+    }
+  };
+
+  const handleRetryCancellation = async () => {
+    if (!cancelTargetProgram) return;
+    const progId = cancelTargetProgram.id || cancelTargetProgram._id;
+    if (!progId) return;
+
+    try {
+      setCancellingProgram(true);
+      const res = await retryProgramCancellation(progId, cancelReason.trim() || 'Retry subscriber refund allocation batch');
+      alert(res?.message || 'Cancellation allocation retried successfully');
+      const progressRes = await getProgramCancellation(progId);
+      setCancellationProgress(progressRes?.data || progressRes);
+    } catch (err: any) {
+      alert(err.message || 'Retry failed');
+    } finally {
+      setCancellingProgram(false);
+    }
+  };
+
+  // ── Program Subscriptions Drawer Handlers ────────────────────────────────────
+  const openSubscriptionsDrawer = async (prog: CommunityProgram) => {
+    setSubscriptionsProgram(prog);
+    setSubscriptionsList([]);
+    setSubscriptionsModalOpen(true);
+
+    const progId = prog.id || prog._id;
+    if (progId) {
+      try {
+        setLoadingSubscriptions(true);
+        const res = await getProgramSubscriptions(progId);
+        setSubscriptionsList(extractDataList(res));
+      } catch (err) {
+        console.warn('Failed to load subscriptions:', err);
+        setSubscriptionsList([]);
+      } finally {
+        setLoadingSubscriptions(false);
+      }
+    }
+  };
+
+  // ── Tab 2: Attendance Review Handlers ────────────────────────────────────────
+  const handleOpenAttReview = (record: CommunityAttendanceRecord) => {
+    setReviewingAttRecord(record);
+    setReviewAction((record.reviewAction as any) || 'ACKNOWLEDGED');
+    setReviewReason(record.reviewReason || '');
+  };
+
+  const handleSaveAttReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewingAttRecord) return;
+    const id = reviewingAttRecord.id || reviewingAttRecord._id;
+    if (!id) return;
+
+    try {
+      setSavingAttReview(true);
+      await reviewCommunityAttendance(id, {
+        action: reviewAction,
+        reason: reviewReason.trim()
+      });
+      setReviewingAttRecord(null);
+      if (selectedAttProgramId) fetchAttendance(selectedAttProgramId, attDate);
+    } catch (err: any) {
+      alert(err.message || 'Failed to review attendance record');
+    } finally {
+      setSavingAttReview(false);
+    }
+  };
+
+  // ── Tab 3: Complaint Resolution Handlers ─────────────────────────────────────
+  const handleOpenResolveComplaint = (c: CommunityComplaint) => {
+    setResolvingComplaint(c);
+    setResolutionStatus((c.status as any) === 'RESOLVED' ? 'RESOLVED' : 'RESOLVED');
+    setResolutionReason(c.resolutionReason || '');
+  };
+
+  const handleSaveComplaintResolution = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resolvingComplaint) return;
+    const id = resolvingComplaint.id || resolvingComplaint._id;
+    if (!id) return;
+
+    try {
+      setSavingComplaintResolution(true);
+      await resolveCommunityComplaint(id, {
+        status: resolutionStatus,
+        reason: resolutionReason.trim()
+      });
+      setResolvingComplaint(null);
+      fetchComplaints();
+    } catch (err: any) {
+      alert(err.message || 'Failed to resolve complaint');
+    } finally {
+      setSavingComplaintResolution(false);
+    }
+  };
+
+  // ── Tab 4: Process Monthly Salary Handlers ───────────────────────────────────
+  const openProcessSalaryModal = (coachId?: string, programId?: string) => {
+    setPayrollCoachId(coachId || coaches[0]?._id || coaches[0]?.id || '');
+    setPayrollProgramId(programId || '');
+    setIsExceptionApproval(false);
+    setExceptionAmountInr(20000);
+    setExceptionReference('');
+    setExceptionReason('');
+    setPayrollModalOpen(true);
+  };
+
+  const handleProcessMonthlySalary = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payrollCoachId || !payrollProgramId || !payrollMonth) {
+      alert('Please select coach, program and month');
+      return;
+    }
+
+    try {
+      setProcessingPayroll(true);
+      if (isExceptionApproval) {
+        if (!isSuperAdmin) {
+          alert('Only Super Administrators can approve exception salary adjustments.');
+          return;
+        }
+        if (!exceptionReference.trim() || !exceptionReason.trim()) {
+          alert('Exception salary approval requires both an Approval Reference and an Audit Justification Reason.');
+          return;
+        }
+        await processCoachSalary({
+          coachId: payrollCoachId,
+          programId: payrollProgramId,
+          month: payrollMonth,
+          approvedAmountPaise: Math.round(Number(exceptionAmountInr) * 100),
+          approvalReference: exceptionReference.trim(),
+          reason: exceptionReason.trim()
+        });
       } else {
-        await addCommunityProgram(communityId, programData);
+        await processCoachSalary({
+          coachId: payrollCoachId,
+          programId: payrollProgramId,
+          month: payrollMonth
+        });
       }
-      setCreateProgOpen(false);
-      setEditingProg(null);
-      // Reload current details modal
-      const detail = await getAdminCommunityDetail(communityId);
-      setViewingComm(detail.data || detail);
-      loadCommunities();
+
+      alert('Monthly coach salary processed successfully');
+      setPayrollModalOpen(false);
+      fetchPayroll();
     } catch (err: any) {
-      alert(err.message || 'Failed to save program');
+      alert(err.message || 'Failed to process monthly coach salary');
+    } finally {
+      setProcessingPayroll(false);
     }
   };
 
-  // ── Coach Assignment Handlers ────────────────────────────────────────────────
-  const openAssignCoach = (programId: string, currentCoachId?: string) => {
-    setTargetProgramId(programId);
-    setSelectedCoachId(currentCoachId || (coaches.length ? coaches[0].id : ''));
-    setSalaryInput('15000');
-    setAssignCoachOpen(true);
+  // ── Tab 5: Reconcile Refund Handlers ─────────────────────────────────────────
+  const handleReconcileRefund = async (refundId: string) => {
+    try {
+      setReconcilingRefundId(refundId);
+      await reconcileCommunityRefund(refundId);
+      alert('Refund reconciliation query completed');
+      fetchSubscriptionRefunds();
+    } catch (err: any) {
+      alert(err.message || 'Reconciliation failed');
+    } finally {
+      setReconcilingRefundId(null);
+    }
   };
 
-  const handleAssignCoachSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!targetProgramId || !selectedCoachId) return;
+  const handleApproveRefund = async (refund: any) => {
+    const id = refund.id || refund._id;
+    if (!id) return;
+    const refCode = prompt('Enter Bank/Policy Reference for re-approving refund:', 'POLICY-MANUAL-OBLIGATION');
+    if (!refCode) return;
+    const reason = prompt('Enter Audit Reason for re-approval:', 'Provider failure reviewed; retry original obligation');
+    if (!reason) return;
 
     try {
-      await assignCoachToProgram(targetProgramId, selectedCoachId, Number(salaryInput));
-      setAssignCoachOpen(false);
-      // Reload details modal
-      if (viewingComm) {
-        const detail = await getAdminCommunityDetail(viewingComm.id || viewingComm._id!);
-        setViewingComm(detail.data || detail);
-      }
-      loadCommunities();
-      alert('Coach assigned successfully!');
+      await approveCommunityRefund(id, reason, refCode);
+      alert('Refund re-approved successfully');
+      fetchSubscriptionRefunds();
     } catch (err: any) {
-      alert(err.message || 'Failed to assign coach');
+      alert(err.message || 'Refund approval failed');
     }
   };
 
-  const handleRemoveCoach = async (programId: string, coachId: string) => {
-    if (!confirm('Are you sure you want to remove the coach from this program?')) return;
-    try {
-      await removeCoachFromProgram(programId, coachId);
-      // Reload details modal
-      if (viewingComm) {
-        const detail = await getAdminCommunityDetail(viewingComm.id || viewingComm._id!);
-        setViewingComm(detail.data || detail);
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  const getCoachLabel = (coachId?: string) => {
+    if (!coachId) return 'Unassigned';
+    const c = coaches.find(item => (item.id || item._id) === coachId);
+    if (!c) return 'Coach ' + coachId.slice(-4);
+    return c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.email || 'Coach';
+  };
+
+  const allCommunityPrograms = useMemo(() => {
+    return communities.flatMap(c => (c.programs || []).map(p => ({
+      ...p,
+      communityId: c.id || c._id,
+      communityName: c.name
+    })));
+  }, [communities]);
+
+  const filteredCommunities = useMemo(() => {
+    return communities.filter(c => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesName = c.name?.toLowerCase().includes(q);
+        const matchesCity = c.city?.toLowerCase().includes(q);
+        const matchesAddress = c.address?.toLowerCase().includes(q);
+        const matchesProgram = (c.programs || []).some(p => p.title?.toLowerCase().includes(q) || p.sport?.toLowerCase().includes(q));
+        if (!matchesName && !matchesCity && !matchesAddress && !matchesProgram) return false;
       }
-      loadCommunities();
-      alert('Coach removed successfully!');
-    } catch (err: any) {
-      alert(err.message || 'Failed to remove coach');
-    }
-  };
-
-  // ── Player Enrolment Handlers ────────────────────────────────────────────────
-  const openEnrollPlayer = (programId: string) => {
-    setEnrollProgramId(programId);
-    if (customers.length) {
-      setSelectedPlayerId(customers[0].id);
-    }
-    setEnrollPlayerOpen(true);
-  };
-
-  const handleEnrollPlayerSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!enrollProgramId || !selectedPlayerId) return;
-
-    const matchedCustomer = customers.find(c => c.id === selectedPlayerId);
-
-    try {
-      await subscribePlayerToProgram(enrollProgramId, selectedPlayerId);
-      
-      // Update local state list dynamically
-      if (matchedCustomer) {
-        setSubscribersMap(prev => ({
-          ...prev,
-          [enrollProgramId]: [...(prev[enrollProgramId] || []), matchedCustomer]
-        }));
-      }
-      alert('Player enrolled successfully!');
-    } catch (err: any) {
-      alert(err.message || 'Player enrollment failed');
-    }
-    setEnrollPlayerOpen(false);
-  };
-
-  const toggleProgramSubscribers = (progId: string) => {
-    setExpandedPrograms(prev => ({
-      ...prev,
-      [progId]: !prev[progId]
-    }));
-  };
-
-  // ── Filtered Listings ────────────────────────────────────────────────────────
-  const filteredPosts = posts.filter(p => {
-    const ms = search === '' || `${p.authorName} ${p.text} ${p.sport || ''}`.toLowerCase().includes(search.toLowerCase());
-    const mf = filter === 'All' || p.status.toLowerCase() === filter.toLowerCase();
-    return ms && mf;
-  });
-
-  const filteredCommunities = communities.filter(c => {
-    const ms = searchCenter === '' || `${c.name} ${c.location || ''} ${c.city || ''}`.toLowerCase().includes(searchCenter.toLowerCase());
-    const mf = filterStatus === 'All' || c.status.toLowerCase() === filterStatus.toLowerCase();
-    return ms && mf;
-  });
-
-  // Moderation Stats
-  const postsStats = {
-    total: posts.length,
-    active: posts.filter(p => p.status === 'active').length,
-    flagged: posts.filter(p => p.status === 'flagged').length,
-    removed: posts.filter(p => p.status === 'removed').length
-  };
+      return true;
+    });
+  }, [communities, searchQuery]);
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
-      {/* Premium Tabs */}
-      <div className="flex border-b border-[#2e3139] mb-1 overflow-x-auto min-w-0">
-        <button
-          onClick={() => setActiveTab('feed')}
-          className={clsx(
-            'px-3 sm:px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer whitespace-nowrap',
-            activeTab === 'feed'
-              ? 'border-[#F05A22] text-[#F05A22]'
-              : 'border-transparent text-[#5c6370] hover:text-white'
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* 1. TOP HEADER & METRICS                                                 */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-5">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">
+              Coaching Academies & Communities
+            </h1>
+            <Badge className="bg-orange-50 text-[#F05A22] border-[#F05A22]/20 font-semibold text-xs">
+              Scoped Admin Hub
+            </Badge>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Super Admin & Academy Operations: Programs, Monthly Coach Salaries, Geofence Attendance & Pro-Rata Refunds
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="h-9 text-xs"
+            onClick={() => {
+              fetchCommunities();
+              if (activeTab === 'attendance' && selectedAttProgramId) fetchAttendance(selectedAttProgramId, attDate);
+              if (activeTab === 'complaints') fetchComplaints();
+              if (activeTab === 'payroll') fetchPayroll();
+              if (activeTab === 'ledger') { if (ledgerCommunityId) fetchLedger(ledgerCommunityId); fetchSubscriptionRefunds(); }
+            }}
+          >
+            <RefreshCw className={clsx("h-3.5 w-3.5 mr-1.5", loadingCommunities && "animate-spin")} />
+            Refresh
+          </Button>
+
+          {can('sports_write') && (
+            <Button
+              className="h-9 text-xs bg-[#F05A22] hover:bg-[#d94e1b] text-white font-semibold shadow-xs"
+              onClick={openCreateAcademy}
+            >
+              <Plus className="h-4 w-4 mr-1.5" /> Create Academy
+            </Button>
           )}
-        >
-          Moderation Feed
-        </button>
-        <button
-          onClick={() => setActiveTab('centers')}
-          className={clsx(
-            'px-3 sm:px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer whitespace-nowrap',
-            activeTab === 'centers'
-              ? 'border-[#F05A22] text-[#F05A22]'
-              : 'border-transparent text-[#5c6370] hover:text-white'
-          )}
-        >
-          Community Centers
-        </button>
-        <button
-          onClick={() => setActiveTab('salary')}
-          className={clsx(
-            'px-3 sm:px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer whitespace-nowrap',
-            activeTab === 'salary'
-              ? 'border-[#F05A22] text-[#F05A22]'
-              : 'border-transparent text-[#5c6370] hover:text-white'
-          )}
-        >
-          Salary & Payouts
-        </button>
-        <button
-          onClick={() => setActiveTab('attendance')}
-          className={clsx(
-            'px-3 sm:px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer whitespace-nowrap',
-            activeTab === 'attendance'
-              ? 'border-[#F05A22] text-[#F05A22]'
-              : 'border-transparent text-[#5c6370] hover:text-white'
-          )}
-        >
-          Coach Attendance
-        </button>
+        </div>
       </div>
 
-      {/* ── TAB 1: MODERATION FEED ───────────────────────────────────────────── */}
-      {activeTab === 'feed' && (
-        <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Total Posts" value={String(postsStats.total)}   icon={<MessageSquare className="h-4 w-4 text-[#F05A22]" />} iconBg="bg-[#F05A22]/10" />
-            <StatCard label="Active"      value={String(postsStats.active)}  icon={<Users className="h-4 w-4 text-emerald-400" />}      iconBg="bg-emerald-400/10" />
-            <StatCard label="Flagged"     value={String(postsStats.flagged)} icon={<Flag className="h-4 w-4 text-amber-400" />}         iconBg="bg-amber-400/10" />
-            <StatCard label="Removed"     value={String(postsStats.removed)} icon={<Trash2 className="h-4 w-4 text-red-400" />}        iconBg="bg-red-400/10" />
-          </div>
+      {/* KPI Stat Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          icon={<Building2 className="h-5 w-5 text-[#F05A22]" />}
+          label="Active Academies"
+          value={String(communities.filter(c => c.status === 'active').length)}
+          sub={`${communities.length} total across ${new Set(communities.map(c => c.city)).size} cities`}
+        />
+        <StatCard
+          icon={<Trophy className="h-5 w-5 text-blue-600" />}
+          label="Total Programs"
+          value={String(allCommunityPrograms.length)}
+          sub={`${allCommunityPrograms.filter(p => p.status !== 'inactive').length} active schedules`}
+        />
+        <StatCard
+          icon={<Users className="h-5 w-5 text-emerald-600" />}
+          label="Subscribers"
+          value={String(communities.reduce((acc, c) => acc + (c.subscriberCount || 0), 0))}
+          sub="Platform player enrollments"
+        />
+        <StatCard
+          icon={<DollarSign className="h-5 w-5 text-purple-600" />}
+          label="Monthly Coach Contracts"
+          value={`₹${allCommunityPrograms.reduce((acc, p) => acc + (Number(p.salary) || 0), 0).toLocaleString('en-IN')}`}
+          sub="Platform-funded salaries"
+        />
+      </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Community Posts ({filteredPosts.length})</CardTitle>
-              <div className="flex items-center gap-2 flex-wrap">
-                <SearchBar value={search} onChange={setSearch} placeholder="Search posts..." />
-                <div className="flex gap-1 flex-wrap">
-                  {FILTERS.map(f => (
-                    <FilterPill key={f} label={f} active={filter === f} onClick={() => setFilter(f)} />
-                  ))}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* 2. NAVIGATION TABS                                                      */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <div className="flex border-b border-slate-200 gap-1 overflow-x-auto scrollbar-none">
+        {[
+          { key: 'academies', label: 'Academies & Programs', icon: Building2 },
+          { key: 'attendance', label: 'Attendance & Geofencing', icon: CheckCircle2 },
+          { key: 'complaints', label: 'Complaints Queue', icon: AlertTriangle },
+          { key: 'payroll', label: 'Coach Monthly Payroll', icon: DollarSign },
+          { key: 'ledger', label: 'Financial Ledger & Refunds', icon: Landmark },
+          { key: 'feed', label: 'Community Feed', icon: MessageSquare }
+        ].map(t => {
+          const Icon = t.icon;
+          const isActive = activeTab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setActiveTab(t.key as any)}
+              className={clsx(
+                "cursor-pointer flex items-center gap-2 px-4 py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-colors",
+                isActive
+                  ? "border-[#F05A22] text-[#F05A22] bg-orange-50/40"
+                  : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300"
+              )}
+            >
+              <Icon className={clsx("h-4 w-4", isActive ? "text-[#F05A22]" : "text-slate-400")} />
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* TAB 1: ACADEMIES & PROGRAMS                                             */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'academies' && (
+        <div className="space-y-4">
+          {/* Filter Bar */}
+          <Card className="p-3 bg-white border border-slate-200 shadow-xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="h-4 w-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search academies, sports, programs, address..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="input-field pl-9 text-xs"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-slate-500">City:</span>
+                  <select
+                    value={selectedCity}
+                    onChange={e => setSelectedCity(e.target.value)}
+                    className="select-field text-xs py-1.5 h-8 font-medium"
+                  >
+                    {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-slate-500">Status:</span>
+                  <select
+                    value={selectedStatus}
+                    onChange={e => setSelectedStatus(e.target.value)}
+                    className="select-field text-xs py-1.5 h-8 font-medium"
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="draft">Draft</option>
+                    <option value="archived">Archived</option>
+                  </select>
                 </div>
               </div>
+            </div>
+          </Card>
+
+          {/* Communities Accordion List */}
+          {loadingCommunities ? (
+            <div className="flex items-center justify-center py-20 bg-white border border-slate-200 rounded-2xl">
+              <RefreshCw className="h-8 w-8 text-[#F05A22] animate-spin" />
+            </div>
+          ) : filteredCommunities.length === 0 ? (
+            <EmptyState
+              icon={<Building2 className="h-10 w-10 text-slate-300" />}
+              title="No Coaching Academies Found"
+              text="Create a coaching academy or adjust search/filters to view batches."
+            />
+          ) : (
+            <div className="space-y-4">
+              {filteredCommunities.map((comm) => {
+                const commId = comm.id || comm._id || '';
+                const isExpanded = !!expandedCommunityIds[commId];
+                const commPrograms = comm.programs || [];
+
+                return (
+                  <Card key={commId} className="border border-slate-200 shadow-xs overflow-hidden transition-all">
+                    {/* Academy Header Banner */}
+                    <div className="p-4 bg-slate-50/70 border-b border-slate-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedCommunityIds(prev => ({ ...prev, [commId]: !prev[commId] }))}
+                          className="mt-1 p-1 rounded-lg hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
+                        >
+                          {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                        </button>
+
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-base font-bold text-slate-900">{comm.name}</h2>
+                            <Badge className={clsx(
+                              "text-[10px] font-bold uppercase tracking-wider",
+                              comm.status === 'active' && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                              comm.status === 'draft' && "bg-amber-50 text-amber-700 border-amber-200",
+                              comm.status === 'inactive' && "bg-slate-100 text-slate-600 border-slate-200",
+                              comm.status === 'archived' && "bg-rose-50 text-rose-700 border-rose-200"
+                            )}>
+                              {comm.status}
+                            </Badge>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-medium">
+                              📍 {comm.city}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-slate-500">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                              {comm.address || 'Address unlisted'}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3.5 w-3.5 text-slate-400" />
+                              {comm.timeZone || 'Asia/Kolkata'}
+                            </span>
+                            <span className="flex items-center gap-1 font-mono text-[11px] text-slate-600">
+                              Radius: {comm.attendanceRadius || 100}m
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons for Academy */}
+                      <div className="flex flex-wrap items-center gap-2 pl-9 lg:pl-0">
+                        {/* Status Select Switcher */}
+                        <select
+                          value={comm.status}
+                          onChange={(e) => handleUpdateStatus(comm, e.target.value as CommunityStatus)}
+                          className="select-field text-xs py-1 h-8 font-semibold bg-white"
+                        >
+                          {STATUS_OPTIONS.map(st => (
+                            <option key={st} value={st}>Status: {st}</option>
+                          ))}
+                        </select>
+
+                        {can('sports_write') && (
+                          <>
+                            <Button
+                              variant="outline"
+                              className="h-8 text-xs px-2.5"
+                              onClick={() => openEditAcademy(comm)}
+                            >
+                              <Edit2 className="h-3.5 w-3.5 mr-1 text-[#F05A22]" /> Edit
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              className="h-8 text-xs px-2.5"
+                              onClick={() => openStaffModal(comm)}
+                            >
+                              <Shield className="h-3.5 w-3.5 mr-1 text-purple-600" /> Staff
+                            </Button>
+
+                            <Button
+                              className="h-8 text-xs px-3 bg-[#F05A22] hover:bg-[#d94e1b] text-white font-semibold"
+                              onClick={() => openCreateProgram(comm)}
+                            >
+                              <Plus className="h-3.5 w-3.5 mr-1" /> Add Program
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Programs List Inside Academy */}
+                    {isExpanded && (
+                      <div className="p-4 bg-white space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                            Active Sports Programs & Batches ({commPrograms.length})
+                          </h3>
+                        </div>
+
+                        {commPrograms.length === 0 ? (
+                          <div className="p-6 rounded-xl border border-dashed border-slate-200 text-center bg-slate-50">
+                            <p className="text-xs text-slate-500">No programs created yet for this academy.</p>
+                            {can('sports_write') && (
+                              <Button
+                                variant="outline"
+                                className="mt-2 h-7 text-xs"
+                                onClick={() => openCreateProgram(comm)}
+                              >
+                                <Plus className="h-3 w-3 mr-1" /> Create Program Batch
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-3">
+                            {commPrograms.map((prog) => {
+                              const progId = prog.id || prog._id || '';
+                              const coachName = getCoachLabel(prog.coachId || (prog.coach && (prog.coach.id || prog.coach._id)));
+                              const isCancelled = prog.cancellation?.status === 'COMPLETED' || prog.status === 'cancelled';
+
+                              return (
+                                <div
+                                  key={progId}
+                                  className={clsx(
+                                    "p-3.5 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4",
+                                    isCancelled ? "bg-rose-50/40 border-rose-200" : "bg-slate-50/50 border-slate-200 hover:border-slate-300"
+                                  )}
+                                >
+                                  <div className="space-y-1.5 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="px-2 py-0.5 rounded-md bg-[#F05A22]/10 text-[#F05A22] text-xs font-bold">
+                                        {prog.sport}
+                                      </span>
+                                      <h4 className="text-sm font-bold text-slate-900">{prog.title}</h4>
+                                      {isCancelled && (
+                                        <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[10px]">
+                                          CANCELLED
+                                        </Badge>
+                                      )}
+                                    </div>
+
+                                    {/* Days & Time */}
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+                                      <span className="flex items-center gap-1">
+                                        <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                        {(prog.sessionDays || []).join(', ') || 'Daily'}
+                                      </span>
+                                      <span className="flex items-center gap-1 font-mono">
+                                        <Clock className="h-3.5 w-3.5 text-slate-400" />
+                                        {prog.sessionStartTime || '10:00'} – {prog.sessionEndTime || '11:00'}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <Users className="h-3.5 w-3.5 text-slate-400" />
+                                        Capacity: {prog.capacity || 20} players
+                                      </span>
+                                    </div>
+
+                                    {/* Subscription Plans Available */}
+                                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                      {(prog.plans || []).map((pl, idx) => (
+                                        <span
+                                          key={pl._id || idx}
+                                          className={clsx(
+                                            "text-[11px] px-2 py-0.5 rounded-lg border font-medium",
+                                            pl.isActive
+                                              ? "bg-white text-slate-800 border-slate-200 shadow-2xs"
+                                              : "bg-slate-100 text-slate-400 border-slate-200 line-through"
+                                          )}
+                                        >
+                                          {pl.label}: <strong className="text-emerald-600">₹{pl.price}</strong>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Coach & Contract Salary Pill */}
+                                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs text-left min-w-[170px]">
+                                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Coach</p>
+                                      <p className="text-xs font-bold text-slate-900 mt-0.5 truncate">{coachName}</p>
+                                      <p className="text-[11px] text-purple-700 font-semibold mt-0.5">
+                                        ₹{(Number(prog.salary) || 20000).toLocaleString('en-IN')} / month
+                                      </p>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      <Button
+                                        variant="outline"
+                                        className="h-8 text-xs px-2.5"
+                                        onClick={() => openSubscriptionsDrawer(prog)}
+                                      >
+                                        <Users className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                                        Subscribers
+                                      </Button>
+
+                                      {can('sports_write') && (
+                                        <>
+                                          <Button
+                                            variant="outline"
+                                            className="h-8 text-xs px-2.5"
+                                            onClick={() => openCoachAssignment(comm, prog)}
+                                          >
+                                            <UserCheck className="h-3.5 w-3.5 mr-1 text-purple-600" />
+                                            Coach Contract
+                                          </Button>
+
+                                          <Button
+                                            variant="outline"
+                                            className="h-8 text-xs px-2.5"
+                                            onClick={() => openEditProgram(comm, prog)}
+                                          >
+                                            <Edit2 className="h-3.5 w-3.5 mr-1 text-blue-600" />
+                                            Edit
+                                          </Button>
+
+                                          {!isCancelled && (
+                                            <Button
+                                              variant="danger"
+                                              className="h-8 text-xs px-2.5"
+                                              onClick={() => openCancelProgramModal(comm, prog)}
+                                            >
+                                              <Undo2 className="h-3.5 w-3.5 mr-1" />
+                                              Cancel
+                                            </Button>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* TAB 2: ATTENDANCE & GEOFENCING REVIEW                                   */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'attendance' && (
+        <Card className="border border-slate-200">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+            <div>
+              <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                Coach GPS Attendance & Geofence Evidence
+              </CardTitle>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Inspect coach check-in timestamps, GPS radius offsets, and resolve flagged sessions.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={selectedAttProgramId}
+                onChange={e => setSelectedAttProgramId(e.target.value)}
+                className="select-field text-xs py-1.5 h-9 font-medium max-w-xs"
+              >
+                <option value="">— Select Community Program Batch —</option>
+                {allCommunityPrograms.map(p => (
+                  <option key={p.id || p._id} value={p.id || p._id}>
+                    {p.communityName} · {p.title}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="date"
+                value={attDate}
+                onChange={e => setAttDate(e.target.value)}
+                className="input-field text-xs py-1.5 h-9 font-mono"
+              />
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0">
+            {!selectedAttProgramId ? (
+              <div className="p-12 text-center text-slate-400 text-xs">
+                Select a community program batch above to load GPS attendance logs.
+              </div>
+            ) : loadingAtt ? (
+              <div className="flex justify-center py-16">
+                <RefreshCw className="h-6 w-6 text-[#F05A22] animate-spin" />
+              </div>
+            ) : attRecords.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 text-xs">
+                No coach attendance records logged for {attDate}.
+              </div>
+            ) : (
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Coach</Th>
+                    <Th>Session Date</Th>
+                    <Th>Check-In</Th>
+                    <Th>Check-Out</Th>
+                    <Th>Geofence Offset</Th>
+                    <Th>Status</Th>
+                    <Th>Review Action</Th>
+                    <Th className="text-right">Actions</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {attRecords.map((r) => {
+                    const rId = r.id || r._id || '';
+                    return (
+                      <Tr key={rId}>
+                        <Td className="font-bold text-slate-900">{r.coachName || getCoachLabel(r.coachId)}</Td>
+                        <Td className="font-mono text-xs text-slate-600">{r.date}</Td>
+                        <Td className="text-xs text-emerald-600 font-mono font-semibold">{r.checkIn || '—'}</Td>
+                        <Td className="text-xs text-blue-600 font-mono font-semibold">{r.checkOut || '—'}</Td>
+                        <Td>
+                          <span className="text-xs font-mono text-slate-700">
+                            {r.distanceMetres !== undefined ? `${r.distanceMetres}m` : 'Validated'}
+                          </span>
+                        </Td>
+                        <Td>
+                          <Badge className={clsx(
+                            "text-[10px]",
+                            r.status === 'completed' && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                            r.status === 'started' && "bg-blue-50 text-blue-700 border-blue-200",
+                            r.status === 'no_show' && "bg-rose-50 text-rose-700 border-rose-200",
+                            r.status === 'flagged' && "bg-amber-50 text-amber-700 border-amber-200"
+                          )}>
+                            {r.status}
+                          </Badge>
+                        </Td>
+                        <Td>
+                          {r.reviewAction ? (
+                            <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[10px]">
+                              {r.reviewAction}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </Td>
+                        <Td className="text-right">
+                          <Button
+                            variant="outline"
+                            className="h-7 text-xs px-2"
+                            onClick={() => handleOpenAttReview(r)}
+                          >
+                            Review
+                          </Button>
+                        </Td>
+                      </Tr>
+                    );
+                  })}
+                </Tbody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* TAB 3: COMMUNITY COMPLAINTS QUEUE                                       */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'complaints' && (
+        <Card className="border border-slate-200">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+            <div>
+              <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                Community Complaints & Dispute Resolution
+              </CardTitle>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Player and parent feedback for community coaching batches. Non-financial administrative resolution.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={complaintFilterStatus}
+                onChange={e => setComplaintFilterStatus(e.target.value)}
+                className="select-field text-xs py-1.5 h-9 font-semibold"
+              >
+                <option value="OPEN">Status: OPEN</option>
+                <option value="RESOLVED">Status: RESOLVED</option>
+                <option value="MANUAL_REVIEW">Status: MANUAL_REVIEW</option>
+                <option value="">Status: ALL</option>
+              </select>
+
+              <select
+                value={complaintProgramId}
+                onChange={e => setComplaintProgramId(e.target.value)}
+                className="select-field text-xs py-1.5 h-9 font-medium max-w-xs"
+              >
+                <option value="">All Programs</option>
+                {allCommunityPrograms.map(p => (
+                  <option key={p.id || p._id} value={p.id || p._id}>
+                    {p.communityName} · {p.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0">
+            {loadingComplaints ? (
+              <div className="flex justify-center py-16">
+                <RefreshCw className="h-6 w-6 text-[#F05A22] animate-spin" />
+              </div>
+            ) : complaints.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 text-xs">
+                No complaints found matching current filters.
+              </div>
+            ) : (
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Complaint / Player</Th>
+                    <Th>Program Batch</Th>
+                    <Th>Issue Summary</Th>
+                    <Th>Submitted</Th>
+                    <Th>Status</Th>
+                    <Th className="text-right">Action</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {complaints.map(c => {
+                    const cId = c.id || c._id || '';
+                    return (
+                      <Tr key={cId}>
+                        <Td>
+                          <p className="font-bold text-slate-900 text-xs">{c.userName || 'Parent / Subscriber'}</p>
+                          <p className="text-[11px] text-slate-400 font-mono">{c.userEmail || c.userId}</p>
+                        </Td>
+                        <Td>
+                          <span className="text-xs text-slate-700 font-medium">
+                            {c.programTitle || 'Community Program'}
+                          </span>
+                        </Td>
+                        <Td>
+                          <p className="text-xs text-slate-800 line-clamp-2 max-w-md">
+                            {c.issue || c.text || 'No text provided'}
+                          </p>
+                          {c.resolutionReason && (
+                            <p className="text-[11px] text-emerald-700 mt-1 italic">
+                              Resolved: {c.resolutionReason}
+                            </p>
+                          )}
+                        </Td>
+                        <Td className="text-xs text-slate-500 whitespace-nowrap">
+                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : '—'}
+                        </Td>
+                        <Td>
+                          <Badge className={clsx(
+                            "text-[10px]",
+                            c.status === 'OPEN' && "bg-amber-50 text-amber-700 border-amber-200",
+                            c.status === 'RESOLVED' && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                            c.status === 'MANUAL_REVIEW' && "bg-purple-50 text-purple-700 border-purple-200"
+                          )}>
+                            {c.status}
+                          </Badge>
+                        </Td>
+                        <Td className="text-right">
+                          <Button
+                            variant="outline"
+                            className="h-7 text-xs px-2.5"
+                            onClick={() => handleOpenResolveComplaint(c)}
+                          >
+                            Resolve
+                          </Button>
+                        </Td>
+                      </Tr>
+                    );
+                  })}
+                </Tbody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* TAB 4: MONTHLY PAYROLL & COACH SALARY PROCESSING                        */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'payroll' && (
+        <div className="space-y-4">
+          <Card className="border border-slate-200">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-purple-600" />
+                  Monthly Coach Payroll & Salary Processing
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Platform-funded fixed monthly coach salaries. Process standard payouts or approve Super Admin exception amounts.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="month"
+                  value={payrollMonth}
+                  onChange={e => setPayrollMonth(e.target.value)}
+                  className="input-field text-xs py-1.5 h-9 font-semibold"
+                />
+
+                <Button
+                  className="h-9 text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-xs"
+                  onClick={() => openProcessSalaryModal()}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" /> Process Month Payout
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent>
-              {loadingPosts ? (
-                <div className="flex justify-center py-12">
-                  <div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
+
+            <CardContent className="p-0">
+              {loadingPayroll ? (
+                <div className="flex justify-center py-16">
+                  <RefreshCw className="h-6 w-6 text-[#F05A22] animate-spin" />
                 </div>
-              ) : filteredPosts.length === 0 ? (
-                <EmptyState icon={<MessageSquare className="h-8 w-8" />} title="No posts found" />
+              ) : salaryPayouts.length === 0 ? (
+                <div className="p-12 text-center text-slate-400 text-xs">
+                  No salary payout records found for {payrollMonth}.
+                </div>
               ) : (
                 <Table>
                   <Thead>
                     <Tr>
-                      <Th>Author</Th>
-                      <Th>Content</Th>
-                      <Th>Sport</Th>
-                      <Th>Likes</Th>
+                      <Th>Coach</Th>
+                      <Th>Program Batch</Th>
+                      <Th>Month</Th>
+                      <Th>Disbursed Amount</Th>
+                      <Th>Reference Code</Th>
                       <Th>Status</Th>
-                      <Th>Date</Th>
-                      {can('sports_write') && <Th>Actions</Th>}
+                      <Th>Processed On</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {filteredPosts.map(p => {
-                      const id = p._id || p.id!;
+                    {salaryPayouts.map((sp, idx) => {
+                      const amount = sp.amountInr ?? sp.salary ?? (sp.approvedAmountPaise ? sp.approvedAmountPaise / 100 : sp.amount) ?? 0;
                       return (
-                        <Tr key={id}>
-                          <Td>
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Avatar initials={(p.authorName || 'U').split(' ').map(n => n[0]).join('').slice(0, 2)} size={28} className="flex-shrink-0" />
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium text-white truncate max-w-[120px]" title={p.authorName}>{p.authorName}</p>
-                                <p className="text-[10px] text-[#5c6370]">{p.authorModel || 'User'}</p>
-                              </div>
-                            </div>
+                        <Tr key={sp.id || sp._id || idx}>
+                          <Td className="font-bold text-slate-900">
+                            {sp.coachName || getCoachLabel(sp.coachId)}
                           </Td>
-                          <Td><p className="max-w-[220px] truncate text-xs text-[#9ba3af]" title={p.text}>{p.text}</p></Td>
-                          <Td>{p.sport ? <Badge className="badge-blue">{p.sport}</Badge> : <span className="text-[#5c6370]">—</span>}</Td>
-                          <Td><span className="text-sm text-white">{p.likes || 0}</span></Td>
-                          <Td><Badge className={POST_STATUS_MAP[p.status] || 'badge-gray'}>{p.status}</Badge></Td>
-                          <Td className="text-xs text-[#5c6370]">{new Date(p.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</Td>
-                          {can('sports_write') && (
-                            <Td>
-                              <div className="flex gap-1.5">
-                                <button onClick={() => setViewP(p)} className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a]"><Eye className="h-3.5 w-3.5" /></button>
-                                {p.status !== 'removed' && (
-                                  <button onClick={() => setRemoveP(p)} className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-red-400 hover:bg-red-400/10"><Trash2 className="h-3.5 w-3.5" /></button>
-                                )}
-                              </div>
-                            </Td>
-                          )}
+                          <Td className="text-xs text-slate-700 font-medium">
+                            {sp.programTitle || 'Program Batch'}
+                          </Td>
+                          <Td className="text-xs font-mono text-slate-600">{sp.month || payrollMonth}</Td>
+                          <Td className="text-sm font-black text-emerald-600">
+                            ₹{Number(amount).toLocaleString('en-IN')}
+                          </Td>
+                          <Td className="text-xs font-mono text-slate-500">
+                            {sp.approvalReference || sp.reference || 'STANDARD-PAYOUT'}
+                          </Td>
+                          <Td>
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                              {sp.status || 'PAID'}
+                            </Badge>
+                          </Td>
+                          <Td className="text-xs text-slate-500">
+                            {sp.createdAt ? new Date(sp.createdAt).toLocaleDateString('en-IN') : '—'}
+                          </Td>
                         </Tr>
                       );
                     })}
@@ -923,668 +1669,1249 @@ export default function CommunityPage() {
               )}
             </CardContent>
           </Card>
-
-          <PostDetailModal p={viewP} open={!!viewP} onClose={() => setViewP(null)} />
-          <ConfirmDialog
-            open={!!removeP}
-            onClose={() => setRemoveP(null)}
-            title="Remove Post"
-            message={`Remove this post by ${removeP?.authorName}? It will be hidden from all users.`}
-            confirmLabel="Remove"
-            danger={true}
-            onConfirm={handleRemovePost}
-          />
-        </>
+        </div>
       )}
 
-      {/* ── TAB 2: COMMUNITY CENTERS ─────────────────────────────────────────── */}
-      {activeTab === 'centers' && (
-        <>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <SearchBar value={searchCenter} onChange={setSearchCenter} placeholder="Search centers..." />
-              <div className="flex gap-1 flex-wrap">
-                {COMM_FILTERS.map(f => (
-                  <FilterPill key={f} label={f} active={filterStatus === f} onClick={() => setFilterStatus(f)} />
-                ))}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* TAB 5: FINANCIAL LEDGER & REFUNDS QUEUE                                 */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'ledger' && (
+        <div className="space-y-6">
+          {/* Academy Financial Ledger */}
+          <Card className="border border-slate-200">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Landmark className="h-5 w-5 text-blue-600" />
+                  Platform Community Ledger
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Gross subscription revenues, platform-funded salary expenses, and refund liabilities.
+                </p>
               </div>
-            </div>
-            {can('sports_write') && (
-              <Button variant="primary" className="h-8 text-xs font-semibold" onClick={openCreateComm}>
-                <Plus className="h-3.5 w-3.5" /> Create Community
-              </Button>
+
+              <select
+                value={ledgerCommunityId}
+                onChange={e => {
+                  setLedgerCommunityId(e.target.value);
+                  fetchLedger(e.target.value);
+                }}
+                className="select-field text-xs py-1.5 h-9 font-medium max-w-xs"
+              >
+                <option value="">— Select Academy to View Ledger —</option>
+                {communities.map(c => (
+                  <option key={c.id || c._id} value={c.id || c._id}>
+                    {c.name} ({c.city})
+                  </option>
+                ))}
+              </select>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              {!ledgerCommunityId ? (
+                <div className="p-12 text-center text-slate-400 text-xs">
+                  Select an academy above to load its platform financial ledger.
+                </div>
+              ) : loadingLedger ? (
+                <div className="flex justify-center py-16">
+                  <RefreshCw className="h-6 w-6 text-[#F05A22] animate-spin" />
+                </div>
+              ) : ledgerEntries.length === 0 ? (
+                <div className="p-12 text-center text-slate-400 text-xs">
+                  No ledger events recorded for this academy yet.
+                </div>
+              ) : (
+                <Table>
+                  <Thead>
+                    <Tr>
+                      <Th>Event Type</Th>
+                      <Th>Amount</Th>
+                      <Th>Reference ID</Th>
+                      <Th>Description</Th>
+                      <Th>Recorded At</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {ledgerEntries.map((entry, idx) => (
+                      <Tr key={entry.id || entry._id || idx}>
+                        <Td>
+                          <Badge className={clsx(
+                            "text-[10px] font-bold",
+                            entry.eventType === 'SUBSCRIPTION_PAYMENT' && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                            entry.eventType === 'SALARY_EXPENSE' && "bg-purple-50 text-purple-700 border-purple-200",
+                            entry.eventType.includes('REFUND') && "bg-rose-50 text-rose-700 border-rose-200"
+                          )}>
+                            {entry.eventType}
+                          </Badge>
+                        </Td>
+                        <Td className={clsx(
+                          "font-bold text-xs",
+                          entry.eventType === 'SUBSCRIPTION_PAYMENT' ? "text-emerald-600" : "text-rose-600"
+                        )}>
+                          {entry.eventType === 'SUBSCRIPTION_PAYMENT' ? '+' : '-'}₹{entry.amount?.toLocaleString('en-IN')}
+                        </Td>
+                        <Td className="font-mono text-xs text-slate-500">{entry.referenceId || '—'}</Td>
+                        <Td className="text-xs text-slate-700">{entry.description || '—'}</Td>
+                        <Td className="text-xs text-slate-400 whitespace-nowrap">
+                          {entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('en-IN') : '—'}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Global Community Refunds Queue */}
+          <Card className="border border-slate-200">
+            <CardHeader className="border-b border-slate-200/80 pb-3">
+              <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Undo2 className="h-4 w-4 text-rose-500" />
+                Community Subscription Refunds Queue
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loadingRefundsQueue ? (
+                <div className="flex justify-center py-12">
+                  <RefreshCw className="h-5 w-5 text-[#F05A22] animate-spin" />
+                </div>
+              ) : refundsQueue.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  No pending subscription refunds.
+                </div>
+              ) : (
+                <Table>
+                  <Thead>
+                    <Tr>
+                      <Th>Subscriber</Th>
+                      <Th>Amount</Th>
+                      <Th>Status</Th>
+                      <Th>Reason</Th>
+                      <Th className="text-right">Actions</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {refundsQueue.map((rf, idx) => {
+                      const rfId = rf.id || rf._id || '';
+                      return (
+                        <Tr key={rfId || idx}>
+                          <Td className="text-xs font-bold text-slate-900">{rf.userName || rf.userId}</Td>
+                          <Td className="text-xs font-black text-rose-600">₹{rf.amount}</Td>
+                          <Td>
+                            <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
+                              {rf.status}
+                            </Badge>
+                          </Td>
+                          <Td className="text-xs text-slate-600">{rf.reason || 'Pro-rata refund'}</Td>
+                          <Td className="text-right space-x-1.5">
+                            <Button
+                              variant="outline"
+                              className="h-7 text-xs px-2"
+                              disabled={reconcilingRefundId === rfId}
+                              onClick={() => handleReconcileRefund(rfId)}
+                            >
+                              Reconcile
+                            </Button>
+                            <Button
+                              className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                              onClick={() => handleApproveRefund(rf)}
+                            >
+                              Approve
+                            </Button>
+                          </Td>
+                        </Tr>
+                      );
+                    })}
+                  </Tbody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* TAB 6: FEED MODERATION                                                  */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'feed' && (
+        <Card className="border border-slate-200">
+          <CardHeader className="border-b border-slate-200/80 pb-3">
+            <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-blue-600" />
+              Community Social Feed Moderation
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loadingFeed ? (
+              <div className="flex justify-center py-16">
+                <RefreshCw className="h-6 w-6 text-[#F05A22] animate-spin" />
+              </div>
+            ) : feedPosts.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 text-xs">
+                No social feed posts currently found.
+              </div>
+            ) : (
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Author</Th>
+                    <Th>Sport</Th>
+                    <Th>Message</Th>
+                    <Th>Likes</Th>
+                    <Th>Status</Th>
+                    <Th className="text-right">Actions</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {feedPosts.map((post) => {
+                    const pId = post.id || post._id || '';
+                    return (
+                      <Tr key={pId}>
+                        <Td className="text-xs font-bold text-slate-900">{post.authorName || 'User'}</Td>
+                        <Td><Badge className="bg-slate-100 text-slate-700 text-[10px]">{post.sport || 'General'}</Badge></Td>
+                        <Td className="text-xs text-slate-700 max-w-md truncate">{post.text}</Td>
+                        <Td className="text-xs text-slate-600 font-mono">{post.likes || 0}</Td>
+                        <Td>
+                          <Badge className={post.status === 'flagged' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}>
+                            {post.status || 'active'}
+                          </Badge>
+                        </Td>
+                        <Td className="text-right">
+                          <Button
+                            variant="danger"
+                            className="h-7 text-xs px-2"
+                            onClick={() => setPostToRemove(post)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </Td>
+                      </Tr>
+                    );
+                  })}
+                </Tbody>
+              </Table>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* MODAL 1: CREATE / EDIT ACADEMY (COMMUNITY)                              */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        open={academyModalOpen}
+        onClose={() => setAcademyModalOpen(false)}
+        title={editingAcademy ? "Edit Coaching Academy" : "Create Coaching Academy"}
+        size="lg"
+      >
+        <form onSubmit={handleSaveAcademy} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">
+                Academy Name <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={academyForm.name}
+                onChange={e => setAcademyForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Hyderabad Sports Academy"
+                className="input-field text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">
+                City <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={academyForm.city}
+                onChange={e => setAcademyForm(f => ({ ...f, city: e.target.value }))}
+                placeholder="e.g. Hyderabad"
+                className="input-field text-xs"
+              />
+            </div>
           </div>
 
-          {loadingCenters ? (
-            <div className="flex justify-center py-16">
-              <div className="h-8 w-8 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">Description</label>
+            <textarea
+              rows={2}
+              value={academyForm.description}
+              onChange={e => setAcademyForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Daily community coaching academy and facilities"
+              className="input-field text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">
+              Physical Facility Address <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={academyForm.address}
+              onChange={e => setAcademyForm(f => ({ ...f, address: e.target.value }))}
+              placeholder="Building 12, Ameerpet Main Road"
+              className="input-field text-xs"
+            />
+          </div>
+
+          {/* GPS Coordinates & Geofencing Parameters */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+            <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-[#F05A22]" />
+              GPS Geofencing & Schedule Parameters
+            </h4>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Latitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  value={academyForm.latitude}
+                  onChange={e => setAcademyForm(f => ({ ...f, latitude: parseFloat(e.target.value) || 0 }))}
+                  className="input-field text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Longitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  value={academyForm.longitude}
+                  onChange={e => setAcademyForm(f => ({ ...f, longitude: parseFloat(e.target.value) || 0 }))}
+                  className="input-field text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Radius (Metres)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10000}
+                  required
+                  value={academyForm.attendanceRadius}
+                  onChange={e => setAcademyForm(f => ({ ...f, attendanceRadius: parseInt(e.target.value, 10) || 100 }))}
+                  className="input-field text-xs font-mono"
+                />
+              </div>
             </div>
-          ) : filteredCommunities.length === 0 ? (
-            <EmptyState emoji="🏟️" title="No community centers found" text="Create a community center or clear filters to begin." />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCommunities.map(c => {
-                const id = c.id || c._id!;
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Time Zone</label>
+                <input
+                  type="text"
+                  required
+                  value={academyForm.timeZone}
+                  onChange={e => setAcademyForm(f => ({ ...f, timeZone: e.target.value }))}
+                  className="input-field text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Early In (min)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={academyForm.attendanceEarlyMinutes}
+                  onChange={e => setAcademyForm(f => ({ ...f, attendanceEarlyMinutes: parseInt(e.target.value, 10) || 15 }))}
+                  className="input-field text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Grace In (min)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={academyForm.attendanceGraceMinutes}
+                  onChange={e => setAcademyForm(f => ({ ...f, attendanceGraceMinutes: parseInt(e.target.value, 10) || 30 }))}
+                  className="input-field text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Early Out (min)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={academyForm.attendanceEndEarlyMinutes}
+                  onChange={e => setAcademyForm(f => ({ ...f, attendanceEndEarlyMinutes: parseInt(e.target.value, 10) || 15 }))}
+                  className="input-field text-xs font-mono"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setAcademyModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={savingAcademy}
+              className="bg-[#F05A22] hover:bg-[#d94e1b] text-white font-semibold"
+            >
+              {savingAcademy ? 'Saving...' : editingAcademy ? 'Update Academy' : 'Create Academy'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* MODAL 2: CREATE / EDIT COMMUNITY PROGRAM                                */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        open={programModalOpen}
+        onClose={() => setProgramModalOpen(false)}
+        title={editingProgram ? "Edit Program Batch" : `Add Program to ${targetCommunity?.name || 'Academy'}`}
+        size="lg"
+      >
+        <form onSubmit={handleSaveProgram} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">Sport</label>
+              <select
+                value={programForm.sport}
+                onChange={e => setProgramForm(f => ({ ...f, sport: e.target.value }))}
+                className="select-field text-xs font-semibold"
+                required
+              >
+                {sports.map(s => <option key={s.id || s._id} value={s.name}>{s.name}</option>)}
+                <option value="Badminton">Badminton</option>
+                <option value="Cricket">Cricket</option>
+                <option value="Tennis">Tennis</option>
+                <option value="Football">Football</option>
+                <option value="Basketball">Basketball</option>
+                <option value="Swimming">Swimming</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">Batch Title</label>
+              <input
+                type="text"
+                required
+                value={programForm.title}
+                onChange={e => setProgramForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="Morning Badminton Batch"
+                className="input-field text-xs font-bold"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">Start Date</label>
+              <input
+                type="date"
+                required
+                value={programForm.startDate}
+                onChange={e => setProgramForm(f => ({ ...f, startDate: e.target.value }))}
+                className="input-field text-xs font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">End Date</label>
+              <input
+                type="date"
+                required
+                value={programForm.endDate}
+                onChange={e => setProgramForm(f => ({ ...f, endDate: e.target.value }))}
+                className="input-field text-xs font-mono"
+              />
+            </div>
+          </div>
+
+          {/* Session Days of Week */}
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1.5">Weekly Session Days</label>
+            <div className="flex flex-wrap gap-1.5">
+              {DAYS_OF_WEEK.map(d => {
+                const selected = programForm.sessionDays.includes(d);
                 return (
-                  <Card key={id} className="overflow-hidden hover:scale-[1.01] hover:border-[#F05A22]/40 transition-all duration-300 flex flex-col justify-between">
-                    <div>
-                      {/* Banner Image / Gradient Placeholder */}
-                      <div className="h-32 w-full relative bg-cover bg-center bg-[#1a1c20] flex items-center justify-center border-b border-[#2e3139]"
-                           style={c.imageUrl ? { backgroundImage: `url(${c.imageUrl})` } : undefined}>
-                        {!c.imageUrl && (
-                          <div className="absolute inset-0 bg-gradient-to-br from-[#1B2B6B]/30 to-[#F05A22]/10 flex flex-col items-center justify-center">
-                            <Trophy className="h-8 w-8 text-[#5c6370] opacity-40 mb-1" />
-                          </div>
-                        )}
-                        <div className="absolute bottom-2 left-3 flex items-center gap-1 bg-[#141518]/80 backdrop-blur-md px-2 py-0.5 rounded-md border border-[#2e3139]">
-                          <MapPin className="h-3 w-3 text-[#F05A22]" />
-                          <span className="text-[10px] text-[#9ba3af] font-semibold uppercase">{c.location || 'Arenova'}</span>
-                        </div>
-                      </div>
-
-                      <div className="p-4 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-bold text-white text-sm leading-snug">{c.name}</h4>
-                          <Badge className={COMM_STATUS_MAP[c.status] || 'badge-gray'}>{c.status}</Badge>
-                        </div>
-                        <p className="text-xs text-[#9ba3af] line-clamp-2 leading-relaxed">{c.description || 'No description provided.'}</p>
-                        <div className="flex gap-4 pt-1 text-[11px] text-[#5c6370] border-t border-[#2e3139]">
-                          <span>City: <strong className="text-white font-medium">{c.city || 'Hyderabad'}</strong></span>
-                          <span>Programs: <strong className="text-white font-medium">{c.programs?.length || 0}</strong></span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4 pt-0 flex gap-2 justify-between items-center mt-auto">
-                      <Button variant="outline" className="h-7 text-[11px] font-medium flex-1 justify-center" onClick={() => openViewCommunity(c)}>
-                        <Eye className="h-3 w-3" /> View Programs
-                      </Button>
-                      
-                      {can('sports_write') && (
-                        <div className="flex gap-1.5">
-                          <button onClick={() => openEditComm(c)} className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a] border border-[#2e3139]">
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <select
-                            value={c.status}
-                            onChange={(e) => handleStatusChange(id, e.target.value)}
-                            className="h-7 rounded-lg border border-[#2e3139] bg-[#1a1c20] px-2 text-[10px] text-[#9ba3af] focus:outline-none focus:border-[#F05A22]"
-                          >
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="draft">Draft</option>
-                            <option value="archived">Archived</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                  </Card>
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => {
+                      setProgramForm(f => ({
+                        ...f,
+                        sessionDays: selected
+                          ? f.sessionDays.filter(day => day !== d)
+                          : [...f.sessionDays, d]
+                      }));
+                    }}
+                    className={clsx(
+                      "px-3 py-1 rounded-xl text-xs font-bold border transition-colors cursor-pointer",
+                      selected
+                        ? "bg-[#F05A22] text-white border-[#F05A22]"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                    )}
+                  >
+                    {d}
+                  </button>
                 );
               })}
             </div>
-          )}
+          </div>
 
-          {/* Modal: Create/Edit Community */}
-          <Modal open={createCommOpen} onClose={() => setCreateCommOpen(false)} title={editingComm ? "Edit Community Center" : "Create Community Center"} size="md">
-            <form onSubmit={handleSaveCommunity} className="space-y-4">
-              <Input label="Community Name *" value={commName} onChange={(e) => setCommName(e.target.value)} required placeholder="e.g. Ameerpet Coaching Center" />
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Location (Area/Subway) *" value={commLoc} onChange={(e) => setCommLoc(e.target.value)} required placeholder="e.g. Ameerpet" />
-                <Select label="City *" value={commCity} onChange={(e) => setCommCity(e.target.value)} options={[{ value: 'Hyderabad', label: 'Hyderabad' }, { value: 'Bangalore', label: 'Bangalore' }, { value: 'Chennai', label: 'Chennai' }]} />
-              </div>
-              <Input label="Complete Address" value={commAddr} onChange={(e) => setCommAddr(e.target.value)} placeholder="e.g. Behind Metro Station, Lane 2, Hyderabad" />
-              <Textarea label="Description / About Center" value={commDesc} onChange={(e) => setCommDesc(e.target.value)} rows={3} placeholder="Provide details about the sports, amenities, target age groups..." />
-              
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#9ba3af] block">Banner Image</label>
-                <div className="flex gap-4 items-center">
-                  {imagePreview && (
-                    <img src={imagePreview} alt="Preview" className="h-16 w-16 rounded-lg object-cover border border-[#2e3139]" />
-                  )}
-                  <input type="file" accept="image/*" onChange={handleImageChange} className="text-xs text-[#9ba3af] file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#F05A22]/10 file:text-[#F05A22] hover:file:bg-[#F05A22]/20 cursor-pointer" />
-                </div>
-              </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">Start Time</label>
+              <input
+                type="time"
+                required
+                value={programForm.sessionStartTime}
+                onChange={e => setProgramForm(f => ({ ...f, sessionStartTime: e.target.value }))}
+                className="input-field text-xs font-mono"
+              />
+            </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" onClick={() => setCreateCommOpen(false)} className="h-9 text-xs">Cancel</Button>
-                <Button type="submit" variant="primary" className="h-9 text-xs font-semibold">Save Center</Button>
-              </div>
-            </form>
-          </Modal>
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">End Time</label>
+              <input
+                type="time"
+                required
+                value={programForm.sessionEndTime}
+                onChange={e => setProgramForm(f => ({ ...f, sessionEndTime: e.target.value }))}
+                className="input-field text-xs font-mono"
+              />
+            </div>
 
-          {/* Modal: View Community Detail (with Programs List) */}
-          <Modal open={!!viewingComm} onClose={() => setViewingComm(null)} title={viewingComm?.name || "Community Details"} size="lg">
-            {viewingComm && (
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row gap-4 justify-between bg-[#101114] border border-[#2e3139] p-4 rounded-xl">
-                  <div className="space-y-2 flex-1">
-                    <p className="text-xs text-[#9ba3af]">{viewingComm.description || "No description loaded."}</p>
-                    <div className="flex gap-3 text-xs text-[#5c6370]">
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-[#F05A22]" /> {viewingComm.address || viewingComm.location}</span>
-                      <span>Status: <Badge className={COMM_STATUS_MAP[viewingComm.status]}>{viewingComm.status}</Badge></span>
-                    </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">Max Capacity</label>
+              <input
+                type="number"
+                min={1}
+                required
+                value={programForm.capacity}
+                onChange={e => setProgramForm(f => ({ ...f, capacity: parseInt(e.target.value, 10) || 20 }))}
+                className="input-field text-xs font-mono"
+              />
+            </div>
+          </div>
+
+          {/* Subscription Plans Builder */}
+          <div className="space-y-2 pt-2 border-t border-slate-200">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-900">
+                Subscription Pricing Plans (Weekly / Monthly / Quarterly)
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setProgramForm(f => ({
+                    ...f,
+                    plans: [...f.plans, { duration: 1, unit: 'month', price: 2000, label: 'Monthly', isActive: true }]
+                  }));
+                }}
+                className="text-xs text-[#F05A22] font-bold hover:underline cursor-pointer"
+              >
+                + Add Plan
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {programForm.plans.map((pl, idx) => (
+                <div key={idx} className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Plan Label (e.g. Monthly)"
+                    value={pl.label}
+                    onChange={e => {
+                      const updated = [...programForm.plans];
+                      updated[idx].label = e.target.value;
+                      setProgramForm(f => ({ ...f, plans: updated }));
+                    }}
+                    className="input-field text-xs py-1 flex-1 font-semibold"
+                  />
+
+                  <input
+                    type="number"
+                    min={1}
+                    value={pl.duration}
+                    onChange={e => {
+                      const updated = [...programForm.plans];
+                      updated[idx].duration = parseInt(e.target.value, 10) || 1;
+                      setProgramForm(f => ({ ...f, plans: updated }));
+                    }}
+                    className="input-field text-xs py-1 w-16 font-mono"
+                  />
+
+                  <select
+                    value={pl.unit}
+                    onChange={e => {
+                      const updated = [...programForm.plans];
+                      updated[idx].unit = e.target.value as any;
+                      setProgramForm(f => ({ ...f, plans: updated }));
+                    }}
+                    className="select-field text-xs py-1 w-24 font-medium"
+                  >
+                    <option value="week">week(s)</option>
+                    <option value="month">month(s)</option>
+                  </select>
+
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-slate-400 font-bold">₹</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={pl.price}
+                      onChange={e => {
+                        const updated = [...programForm.plans];
+                        updated[idx].price = parseFloat(e.target.value) || 0;
+                        setProgramForm(f => ({ ...f, plans: updated }));
+                      }}
+                      className="input-field text-xs py-1 w-24 font-mono font-bold text-emerald-600"
+                    />
                   </div>
-                  {can('sports_write') && (
-                    <Button variant="primary" className="h-7 text-[11px] self-start" onClick={openCreateProgram}>
-                      <Plus className="h-3.5 w-3.5" /> Add Program
-                    </Button>
-                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProgramForm(f => ({
+                        ...f,
+                        plans: f.plans.filter((_, i) => i !== idx)
+                      }));
+                    }}
+                    className="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
+              ))}
+            </div>
+          </div>
 
-                <div className="space-y-3">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-[#5c6370]">Coaching Batches / Programs</h5>
-                  
-                  {(!viewingComm.programs || viewingComm.programs.length === 0) ? (
-                    <EmptyState emoji="⚽" title="No sports programs active" text="Add a program or class batch to start enrolling players." />
-                  ) : (
-                    <div className="space-y-4">
-                      {viewingComm.programs.map((p: Program) => {
-                        const progId = p.id || p._id!;
-                        const monthlyPrice = p.plans?.[0]?.price ? `₹${p.plans[0].price}/mo` : 'Free';
-                        const isPlayersExpanded = !!expandedPrograms[progId];
-                        const enrolledPlayers = subscribersMap[progId] || [];
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setProgramModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={savingProgram}
+              className="bg-[#F05A22] hover:bg-[#d94e1b] text-white font-semibold"
+            >
+              {savingProgram ? 'Saving...' : editingProgram ? 'Update Program' : 'Create Program'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
-                        return (
-                          <div key={progId} className="bg-[#141518] border border-[#2e3139] rounded-xl p-4 space-y-4">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h6 className="font-bold text-white text-sm flex items-center gap-2">
-                                  <Trophy className="h-4 w-4 text-[#F05A22]" /> {p.title || `${p.sport} Batch`}
-                                </h6>
-                                <p className="text-xs text-[#5c6370] mt-0.5">{p.sport} Coaching Program</p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge className="badge-blue">{monthlyPrice}</Badge>
-                                {can('sports_write') && (
-                                  <button onClick={() => openEditProgram(p)} className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a] border border-[#2e3139]">
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* MODAL 3: ASSIGN COACH & MONTHLY SALARY CONTRACT                         */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        open={coachModalOpen}
+        onClose={() => setCoachModalOpen(false)}
+        title={`Coach Contract: ${targetProgram?.title || 'Program Batch'}`}
+        size="md"
+      >
+        <form onSubmit={handleSaveCoachAssignment} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">
+              Select KYC-Approved Coach <span className="text-rose-500">*</span>
+            </label>
+            <select
+              required
+              value={selectedCoachId}
+              onChange={e => setSelectedCoachId(e.target.value)}
+              className="select-field text-xs font-semibold"
+            >
+              <option value="">— Select Coach —</option>
+              {coaches.map(c => {
+                const id = c.id || c._id;
+                const name = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.email;
+                return (
+                  <option key={id} value={id}>
+                    {name} ({c.sport || 'General Coach'})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0e0f11] p-3 rounded-lg border border-[#2e3139] text-xs">
-                              <div className="space-y-1">
-                                <span className="text-[#5c6370] block uppercase tracking-wider text-[9px] font-semibold">Weekly Days</span>
-                                <span className="text-white font-medium">{p.sessionDays?.length ? p.sessionDays.join(', ') : 'Daily'}</span>
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[#5c6370] block uppercase tracking-wider text-[9px] font-semibold">Timing</span>
-                                <span className="text-white font-medium flex items-center gap-1"><Clock className="h-3 w-3 text-[#9ba3af]" /> {p.sessionStartTime || '—'} - {p.sessionEndTime || '—'}</span>
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[#5c6370] block uppercase tracking-wider text-[9px] font-semibold">Dates</span>
-                                <span className="text-white font-medium flex items-center gap-1"><Calendar className="h-3 w-3 text-[#9ba3af]" /> {p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Ongoing'}</span>
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[#5c6370] block uppercase tracking-wider text-[9px] font-semibold">Capacity</span>
-                                <span className="text-white font-medium">{p.capacity ? `${p.capacity} Slots` : 'Unlimited'}</span>
-                              </div>
-                            </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">
+              Monthly Platform-Funded Salary (INR) <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-sm">₹</span>
+              <input
+                type="number"
+                min={0}
+                required
+                value={contractSalary}
+                onChange={e => setContractSalary(parseFloat(e.target.value) || 0)}
+                placeholder="20000"
+                className="input-field pl-7 text-sm font-bold font-mono text-purple-700"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Fixed monthly salary paid by platform revenue. Retained across assignment history.
+            </p>
+          </div>
 
-                            {/* Coach Assignment Area */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#1B2B6B]/10 border border-[#1b2b6b]/35 p-3 rounded-lg">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-[#1B2B6B]/20 text-[#1B2B6B] flex items-center justify-center">
-                                  <UserCheck className="h-4 w-4 text-blue-300" />
-                                </div>
-                                <div>
-                                  <span className="text-[9px] font-semibold text-[#9ba3af] uppercase tracking-wider block">Assigned Coach</span>
-                                  {p.coach ? (
-                                    <span className="text-xs text-white font-medium flex items-center gap-1.5">
-                                      {getCoachName(p.coach)}
-                                      {p.salary && <span className="text-[10px] text-emerald-400 font-semibold">(₹{p.salary}/mo)</span>}
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-[#5c6370] italic">No coach assigned</span>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              {can('sports_write') && (
-                                <div className="flex gap-2">
-                                  {p.coach ? (
-                                    <>
-                                      <Button variant="outline" className="h-7 text-[10px] hover:text-white" onClick={() => openAssignCoach(progId, p.coachId || p.coach?.id)}>
-                                        Change Coach
-                                      </Button>
-                                      <button onClick={() => handleRemoveCoach(progId, p.coachId || p.coach?.id)} className="h-7 px-2.5 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-400/10 border border-red-500/20">
-                                        <Trash className="h-3.5 w-3.5" />
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <Button variant="primary" className="h-7 text-[10px] font-semibold" onClick={() => openAssignCoach(progId)}>
-                                      <Plus className="h-3 w-3" /> Assign Coach
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+          {/* Historical Assignment Records */}
+          <div className="pt-2 border-t border-slate-200">
+            <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+              <History className="h-3.5 w-3.5 text-slate-400" />
+              Contract & Assignment History
+            </h4>
 
-                            {/* Enrolled Players Section */}
-                            <div className="border border-[#2e3139] rounded-lg overflow-hidden bg-[#101114]">
-                              <button
-                                type="button"
-                                onClick={() => toggleProgramSubscribers(progId)}
-                                className="w-full flex items-center justify-between p-3 text-xs font-semibold text-[#9ba3af] hover:text-white bg-[#141518] border-b border-[#2e3139] transition-colors cursor-pointer"
-                              >
-                                <span className="flex items-center gap-1.5">
-                                  <Users className="h-4 w-4 text-[#F05A22]" />
-                                  Enrolled Players ({enrolledPlayers.length})
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  {can('sports_write') && (
-                                    <span
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openEnrollPlayer(progId);
-                                      }}
-                                      className="h-6 px-2.5 rounded bg-[#F05A22]/10 text-[#F05A22] hover:bg-[#F05A22]/20 border border-[#F05A22]/30 flex items-center gap-1 text-[10px] font-bold"
-                                    >
-                                      <UserPlus className="h-3 w-3" /> Enroll Player
-                                    </span>
-                                  )}
-                                  {isPlayersExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                                </div>
-                              </button>
-
-                              {isPlayersExpanded && (
-                                <div className="p-3">
-                                  {enrolledPlayers.length === 0 ? (
-                                    <p className="text-xs text-[#5c6370] italic text-center py-2">No players enrolled yet.</p>
-                                  ) : (
-                                    <div className="overflow-x-auto">
-                                      <table className="w-full text-left text-[11px] border-collapse">
-                                        <thead>
-                                          <tr className="border-b border-[#2e3139]">
-                                            <th className="py-2 text-[#5c6370] uppercase text-[9px] font-bold">Player</th>
-                                            <th className="py-2 text-[#5c6370] uppercase text-[9px] font-bold">Email</th>
-                                            <th className="py-2 text-[#5c6370] uppercase text-[9px] font-bold">Phone</th>
-                                            <th className="py-2 text-[#5c6370] uppercase text-[9px] font-bold">Joined</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {enrolledPlayers.map((player: any, idx: number) => {
-                                            const name = getPlayerFullName(player);
-                                            const initials = name.split(' ').map((n: string) => n[0]).join('').slice(0, 2);
-                                            return (
-                                              <tr key={player.id || player._id || idx} className="border-b border-[#2e3139]/30 last:border-0">
-                                                <td className="py-2">
-                                                  <div className="flex items-center gap-2">
-                                                    <Avatar initials={initials} size={20} />
-                                                    <span className="font-medium text-white">{name}</span>
-                                                    {player.role && (
-                                                      <span className="text-[8px] uppercase font-bold text-[#5c6370] bg-[#21242a] px-1 rounded">
-                                                        {player.role}
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </td>
-                                                <td className="py-2 text-[#9ba3af]">{player.email || '—'}</td>
-                                                <td className="py-2 text-[#9ba3af]">{player.phone || '—'}</td>
-                                                <td className="py-2 text-[#5c6370]">{player.joined || 'Ongoing'}</td>
-                                              </tr>
-                                            );
-                                          })}
-                                        </tbody>
-                                      </table>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+            {loadingSalaryHistory ? (
+              <div className="py-4 text-center text-xs text-slate-400">Loading history...</div>
+            ) : salaryHistory.length === 0 ? (
+              <div className="py-2 text-xs text-slate-400 italic">No previous contract revisions recorded.</div>
+            ) : (
+              <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                {salaryHistory.map((h, i) => (
+                  <div key={i} className="p-2 rounded-lg bg-slate-50 text-xs flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-slate-900">{h.coachName || getCoachLabel(h.coachId)}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        {h.effectiveFrom ? new Date(h.effectiveFrom).toLocaleDateString('en-IN') : 'Start'}
+                        {h.effectiveTo ? ` – ${new Date(h.effectiveTo).toLocaleDateString('en-IN')}` : ' – Present'}
+                      </p>
                     </div>
-                  )}
-                </div>
+                    <span className="font-bold text-purple-700">₹{h.salary?.toLocaleString('en-IN')}/mo</span>
+                  </div>
+                ))}
               </div>
             )}
-          </Modal>
+          </div>
 
-          {/* Modal: Create/Edit Program */}
-          <Modal open={createProgOpen} onClose={() => setCreateProgOpen(false)} title={editingProg ? "Edit Batch Program" : "Add Batch Program"} size="md">
-            <form onSubmit={handleSaveProgram} className="space-y-4">
-              <Input label="Batch Title *" value={progTitle} onChange={(e) => setProgTitle(e.target.value)} required placeholder="e.g. Cricket Morning Batch" />
-              
-              <div className="grid grid-cols-2 gap-4">
-                <Select
-                  label="Sport Type *"
-                  value={progSport}
-                  onChange={(e) => setProgSport(e.target.value)}
-                  options={sports.map(s => ({ value: s.name || s.id, label: s.name }))}
-                />
-                <Input label="Price (INR / Month)" type="number" value={progPrice} onChange={(e) => setProgPrice(e.target.value)} placeholder="e.g. 2000" />
+          <div className="flex items-center justify-between pt-2">
+            {targetProgram?.coachId && (
+              <Button
+                type="button"
+                variant="danger"
+                className="h-8 text-xs"
+                onClick={handleEndCoachAssignment}
+                disabled={savingCoachAssignment}
+              >
+                End Assignment
+              </Button>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button type="button" variant="outline" onClick={() => setCoachModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingCoachAssignment}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold"
+              >
+                {savingCoachAssignment ? 'Saving...' : 'Save Contract'}
+              </Button>
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* MODAL 4: SCOPED STAFF ADMIN ACCESS                                      */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        open={staffModalOpen}
+        onClose={() => setStaffModalOpen(false)}
+        title={`Staff Permissions: ${staffTargetCommunity?.name || 'Academy'}`}
+        size="md"
+      >
+        <form onSubmit={handleSaveStaffGrants} className="space-y-4">
+          <p className="text-xs text-slate-500">
+            Super Admin grants scoped access for this specific coaching academy only. Global roles remain unchanged.
+          </p>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">
+              Select Administrator
+            </label>
+            <select
+              value={selectedAdminId}
+              onChange={e => setSelectedAdminId(e.target.value)}
+              className="select-field text-xs font-semibold"
+              required
+            >
+              {adminsList.map(a => {
+                const id = a.id || a._id;
+                return (
+                  <option key={id} value={id}>
+                    {a.name || a.email} ({a.role})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-800">
+              Community Operational Grants
+            </label>
+            <div className="grid grid-cols-1 gap-2">
+              {SCOPED_PERMISSIONS.map(p => {
+                const isGranted = assignedPermissions.includes(p.id);
+                return (
+                  <label
+                    key={p.id}
+                    className={clsx(
+                      "p-2.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-colors",
+                      isGranted ? "bg-purple-50/50 border-purple-300" : "bg-white border-slate-200"
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isGranted}
+                      onChange={() => {
+                        setAssignedPermissions(prev =>
+                          isGranted ? prev.filter(x => x !== p.id) : [...prev, p.id]
+                        );
+                      }}
+                      className="mt-0.5 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">{p.label}</p>
+                      <p className="text-[11px] text-slate-500">{p.desc}</p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 pt-1 text-xs text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={staffActive}
+              onChange={e => setStaffActive(e.target.checked)}
+              className="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+            />
+            <span className="font-semibold">Grant active for this academy</span>
+          </label>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setStaffModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={savingStaff}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold"
+            >
+              {savingStaff ? 'Saving...' : 'Save Staff Grants'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* MODAL 5: PROGRAM CANCELLATION & PRO-RATA REFUNDS                        */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        open={cancelModalOpen}
+        onClose={() => setCancelModalOpen(false)}
+        title={`Cancel Program: ${cancelTargetProgram?.title || 'Batch'}`}
+        size="md"
+      >
+        <form onSubmit={handleExecuteCancellation} className="space-y-4">
+          <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-1">
+            <p className="font-bold flex items-center gap-1.5 text-rose-900">
+              <AlertTriangle className="h-4 w-4 text-rose-600" />
+              Irreversible Program Cancellation Notice
+            </p>
+            <p className="text-rose-800 leading-relaxed">
+              Cancelling a program freezes activation, calculates deterministic remaining pro-rata refunds for each active subscriber, and queues automated provider refunds.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">
+              Cancellation Reason <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              rows={3}
+              required
+              value={cancelReason}
+              onChange={e => setCancelReason(e.target.value)}
+              placeholder="e.g. Facility structural maintenance; remaining sessions cancelled"
+              className="input-field text-xs"
+            />
+          </div>
+
+          {/* Cancellation Progress Tracking */}
+          {cancellationProgress && (
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-700">Allocation Batch Status:</span>
+                <Badge className={clsx(
+                  "text-[10px]",
+                  cancellationProgress.status === 'COMPLETED' && "bg-emerald-50 text-emerald-700",
+                  cancellationProgress.status === 'PROCESSING' && "bg-blue-50 text-blue-700",
+                  cancellationProgress.status === 'REVIEW_REQUIRED' && "bg-amber-50 text-amber-700"
+                )}>
+                  {cancellationProgress.status || 'PENDING'}
+                </Badge>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Start Date" type="date" value={progStartDate} onChange={(e) => setProgStartDate(e.target.value)} />
-                <Input label="End Date" type="date" value={progEndDate} onChange={(e) => setProgEndDate(e.target.value)} />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <Input label="Start Time *" type="time" value={progStartTime} onChange={(e) => setProgStartTime(e.target.value)} required />
-                <Input label="End Time *" type="time" value={progEndTime} onChange={(e) => setProgEndTime(e.target.value)} required />
-                <Input label="Capacity Slots *" type="number" value={progCapacity} onChange={(e) => setProgCapacity(Number(e.target.value))} required />
-              </div>
-
-              {/* Day selection */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#9ba3af]">Session Days</label>
-                <div className="flex gap-1.5 flex-wrap">
-                  {DAYS_OF_WEEK.map(day => {
-                    const active = progDays.includes(day);
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        onClick={() => toggleDay(day)}
-                        className={clsx(
-                          'text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer',
-                          active
-                            ? 'bg-[#F05A22]/20 text-[#F05A22] border-[#F05A22]/40'
-                            : 'border-[#2e3139] text-[#5c6370] hover:border-[#3a3e48] hover:text-[#9ba3af]'
-                        )}
-                      >
-                        {day}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" onClick={() => setCreateProgOpen(false)} className="h-9 text-xs">Cancel</Button>
-                <Button type="submit" variant="primary" className="h-9 text-xs font-semibold">Save Program</Button>
-              </div>
-            </form>
-          </Modal>
-
-          {/* Modal: Assign Coach to Program */}
-          <Modal open={assignCoachOpen} onClose={() => setAssignCoachOpen(false)} title="Assign Coach to Program" size="sm">
-            <form onSubmit={handleAssignCoachSubmit} className="space-y-4">
-              {coaches.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">
-                  <ShieldAlert className="h-8 w-8 text-amber-500" />
-                  <p className="text-xs text-[#9ba3af]">No active or approved coaches found.</p>
-                </div>
-              ) : (
-                <>
-                  <Select
-                    label="Select Coach *"
-                    value={selectedCoachId}
-                    onChange={(e) => setSelectedCoachId(e.target.value)}
-                    options={coaches.map(c => ({
-                      value: c.id || c._id!,
-                      label: `${getCoachName(c)} (${c.sports?.join(', ') || 'General'})`
-                    }))}
-                  />
-
-                  <Input
-                    label="Monthly Salary (INR) *"
-                    type="number"
-                    value={salaryInput}
-                    onChange={(e) => setSalaryInput(e.target.value)}
-                    required
-                    placeholder="e.g. 15000"
-                  />
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button type="button" onClick={() => setAssignCoachOpen(false)} className="h-9 text-xs">Cancel</Button>
-                    <Button type="submit" variant="primary" className="h-9 text-xs font-semibold">Confirm Assignment</Button>
-                  </div>
-                </>
-              )}
-            </form>
-          </Modal>
-
-          {/* Modal: Enroll Player in Program */}
-          <Modal open={enrollPlayerOpen} onClose={() => setEnrollPlayerOpen(false)} title="Enroll Player in Program" size="sm">
-            <form onSubmit={handleEnrollPlayerSubmit} className="space-y-4">
-              {customers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">
-                  <ShieldAlert className="h-8 w-8 text-amber-500" />
-                  <p className="text-xs text-[#9ba3af]">No customers/players found.</p>
-                </div>
-              ) : (
-                <>
-                  <Select
-                    label="Select Customer/Player *"
-                    value={selectedPlayerId}
-                    onChange={(e) => setSelectedPlayerId(e.target.value)}
-                    options={customers.map(c => ({
-                      value: c.id,
-                      label: `${c.firstName || ''} ${c.lastName || ''} (${c.role || 'Player'})`
-                    }))}
-                  />
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button type="button" onClick={() => setEnrollPlayerOpen(false)} className="h-9 text-xs">Cancel</Button>
-                    <Button type="submit" variant="primary" className="h-9 text-xs font-semibold">Enroll Player</Button>
-                  </div>
-                </>
-              )}
-            </form>
-          </Modal>
-        </>
-      )}
-
-      {/* ── TAB 3: SALARY PAYOUTS & PROCESSING ───────────────────────────────────── */}
-      {activeTab === 'salary' && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-[#F05A22]" /> Coach Salary Payout Records
-                </CardTitle>
-                <p className="text-xs text-[#9ba3af]">Manage monthly coach salary payouts and manually process payouts to coach wallets</p>
-              </div>
-              {can('sports_write') && (
-                <Button variant="primary" className="h-8 text-xs font-semibold px-3" onClick={() => setProcessSalaryOpen(true)}>
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Process Coach Salary
+              <p className="text-slate-500 text-[11px]">
+                Allocated refunds: {cancellationProgress.allocatedCount || 0} subscribers
+              </p>
+              {cancellationProgress.status === 'REVIEW_REQUIRED' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-1 h-7 text-xs text-rose-600 border-rose-200"
+                  onClick={handleRetryCancellation}
+                  disabled={cancellingProgram}
+                >
+                  Retry Failed Allocation
                 </Button>
               )}
-            </CardHeader>
-            <CardContent>
-              {loadingSalary ? (
-                <div className="flex justify-center py-12">
-                  <div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
-                </div>
-              ) : salaryPayouts.length === 0 ? (
-                <EmptyState icon={<DollarSign className="h-8 w-8 text-[#5c6370]" />} title="No salary payouts found" />
-              ) : (
-                <Table>
-                  <Thead>
-                    <Tr>
-                      <Th>Coach</Th>
-                      <Th>Program Batch</Th>
-                      <Th>Month</Th>
-                      <Th>Amount (INR)</Th>
-                      <Th>Status</Th>
-                      <Th>Payout Date</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {salaryPayouts.map((sp: any) => (
-                      <Tr key={sp.id || sp._id}>
-                        <Td><span className="text-sm font-medium text-white">{getSalaryCoachName(sp)}</span></Td>
-                        <Td><span className="text-xs text-[#9ba3af]">{getSalaryProgramTitle(sp)}</span></Td>
-                        <Td><Badge className="badge-blue">{sp.month}</Badge></Td>
-                        <Td><span className="text-sm font-semibold text-emerald-400">₹{getSalaryAmount(sp).toLocaleString('en-IN')}</span></Td>
-                        <Td>
-                          <Badge className={sp.status === 'paid' ? 'badge-green' : sp.status === 'pending' ? 'badge-amber' : 'badge-red'}>
-                            {sp.status || 'pending'}
-                          </Badge>
-                        </Td>
-                        <Td><span className="text-xs text-[#5c6370]">{getSalaryPayoutDate(sp)}</span></Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+          )}
 
-          {/* Modal: Process Coach Salary */}
-          <Modal open={processSalaryOpen} onClose={() => setProcessSalaryOpen(false)} title="Process Coach Monthly Salary" size="md">
-            <form onSubmit={(e) => { e.preventDefault(); handleProcessSalary(); }} className="space-y-4">
-              <Select
-                label="Select Community Program *"
-                value={salaryProgramId}
-                onChange={(e) => handleProgramSelectChange(e.target.value)}
-                options={[
-                  { value: '', label: '— Select Community Program —' },
-                  ...communities.flatMap(c => (c.programs || []).map((p: any) => ({
-                    value: p.id || p._id!,
-                    label: `${c.name} — ${p.title || p.sport}`
-                  })))
-                ]}
-              />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setCancelModalOpen(false)}>
+              Close
+            </Button>
+            <Button
+              type="submit"
+              disabled={cancellingProgram}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+            >
+              {cancellingProgram ? 'Processing...' : 'Execute Cancellation'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
-              <Select
-                label="Select Coach *"
-                value={salaryCoachId}
-                onChange={(e) => setSalaryCoachId(e.target.value)}
-                options={[
-                  { value: '', label: '— Select Coach —' },
-                  ...coaches.map(c => ({
-                    value: c.id || c._id!,
-                    label: `${getCoachName(c)} (${c.email || ''})`
-                  }))
-                ]}
-              />
-
-              <Input
-                label="Monthly Salary Amount (INR) *"
-                type="number"
-                value={salaryAmountInput}
-                onChange={(e) => setSalaryAmountInput(e.target.value)}
-                required
-                placeholder="e.g. 15000"
-              />
-
-              <Input
-                label="Salary Month (YYYY-MM) *"
-                type="month"
-                value={salaryMonth}
-                onChange={(e) => setSalaryMonth(e.target.value)}
-                required
-              />
-
-              {(salaryCoachId || salaryProgramId) && (
-                <div className="bg-[#18191c] border border-[#2e3139] rounded-xl p-3 text-xs text-white space-y-1.5">
-                  <p className="text-[11px] font-semibold text-[#F05A22] mb-1">Payout Summary Preview:</p>
-                  <div className="flex justify-between">
-                    <span className="text-[#9ba3af]">Target Coach:</span>
-                    <span className="font-semibold text-white">
-                      {coaches.find(c => (c.id || c._id) === salaryCoachId) ? getCoachName(coaches.find(c => (c.id || c._id) === salaryCoachId)) : '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#9ba3af]">Monthly Amount:</span>
-                    <span className="font-semibold text-emerald-400">
-                      ₹{Number(salaryAmountInput || 0).toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" onClick={() => setProcessSalaryOpen(false)} className="h-9 text-xs">Cancel</Button>
-                <Button type="submit" variant="primary" className="h-9 text-xs font-semibold">Credit Wallet & Process</Button>
-              </div>
-            </form>
-          </Modal>
-        </div>
-      )}
-
-      {/* ── TAB 4: COACH ATTENDANCE ──────────────────────────────────────────────── */}
-      {activeTab === 'attendance' && (
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* MODAL 6: PROGRAM SUBSCRIBERS DRAWER                                     */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        open={subscriptionsModalOpen}
+        onClose={() => setSubscriptionsModalOpen(false)}
+        title={`Subscribers: ${subscriptionsProgram?.title || 'Program Batch'}`}
+        size="lg"
+      >
         <div className="space-y-4">
-          <Card>
-            <CardHeader className="flex flex-col gap-3">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <ClipboardCheck className="h-5 w-5 text-[#F05A22]" /> Program Coach Attendance
-              </CardTitle>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Select
-                  label="Select Community Program"
-                  value={selectedAttProgramId}
-                  onChange={(e) => {
-                    setSelectedAttProgramId(e.target.value);
-                    loadAttendance(e.target.value);
-                  }}
-                  options={[
-                    { value: '', label: '— Select Program —' },
-                    ...communities.flatMap(c => (c.programs || []).map((p: any) => ({
-                      value: p.id || p._id!,
-                      label: `${c.name} — ${p.title || p.sport}`
-                    })))
-                  ]}
-                />
-                <Input
-                  label="Filter by Date"
-                  type="date"
-                  value={attDate}
-                  onChange={(e) => setAttDate(e.target.value)}
-                />
-                <Select
-                  label="Filter Status"
-                  value={attStatus}
-                  onChange={(e) => setAttStatus(e.target.value)}
-                  options={[
-                    { value: 'All', label: 'All Statuses' },
-                    { value: 'started', label: 'Started' },
-                    { value: 'completed', label: 'Completed' },
-                    { value: 'no_show', label: 'No Show' }
-                  ]}
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loadingAttendance ? (
-                <div className="flex justify-center py-12">
-                  <div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
-                </div>
-              ) : !selectedAttProgramId ? (
-                <EmptyState icon={<ClipboardCheck className="h-8 w-8 text-[#5c6370]" />} title="Select a community program above to inspect attendance" />
-              ) : attendanceRecords.length === 0 ? (
-                <EmptyState icon={<ClipboardCheck className="h-8 w-8 text-[#5c6370]" />} title="No attendance records found for this program" />
-              ) : (
-                <Table>
-                  <Thead>
-                    <Tr>
-                      <Th>Coach</Th>
-                      <Th>Session Date</Th>
-                      <Th>Check-In Time</Th>
-                      <Th>Check-Out Time</Th>
-                      <Th>Status</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {attendanceRecords.map((att: any) => (
-                      <Tr key={att.id || att._id}>
-                        <Td><span className="text-sm font-medium text-white">{att.coachName || 'Coach'}</span></Td>
-                        <Td><span className="text-xs text-[#9ba3af]">{att.date}</span></Td>
-                        <Td><span className="text-xs text-emerald-400 font-medium">{att.checkIn || '—'}</span></Td>
-                        <Td><span className="text-xs text-blue-400 font-medium">{att.checkOut || '—'}</span></Td>
-                        <Td>
-                          <Badge className={att.status === 'completed' ? 'badge-green' : att.status === 'started' ? 'badge-amber' : 'badge-red'}>
-                            {att.status}
-                          </Badge>
-                        </Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+          <p className="text-xs text-slate-500">
+            Active player subscriptions, contract validity and enrollment details.
+          </p>
+
+          {loadingSubscriptions ? (
+            <div className="flex justify-center py-12">
+              <RefreshCw className="h-6 w-6 text-[#F05A22] animate-spin" />
+            </div>
+          ) : subscriptionsList.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              No players enrolled in this program batch yet.
+            </div>
+          ) : (
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Subscriber Name</Th>
+                  <Th>Plan</Th>
+                  <Th>Validity</Th>
+                  <Th>Status</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {subscriptionsList.map((sub, idx) => (
+                  <Tr key={sub.id || sub._id || idx}>
+                    <Td>
+                      <p className="font-bold text-slate-900 text-xs">{sub.userName || sub.playerName || 'Subscriber'}</p>
+                      <p className="text-[11px] text-slate-400 font-mono">{sub.userEmail || sub.userPhone || sub.userId}</p>
+                    </Td>
+                    <Td className="text-xs font-semibold text-emerald-600">{sub.planLabel || sub.planName || 'Standard'}</Td>
+                    <Td className="text-xs text-slate-500 font-mono">
+                      {sub.validUntil ? new Date(sub.validUntil).toLocaleDateString('en-IN') : 'Active'}
+                    </Td>
+                    <Td>
+                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                        {sub.status || 'ACTIVE'}
+                      </Badge>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setSubscriptionsModalOpen(false)}>
+              Close
+            </Button>
+          </div>
         </div>
-      )}
+      </Modal>
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* MODAL 7: ATTENDANCE REVIEW RESOLUTION                                   */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        open={!!reviewingAttRecord}
+        onClose={() => setReviewingAttRecord(null)}
+        title="Review Flagged GPS Attendance"
+        size="md"
+      >
+        <form onSubmit={handleSaveAttReview} className="space-y-4">
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Record preserved attendance evidence. Does not fabricate GPS coordinates or deduct coach salary.
+          </p>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">Action Determination</label>
+            <select
+              value={reviewAction}
+              onChange={e => setReviewAction(e.target.value as any)}
+              className="select-field text-xs font-semibold"
+            >
+              <option value="ACKNOWLEDGED">ACKNOWLEDGED (Session verified with staff)</option>
+              <option value="EXCUSED">EXCUSED (Legitimate connectivity/device issue)</option>
+              <option value="NEEDS_FOLLOW_UP">NEEDS_FOLLOW_UP (Requires coach discussion)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">
+              Review Notes / Justification (Max 2000 chars)
+            </label>
+            <textarea
+              rows={3}
+              required
+              maxLength={2000}
+              value={reviewReason}
+              onChange={e => setReviewReason(e.target.value)}
+              placeholder="e.g. Reviewed connectivity issue with coach and facility security footage confirmed attendance"
+              className="input-field text-xs"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setReviewingAttRecord(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={savingAttReview}
+              className="bg-[#F05A22] hover:bg-[#d94e1b] text-white font-semibold"
+            >
+              {savingAttReview ? 'Saving...' : 'Submit Determination'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* MODAL 8: COMPLAINT RESOLUTION                                           */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        open={!!resolvingComplaint}
+        onClose={() => setResolvingComplaint(null)}
+        title="Resolve Community Complaint"
+        size="md"
+      >
+        <form onSubmit={handleSaveComplaintResolution} className="space-y-4">
+          <p className="text-xs text-slate-500">
+            Administrative investigation resolution. Only non-financial resolution is handled here.
+          </p>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">Resolution Status</label>
+            <select
+              value={resolutionStatus}
+              onChange={e => setResolutionStatus(e.target.value as any)}
+              className="select-field text-xs font-semibold"
+            >
+              <option value="RESOLVED">RESOLVED (Addressed with coach & facility)</option>
+              <option value="MANUAL_REVIEW">MANUAL_REVIEW (Escalate for manual inspection)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">
+              Resolution Reason / Summary
+            </label>
+            <textarea
+              rows={3}
+              required
+              value={resolutionReason}
+              onChange={e => setResolutionReason(e.target.value)}
+              placeholder="e.g. Reviewed session delivery and discussed schedule with facility staff"
+              className="input-field text-xs"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setResolvingComplaint(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={savingComplaintResolution}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+            >
+              {savingComplaintResolution ? 'Saving...' : 'Save Resolution'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* MODAL 9: PROCESS MONTHLY SALARY PAYOUT                                  */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        open={payrollModalOpen}
+        onClose={() => setPayrollModalOpen(false)}
+        title={`Process Coach Salary Payout: ${payrollMonth}`}
+        size="md"
+      >
+        <form onSubmit={handleProcessMonthlySalary} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">Coach</label>
+            <select
+              required
+              value={payrollCoachId}
+              onChange={e => setPayrollCoachId(e.target.value)}
+              className="select-field text-xs font-semibold"
+            >
+              <option value="">— Select Coach —</option>
+              {coaches.map(c => (
+                <option key={c.id || c._id} value={c.id || c._id}>
+                  {c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.email}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">Program Batch</label>
+            <select
+              required
+              value={payrollProgramId}
+              onChange={e => setPayrollProgramId(e.target.value)}
+              className="select-field text-xs font-semibold"
+            >
+              <option value="">— Select Program —</option>
+              {allCommunityPrograms.map(p => (
+                <option key={p.id || p._id} value={p.id || p._id}>
+                  {p.communityName} · {p.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Super Admin Exception Override */}
+          {isSuperAdmin && (
+            <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-3">
+              <label className="flex items-center gap-2 text-xs font-bold text-amber-900 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isExceptionApproval}
+                  onChange={e => setIsExceptionApproval(e.target.checked)}
+                  className="rounded border-amber-300 text-[#F05A22] focus:ring-[#F05A22]"
+                />
+                <span>Super Admin Exception Override (Partial-month or adjusted salary)</span>
+              </label>
+
+              {isExceptionApproval && (
+                <div className="space-y-2.5 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Approved Amount (INR)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={exceptionAmountInr}
+                      onChange={e => setExceptionAmountInr(parseFloat(e.target.value) || 0)}
+                      className="input-field text-xs font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Approval Reference Code
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={exceptionReference}
+                      onChange={e => setExceptionReference(e.target.value)}
+                      placeholder="e.g. EXCEPTION-OCT-PRORATED-REF"
+                      className="input-field text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Audit Justification Reason
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      value={exceptionReason}
+                      onChange={e => setExceptionReason(e.target.value)}
+                      placeholder="e.g. Agreed partial-month prorated salary due to mid-month start"
+                      className="input-field text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setPayrollModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={processingPayroll}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold"
+            >
+              {processingPayroll ? 'Processing...' : 'Disburse Salary'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      {/* CONFIRM DIALOG: REMOVE SOCIAL FEED POST                                 */}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+      <ConfirmDialog
+        open={!!postToRemove}
+        title="Remove Social Feed Post"
+        message="Are you sure you want to remove this post from the public community feed? This action cannot be undone."
+        confirmLabel="Remove Post"
+        danger
+        onClose={() => setPostToRemove(null)}
+        onConfirm={() => {
+          if (!postToRemove) return;
+          const id = postToRemove.id || postToRemove._id;
+          if (id) {
+            removeCommunityPost(id).catch(() => {});
+            setFeedPosts(prev => prev.filter(p => (p.id || p._id) !== id));
+          }
+          setPostToRemove(null);
+        }}
+      />
     </div>
   );
 }

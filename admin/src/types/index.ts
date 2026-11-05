@@ -51,6 +51,8 @@ export const ROLE_COLORS: Record<AdminRole, string> = {
 // ── Auth ───────────────────────────────────────────────────────────────────────
 export interface AdminUser {
   id: string;
+  _id?: string;
+  name?: string;
   firstName: string;
   lastName:  string;
   email:     string;
@@ -101,7 +103,10 @@ export interface AvailabilitySlot {
 
 export interface Coach {
   id: string;
+  _id?: string;
   name:     string;
+  firstName?: string;
+  lastName?:  string;
   email:    string;
   emailId?: string;
   mailId?:  string;
@@ -111,6 +116,7 @@ export interface Coach {
   mobileNumber?: string;
   contact?: string;
   contactNumber?: string;
+  sport?:   string;
   sports:   string[];
   rating:   number;
   sessions: number;
@@ -330,5 +336,130 @@ export interface Banner {
   title?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+// ── Coaching Academies & Communities ──────────────────────────────────────────
+export type CommunityStatus = 'active' | 'inactive' | 'draft' | 'archived';
+
+export interface CommunityPlan {
+  _id?: string;
+  id?: string;
+  duration: number;
+  unit: 'week' | 'month';
+  price: number;
+  label: string;
+  isActive: boolean;
+}
+
+export interface CommunityProgram {
+  id?: string;
+  _id?: string;
+  communityId?: string;
+  sport: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  sessionDays: string[];
+  sessionStartTime: string;
+  sessionEndTime: string;
+  capacity: number;
+  plans: CommunityPlan[];
+  status?: 'active' | 'inactive' | string;
+  coach?: any;
+  coachId?: string;
+  salary?: number;
+  subscriberCount?: number;
+  cancellation?: {
+    cancelledAt?: string;
+    reason?: string;
+    status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'REVIEW_REQUIRED';
+  };
+}
+
+export interface Community {
+  id: string;
+  _id?: string;
+  name: string;
+  description?: string;
+  city: string;
+  address: string;
+  latitude?: number;
+  longitude?: number;
+  attendanceRadius?: number; // metres (1 - 10000)
+  timeZone?: string; // Asia/Kolkata
+  attendanceEarlyMinutes?: number;
+  attendanceGraceMinutes?: number;
+  attendanceEndEarlyMinutes?: number;
+  status: CommunityStatus;
+  programs?: CommunityProgram[];
+  subscriberCount?: number;
+  activeProgramsCount?: number;
+  admins?: Array<{
+    adminId: string;
+    permissions: string[];
+    active: boolean;
+  }>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CoachSalaryHistory {
+  id?: string;
+  _id?: string;
+  coachId: string;
+  coachName?: string;
+  programId?: string;
+  salary: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  status?: string;
+  reason?: string;
+}
+
+export interface CommunityAttendanceRecord {
+  id?: string;
+  _id?: string;
+  programId: string;
+  programTitle?: string;
+  coachId: string;
+  coachName?: string;
+  date: string;
+  checkIn?: string;
+  checkOut?: string;
+  status: 'started' | 'completed' | 'no_show' | 'flagged' | string;
+  distanceMetres?: number;
+  reviewAction?: 'ACKNOWLEDGED' | 'EXCUSED' | 'NEEDS_FOLLOW_UP';
+  reviewReason?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+export interface CommunityComplaint {
+  id?: string;
+  _id?: string;
+  programId: string;
+  programTitle?: string;
+  communityId?: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  issue?: string;
+  text?: string;
+  status: 'OPEN' | 'RESOLVED' | 'MANUAL_REVIEW';
+  reason?: string;
+  resolutionReason?: string;
+  resolvedAt?: string;
+  createdAt: string;
+}
+
+export interface CommunityLedgerEntry {
+  id?: string;
+  _id?: string;
+  eventType: 'SUBSCRIPTION_PAYMENT' | 'REFUND_LIABILITY' | 'REFUND_PROCESSED' | 'SALARY_EXPENSE';
+  amount: number;
+  currency?: string;
+  referenceId?: string;
+  description?: string;
+  createdAt: string;
 }
 

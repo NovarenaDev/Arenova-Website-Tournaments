@@ -178,30 +178,26 @@ export const getAdminCommunities = (params: Record<string, any> = {}) => {
 
 export const getAdminCommunityDetail = (id: string) => get(`/admin/communities/${id}`);
 
-export const createCommunity = (formData: FormData) => {
-  return fetch(`${BASE_URL}/admin/communities`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${getAdminToken()}`
-    },
-    body: formData
-  }).then(res => {
-    if (!res.ok) throw new Error('Failed to create community');
-    return res.json();
-  });
+export const createCommunity = (data: any) => {
+  if (data instanceof FormData) {
+    return fetch(`${BASE_URL}/admin/communities`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${getAdminToken()}` },
+      body: data
+    }).then(res => res.json());
+  }
+  return post('/admin/communities', data);
 };
 
-export const updateCommunity = (id: string, formData: FormData) => {
-  return fetch(`${BASE_URL}/admin/communities/${id}`, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${getAdminToken()}`
-    },
-    body: formData
-  }).then(res => {
-    if (!res.ok) throw new Error('Failed to update community');
-    return res.json();
-  });
+export const updateCommunity = (id: string, data: any) => {
+  if (data instanceof FormData) {
+    return fetch(`${BASE_URL}/admin/communities/${id}`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${getAdminToken()}` },
+      body: data
+    }).then(res => res.json());
+  }
+  return put(`/admin/communities/${id}`, data);
 };
 
 export const updateCommunityStatus = (id: string, status: string) =>
@@ -216,11 +212,30 @@ export const addCommunityProgram = (communityId: string, programData: any) =>
 export const updateCommunityProgram = (communityId: string, programId: string, programData: any) =>
   put(`/admin/communities/${communityId}/programs/${programId}`, programData);
 
+// ── Coach Assignment & Salary Contract ────────────────────────────────────────
 export const assignCoachToProgram = (programId: string, coachId: string, salary: number) =>
   post(`/admin/programs/${programId}/coaches`, { coachId, salary });
 
+export const getProgramCoachesHistory = (programId: string) =>
+  get(`/admin/programs/${programId}/coaches/history`);
+
+export const updateProgramCoachSalary = (programId: string, coachId: string, salary: number) =>
+  put(`/admin/programs/${programId}/coaches/${coachId}/salary`, { salary });
+
 export const removeCoachFromProgram = (programId: string, coachId: string) =>
   del(`/admin/programs/${programId}/coaches/${coachId}`);
+
+// ── Scoped Community Staff Permissions ────────────────────────────────────────
+export const assignCommunityAdmin = (
+  communityId: string,
+  data: { adminId: string; permissions: string[]; active: boolean }
+) => post(`/admin/communities/${communityId}/admins`, data);
+
+// ── Subscriptions & Ledger ────────────────────────────────────────────────────
+export const getProgramSubscriptions = (programId: string, params: Record<string, any> = {}) => {
+  const q = new URLSearchParams(params).toString();
+  return get(`/admin/programs/${programId}/subscriptions${q ? '?' + q : ''}`);
+};
 
 export const getProgramSubscribers = (programId: string) =>
   get(`/coach-app/programs/${programId}/subscribers`);
@@ -228,17 +243,67 @@ export const getProgramSubscribers = (programId: string) =>
 export const subscribePlayerToProgram = (programId: string, userId: string, childId?: string) =>
   post(`/admin/programs/${programId}/subscribers`, { userId, childId });
 
-export const processCoachSalary = (coachId: string, programId: string, month: string) =>
-  post('/admin/salary/process', { coachId, programId, month });
+export const getCommunityLedger = (communityId: string, params: Record<string, any> = {}) => {
+  const q = new URLSearchParams(params).toString();
+  return get(`/admin/communities/${communityId}/ledger${q ? '?' + q : ''}`);
+};
+
+// ── Attendance Review ─────────────────────────────────────────────────────────
+export const getProgramAttendance = (programId: string, params: Record<string, any> = {}) => {
+  const q = new URLSearchParams(params).toString();
+  return get(`/admin/communities/programs/${programId}/attendance${q ? '?' + q : ''}`);
+};
+
+export const reviewCommunityAttendance = (
+  id: string,
+  data: { action: 'ACKNOWLEDGED' | 'EXCUSED' | 'NEEDS_FOLLOW_UP'; reason: string }
+) => post(`/admin/community-attendance/${id}/review`, data);
+
+// ── Complaint Review & Resolution ─────────────────────────────────────────────
+export const getCommunityComplaints = (params: Record<string, any> = {}) => {
+  const q = new URLSearchParams(params).toString();
+  return get(`/admin/community-complaints${q ? '?' + q : ''}`);
+};
+
+export const resolveCommunityComplaint = (
+  id: string,
+  data: { status: 'RESOLVED' | 'MANUAL_REVIEW'; reason: string }
+) => post(`/admin/community-complaints/${id}/resolve`, data);
+
+// ── Program Cancellation & Pro-Rata Refunds ───────────────────────────────────
+export const cancelCommunityProgram = (programId: string, reason: string) =>
+  post(`/admin/programs/${programId}/cancel`, { reason });
+
+export const getProgramCancellation = (programId: string) =>
+  get(`/admin/programs/${programId}/cancellation`);
+
+export const retryProgramCancellation = (programId: string, reason: string) =>
+  post(`/admin/programs/${programId}/cancellation/retry`, { reason });
+
+export const getCommunityRefunds = (params: Record<string, any> = {}) => {
+  const q = new URLSearchParams({ sourceType: 'SUBSCRIPTION', ...params }).toString();
+  return get(`/admin/refunds${q ? '?' + q : ''}`);
+};
+
+export const reconcileCommunityRefund = (id: string) =>
+  post(`/admin/refunds/${id}/reconcile`, {});
+
+export const approveCommunityRefund = (id: string, reason: string, policyReference: string) =>
+  post(`/admin/refunds/${id}/approve`, { reason, policyReference });
+
+// ── Payroll & Coach Salary Processing ─────────────────────────────────────────
+export const processCoachSalary = (data: {
+  coachId: string;
+  programId: string;
+  month: string;
+  approvedAmountPaise?: number;
+  approvalReference?: string;
+  reason?: string;
+}) => post('/admin/salary/process', data);
 
 export const getSalaryPayouts = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
   return get(`/admin/salary-payouts${q ? '?' + q : ''}`);
-};
-
-export const getProgramAttendance = (programId: string, params: Record<string, any> = {}) => {
-  const q = new URLSearchParams(params).toString();
-  return get(`/admin/communities/programs/${programId}/attendance${q ? '?' + q : ''}`);
 };
 
 // ── Admins ────────────────────────────────────────────────────────────────────
