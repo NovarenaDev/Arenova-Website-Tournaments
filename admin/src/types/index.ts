@@ -1,4 +1,3 @@
-// ── Admin Roles & Permissions ──────────────────────────────────────────────────
 export type AdminRole =
   | 'super_admin'
   | 'customer_manager'
@@ -48,7 +47,6 @@ export const ROLE_COLORS: Record<AdminRole, string> = {
   viewer:           'badge-gray',
 };
 
-// ── Auth ───────────────────────────────────────────────────────────────────────
 export interface AdminUser {
   id: string;
   _id?: string;
@@ -64,7 +62,6 @@ export interface AdminUser {
   createdBy?: string;
 }
 
-// ── Data Models ────────────────────────────────────────────────────────────────
 export type BookingStatus = 'requested'|'accepted'|'confirmed'|'completed'|'cancelled'|'no_show';
 export type KycStatus     = 'pending'|'approved'|'rejected'|'under_review';
 export type PayoutStatus  = 'pending'|'processing'|'processed'|'failed';
@@ -92,13 +89,13 @@ export interface Customer {
   status:    'active'|'flagged'|'suspended';
   joined:    string;
   address?:  Address;
-  lastActive?: string;      // for inactive days calc
+  lastActive?: string;
 }
 
 export interface AvailabilitySlot {
-  day:       string;        // e.g. "Monday"
-  startTime: string;        // e.g. "09:00 AM"
-  endTime:   string;        // e.g. "12:00 PM"
+  day:       string;
+  startTime: string;
+  endTime:   string;
 }
 
 export interface Coach {
@@ -127,10 +124,10 @@ export interface Coach {
   noShows:  number;
   isActive: boolean;
   joined:   string;
-  // NEW fields
+
   bio?:          string;
   description?:  string;
-  experience?:   number;    // years
+  experience?:   number;
   address?:      Address;
   availability?: AvailabilitySlot[];
   requestedIndividualPrice?: number;
@@ -208,7 +205,6 @@ export interface Sport {
   trendUp:  boolean;
 }
 
-// ── Audit Logs ─────────────────────────────────────────────────────────────────
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE';
 export type AuditOutcome = 'SUCCESS' | 'FAILURE';
 
@@ -259,7 +255,6 @@ export interface AuditLogQueryFilter {
   limit?: number;
 }
 
-// ── Super Admin Review & Settlement Tools ─────────────────────────────────────
 export interface DisputeItem {
   id: string;
   _id?: string;
@@ -322,7 +317,6 @@ export interface RefundItem {
   reconciledAt?: string;
 }
 
-// ── Admin Banners ─────────────────────────────────────────────────────────────
 export type BannerTargetType = 'coach' | 'player';
 
 export interface Banner {
@@ -338,7 +332,6 @@ export interface Banner {
   updatedAt?: string;
 }
 
-// ── Coaching Academies & Communities ──────────────────────────────────────────
 export type CommunityStatus = 'active' | 'inactive' | 'draft' | 'archived';
 
 export interface CommunityPlan {
@@ -385,8 +378,8 @@ export interface Community {
   address: string;
   latitude?: number;
   longitude?: number;
-  attendanceRadius?: number; // metres (1 - 10000)
-  timeZone?: string; // Asia/Kolkata
+  attendanceRadius?: number;
+  timeZone?: string;
   attendanceEarlyMinutes?: number;
   attendanceGraceMinutes?: number;
   attendanceEndEarlyMinutes?: number;

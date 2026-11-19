@@ -32,7 +32,6 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { clsx } from 'clsx';
 
-// Constants
 const DAYS_OF_WEEK = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const CITIES = ['All', 'Hyderabad', 'Bengaluru', 'Chennai', 'Mumbai', 'Delhi NCR', 'Pune', 'Kolkata'];
 const STATUS_OPTIONS: CommunityStatus[] = ['active', 'inactive', 'draft', 'archived'];
@@ -52,10 +51,8 @@ export default function CommunityPage() {
   const { admin, can } = useAuth();
   const isSuperAdmin = admin?.role === 'super_admin';
 
-  // Navigation tab
   const [activeTab, setActiveTab] = useState<'academies' | 'attendance' | 'complaints' | 'payroll' | 'ledger' | 'feed'>('academies');
 
-  // Shared master data
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loadingCommunities, setLoadingCommunities] = useState(true);
   const [coaches, setCoaches] = useState<Coach[]>([]);
@@ -63,14 +60,11 @@ export default function CommunityPage() {
   const [adminsList, setAdminsList] = useState<AdminUser[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
 
-  // Filters for Academies
   const [selectedCity, setSelectedCity] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCommunityIds, setExpandedCommunityIds] = useState<Record<string, boolean>>({});
 
-  // ── Modal States ─────────────────────────────────────────────────────────────
-  // 1. Academy Modal (Create / Edit)
   const [academyModalOpen, setAcademyModalOpen] = useState(false);
   const [editingAcademy, setEditingAcademy] = useState<Community | null>(null);
   const [savingAcademy, setSavingAcademy] = useState(false);
@@ -88,7 +82,6 @@ export default function CommunityPage() {
     attendanceEndEarlyMinutes: 15
   });
 
-  // 2. Program Modal (Create / Edit)
   const [programModalOpen, setProgramModalOpen] = useState(false);
   const [targetCommunity, setTargetCommunity] = useState<Community | null>(null);
   const [editingProgram, setEditingProgram] = useState<CommunityProgram | null>(null);
@@ -119,7 +112,6 @@ export default function CommunityPage() {
     ]
   });
 
-  // 3. Coach Assignment & Salary Contract Modal
   const [coachModalOpen, setCoachModalOpen] = useState(false);
   const [targetProgram, setTargetProgram] = useState<CommunityProgram | null>(null);
   const [selectedCoachId, setSelectedCoachId] = useState('');
@@ -128,7 +120,6 @@ export default function CommunityPage() {
   const [salaryHistory, setSalaryHistory] = useState<CoachSalaryHistory[]>([]);
   const [loadingSalaryHistory, setLoadingSalaryHistory] = useState(false);
 
-  // 4. Scoped Staff Admin Access Modal
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [staffTargetCommunity, setStaffTargetCommunity] = useState<Community | null>(null);
   const [selectedAdminId, setSelectedAdminId] = useState('');
@@ -138,7 +129,6 @@ export default function CommunityPage() {
   const [staffActive, setStaffActive] = useState(true);
   const [savingStaff, setSavingStaff] = useState(false);
 
-  // 5. Program Cancellation & Refunds Modal
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelTargetProgram, setCancelTargetProgram] = useState<CommunityProgram | null>(null);
   const [cancelReason, setCancelReason] = useState('');
@@ -146,13 +136,11 @@ export default function CommunityPage() {
   const [cancellationProgress, setCancellationProgress] = useState<any>(null);
   const [loadingCancellationProgress, setLoadingCancellationProgress] = useState(false);
 
-  // 6. Program Subscriptions Drawer
   const [subscriptionsModalOpen, setSubscriptionsModalOpen] = useState(false);
   const [subscriptionsProgram, setSubscriptionsProgram] = useState<CommunityProgram | null>(null);
   const [subscriptionsList, setSubscriptionsList] = useState<any[]>([]);
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
 
-  // ── Tab 2: Attendance Review State ───────────────────────────────────────────
   const [selectedAttProgramId, setSelectedAttProgramId] = useState('');
   const [attDate, setAttDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [attRecords, setAttRecords] = useState<CommunityAttendanceRecord[]>([]);
@@ -162,7 +150,6 @@ export default function CommunityPage() {
   const [reviewReason, setReviewReason] = useState('');
   const [savingAttReview, setSavingAttReview] = useState(false);
 
-  // ── Tab 3: Complaints Queue State ────────────────────────────────────────────
   const [complaints, setComplaints] = useState<CommunityComplaint[]>([]);
   const [loadingComplaints, setLoadingComplaints] = useState(false);
   const [complaintFilterStatus, setComplaintFilterStatus] = useState<string>('OPEN');
@@ -172,7 +159,6 @@ export default function CommunityPage() {
   const [resolutionReason, setResolutionReason] = useState('');
   const [savingComplaintResolution, setSavingComplaintResolution] = useState(false);
 
-  // ── Tab 4: Monthly Payroll & Coach Salary State ──────────────────────────────
   const [payrollMonth, setPayrollMonth] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -190,7 +176,6 @@ export default function CommunityPage() {
   const [exceptionReason, setExceptionReason] = useState('');
   const [processingPayroll, setProcessingPayroll] = useState(false);
 
-  // ── Tab 5: Community Financial Ledger State ──────────────────────────────────
   const [ledgerCommunityId, setLedgerCommunityId] = useState('');
   const [ledgerEntries, setLedgerEntries] = useState<CommunityLedgerEntry[]>([]);
   const [loadingLedger, setLoadingLedger] = useState(false);
@@ -198,12 +183,10 @@ export default function CommunityPage() {
   const [loadingRefundsQueue, setLoadingRefundsQueue] = useState(false);
   const [reconcilingRefundId, setReconcilingRefundId] = useState<string | null>(null);
 
-  // ── Tab 6: Feed Moderation State ─────────────────────────────────────────────
   const [feedPosts, setFeedPosts] = useState<any[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(false);
   const [postToRemove, setPostToRemove] = useState<any | null>(null);
 
-  // ── 1. Fetch Communities & Master Data ───────────────────────────────────────
   const fetchCommunities = useCallback(async () => {
     try {
       setLoadingCommunities(true);
@@ -214,7 +197,6 @@ export default function CommunityPage() {
       const res = await getAdminCommunities(params);
       const list = extractDataList<Community>(res);
 
-      // Fetch detail for each community to ensure programs and subscriber counts are loaded
       const detailed = await Promise.all(
         list.map(async (comm) => {
           const id = comm.id || comm._id;
@@ -260,7 +242,6 @@ export default function CommunityPage() {
     fetchAuxMasterData();
   }, [fetchCommunities, fetchAuxMasterData]);
 
-  // Expand first community by default on initial load
   useEffect(() => {
     if (communities.length > 0 && Object.keys(expandedCommunityIds).length === 0) {
       const firstId = communities[0].id || communities[0]._id;
@@ -268,7 +249,6 @@ export default function CommunityPage() {
     }
   }, [communities]);
 
-  // ── Tab 2: Fetch Attendance ──────────────────────────────────────────────────
   const fetchAttendance = useCallback(async (programId: string, date: string) => {
     if (!programId) {
       setAttRecords([]);
@@ -292,7 +272,6 @@ export default function CommunityPage() {
     }
   }, [activeTab, selectedAttProgramId, attDate, fetchAttendance]);
 
-  // ── Tab 3: Fetch Complaints ──────────────────────────────────────────────────
   const fetchComplaints = useCallback(async () => {
     try {
       setLoadingComplaints(true);
@@ -313,7 +292,6 @@ export default function CommunityPage() {
     if (activeTab === 'complaints') fetchComplaints();
   }, [activeTab, fetchComplaints]);
 
-  // ── Tab 4: Fetch Payroll ─────────────────────────────────────────────────────
   const fetchPayroll = useCallback(async () => {
     try {
       setLoadingPayroll(true);
@@ -333,7 +311,6 @@ export default function CommunityPage() {
     if (activeTab === 'payroll') fetchPayroll();
   }, [activeTab, fetchPayroll]);
 
-  // ── Tab 5: Fetch Ledger & Community Refunds ──────────────────────────────────
   const fetchLedger = useCallback(async (communityId: string) => {
     if (!communityId) {
       setLedgerEntries([]);
@@ -371,7 +348,6 @@ export default function CommunityPage() {
     }
   }, [activeTab, ledgerCommunityId, fetchLedger, fetchSubscriptionRefunds]);
 
-  // ── Tab 6: Feed Moderation ───────────────────────────────────────────────────
   const fetchFeed = useCallback(async () => {
     try {
       setLoadingFeed(true);
@@ -388,7 +364,6 @@ export default function CommunityPage() {
     if (activeTab === 'feed') fetchFeed();
   }, [activeTab, fetchFeed]);
 
-  // ── Academy CRUD Handlers ────────────────────────────────────────────────────
   const openCreateAcademy = () => {
     setEditingAcademy(null);
     setAcademyForm({
@@ -475,7 +450,6 @@ export default function CommunityPage() {
     }
   };
 
-  // ── Program CRUD Handlers ────────────────────────────────────────────────────
   const openCreateProgram = (comm: Community) => {
     setTargetCommunity(comm);
     setEditingProgram(null);
@@ -564,7 +538,6 @@ export default function CommunityPage() {
     }
   };
 
-  // ── Coach Assignment & Salary Handlers ───────────────────────────────────────
   const openCoachAssignment = async (comm: Community, prog: CommunityProgram) => {
     setTargetCommunity(comm);
     setTargetProgram(prog);
@@ -598,10 +571,10 @@ export default function CommunityPage() {
       const currentCoachId = targetProgram.coachId || (targetProgram.coach && (targetProgram.coach.id || targetProgram.coach._id));
 
       if (currentCoachId && currentCoachId === selectedCoachId) {
-        // Prospective salary update
+
         await updateProgramCoachSalary(progId, selectedCoachId, Number(contractSalary));
       } else {
-        // Fresh assignment
+
         await assignCoachToProgram(progId, selectedCoachId, Number(contractSalary));
       }
 
@@ -634,7 +607,6 @@ export default function CommunityPage() {
     }
   };
 
-  // ── Scoped Staff Admin Access Handlers ───────────────────────────────────────
   const openStaffModal = (comm: Community) => {
     setStaffTargetCommunity(comm);
     setSelectedAdminId(adminsList[0]?._id || adminsList[0]?.id || '');
@@ -666,7 +638,6 @@ export default function CommunityPage() {
     }
   };
 
-  // ── Program Cancellation & Pro-Rata Refunds Handlers ─────────────────────────
   const openCancelProgramModal = async (comm: Community, prog: CommunityProgram) => {
     setTargetCommunity(comm);
     setCancelTargetProgram(prog);
@@ -730,7 +701,6 @@ export default function CommunityPage() {
     }
   };
 
-  // ── Program Subscriptions Drawer Handlers ────────────────────────────────────
   const openSubscriptionsDrawer = async (prog: CommunityProgram) => {
     setSubscriptionsProgram(prog);
     setSubscriptionsList([]);
@@ -751,7 +721,6 @@ export default function CommunityPage() {
     }
   };
 
-  // ── Tab 2: Attendance Review Handlers ────────────────────────────────────────
   const handleOpenAttReview = (record: CommunityAttendanceRecord) => {
     setReviewingAttRecord(record);
     setReviewAction((record.reviewAction as any) || 'ACKNOWLEDGED');
@@ -779,7 +748,6 @@ export default function CommunityPage() {
     }
   };
 
-  // ── Tab 3: Complaint Resolution Handlers ─────────────────────────────────────
   const handleOpenResolveComplaint = (c: CommunityComplaint) => {
     setResolvingComplaint(c);
     setResolutionStatus((c.status as any) === 'RESOLVED' ? 'RESOLVED' : 'RESOLVED');
@@ -807,7 +775,6 @@ export default function CommunityPage() {
     }
   };
 
-  // ── Tab 4: Process Monthly Salary Handlers ───────────────────────────────────
   const openProcessSalaryModal = (coachId?: string, programId?: string) => {
     setPayrollCoachId(coachId || coaches[0]?._id || coaches[0]?.id || '');
     setPayrollProgramId(programId || '');
@@ -862,7 +829,6 @@ export default function CommunityPage() {
     }
   };
 
-  // ── Tab 5: Reconcile Refund Handlers ─────────────────────────────────────────
   const handleReconcileRefund = async (refundId: string) => {
     try {
       setReconcilingRefundId(refundId);
@@ -893,7 +859,6 @@ export default function CommunityPage() {
     }
   };
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
   const getCoachLabel = (coachId?: string) => {
     if (!coachId) return 'Unassigned';
     const c = coaches.find(item => (item.id || item._id) === coachId);
@@ -925,9 +890,7 @@ export default function CommunityPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* 1. TOP HEADER & METRICS                                                 */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2">
@@ -970,7 +933,6 @@ export default function CommunityPage() {
         </div>
       </div>
 
-      {/* KPI Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           icon={<Building2 className="h-5 w-5 text-[#F05A22]" />}
@@ -998,9 +960,6 @@ export default function CommunityPage() {
         />
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* 2. NAVIGATION TABS                                                      */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       <div className="flex border-b border-slate-200 gap-1 overflow-x-auto scrollbar-none">
         {[
           { key: 'academies', label: 'Academies & Programs', icon: Building2 },
@@ -1031,12 +990,9 @@ export default function CommunityPage() {
         })}
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* TAB 1: ACADEMIES & PROGRAMS                                             */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'academies' && (
         <div className="space-y-4">
-          {/* Filter Bar */}
+
           <Card className="p-3 bg-white border border-slate-200 shadow-xs">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="relative flex-1 max-w-md">
@@ -1080,7 +1036,6 @@ export default function CommunityPage() {
             </div>
           </Card>
 
-          {/* Communities Accordion List */}
           {loadingCommunities ? (
             <div className="flex items-center justify-center py-20 bg-white border border-slate-200 rounded-2xl">
               <RefreshCw className="h-8 w-8 text-[#F05A22] animate-spin" />
@@ -1100,7 +1055,7 @@ export default function CommunityPage() {
 
                 return (
                   <Card key={commId} className="border border-slate-200 shadow-xs overflow-hidden transition-all">
-                    {/* Academy Header Banner */}
+
                     <div className="p-4 bg-slate-50/70 border-b border-slate-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                       <div className="flex items-start gap-3">
                         <button
@@ -1144,9 +1099,8 @@ export default function CommunityPage() {
                         </div>
                       </div>
 
-                      {/* Action Buttons for Academy */}
                       <div className="flex flex-wrap items-center gap-2 pl-9 lg:pl-0">
-                        {/* Status Select Switcher */}
+
                         <select
                           value={comm.status}
                           onChange={(e) => handleUpdateStatus(comm, e.target.value as CommunityStatus)}
@@ -1186,7 +1140,6 @@ export default function CommunityPage() {
                       </div>
                     </div>
 
-                    {/* Programs List Inside Academy */}
                     {isExpanded && (
                       <div className="p-4 bg-white space-y-3">
                         <div className="flex items-center justify-between">
@@ -1236,7 +1189,6 @@ export default function CommunityPage() {
                                       )}
                                     </div>
 
-                                    {/* Days & Time */}
                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
                                       <span className="flex items-center gap-1">
                                         <Calendar className="h-3.5 w-3.5 text-slate-400" />
@@ -1252,7 +1204,6 @@ export default function CommunityPage() {
                                       </span>
                                     </div>
 
-                                    {/* Subscription Plans Available */}
                                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                                       {(prog.plans || []).map((pl, idx) => (
                                         <span
@@ -1270,7 +1221,6 @@ export default function CommunityPage() {
                                     </div>
                                   </div>
 
-                                  {/* Coach & Contract Salary Pill */}
                                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                                     <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs text-left min-w-[170px]">
                                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Coach</p>
@@ -1280,7 +1230,6 @@ export default function CommunityPage() {
                                       </p>
                                     </div>
 
-                                    {/* Action Buttons */}
                                     <div className="flex flex-wrap items-center gap-1.5">
                                       <Button
                                         variant="outline"
@@ -1340,9 +1289,6 @@ export default function CommunityPage() {
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* TAB 2: ATTENDANCE & GEOFENCING REVIEW                                   */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'attendance' && (
         <Card className="border border-slate-200">
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
@@ -1459,9 +1405,6 @@ export default function CommunityPage() {
         </Card>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* TAB 3: COMMUNITY COMPLAINTS QUEUE                                       */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'complaints' && (
         <Card className="border border-slate-200">
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
@@ -1579,9 +1522,6 @@ export default function CommunityPage() {
         </Card>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* TAB 4: MONTHLY PAYROLL & COACH SALARY PROCESSING                        */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'payroll' && (
         <div className="space-y-4">
           <Card className="border border-slate-200">
@@ -1672,12 +1612,9 @@ export default function CommunityPage() {
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* TAB 5: FINANCIAL LEDGER & REFUNDS QUEUE                                 */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'ledger' && (
         <div className="space-y-6">
-          {/* Academy Financial Ledger */}
+
           <Card className="border border-slate-200">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
               <div>
@@ -1763,7 +1700,6 @@ export default function CommunityPage() {
             </CardContent>
           </Card>
 
-          {/* Global Community Refunds Queue */}
           <Card className="border border-slate-200">
             <CardHeader className="border-b border-slate-200/80 pb-3">
               <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -1831,9 +1767,6 @@ export default function CommunityPage() {
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* TAB 6: FEED MODERATION                                                  */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'feed' && (
         <Card className="border border-slate-200">
           <CardHeader className="border-b border-slate-200/80 pb-3">
@@ -1896,9 +1829,6 @@ export default function CommunityPage() {
         </Card>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 1: CREATE / EDIT ACADEMY (COMMUNITY)                              */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={academyModalOpen}
         onClose={() => setAcademyModalOpen(false)}
@@ -1961,7 +1891,6 @@ export default function CommunityPage() {
             />
           </div>
 
-          {/* GPS Coordinates & Geofencing Parameters */}
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
             <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
               <MapPin className="h-4 w-4 text-[#F05A22]" />
@@ -2071,9 +2000,6 @@ export default function CommunityPage() {
         </form>
       </Modal>
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 2: CREATE / EDIT COMMUNITY PROGRAM                                */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={programModalOpen}
         onClose={() => setProgramModalOpen(false)}
@@ -2137,7 +2063,6 @@ export default function CommunityPage() {
             </div>
           </div>
 
-          {/* Session Days of Week */}
           <div>
             <label className="block text-xs font-bold text-slate-800 mb-1.5">Weekly Session Days</label>
             <div className="flex flex-wrap gap-1.5">
@@ -2205,7 +2130,6 @@ export default function CommunityPage() {
             </div>
           </div>
 
-          {/* Subscription Plans Builder */}
           <div className="space-y-2 pt-2 border-t border-slate-200">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-900">
@@ -2312,9 +2236,6 @@ export default function CommunityPage() {
         </form>
       </Modal>
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 3: ASSIGN COACH & MONTHLY SALARY CONTRACT                         */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={coachModalOpen}
         onClose={() => setCoachModalOpen(false)}
@@ -2366,7 +2287,6 @@ export default function CommunityPage() {
             </p>
           </div>
 
-          {/* Historical Assignment Records */}
           <div className="pt-2 border-t border-slate-200">
             <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
               <History className="h-3.5 w-3.5 text-slate-400" />
@@ -2423,9 +2343,6 @@ export default function CommunityPage() {
         </form>
       </Modal>
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 4: SCOPED STAFF ADMIN ACCESS                                      */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={staffModalOpen}
         onClose={() => setStaffModalOpen(false)}
@@ -2518,9 +2435,6 @@ export default function CommunityPage() {
         </form>
       </Modal>
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 5: PROGRAM CANCELLATION & PRO-RATA REFUNDS                        */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={cancelModalOpen}
         onClose={() => setCancelModalOpen(false)}
@@ -2552,7 +2466,6 @@ export default function CommunityPage() {
             />
           </div>
 
-          {/* Cancellation Progress Tracking */}
           {cancellationProgress && (
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
               <div className="flex items-center justify-between">
@@ -2598,9 +2511,6 @@ export default function CommunityPage() {
         </form>
       </Modal>
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 6: PROGRAM SUBSCRIBERS DRAWER                                     */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={subscriptionsModalOpen}
         onClose={() => setSubscriptionsModalOpen(false)}
@@ -2660,9 +2570,6 @@ export default function CommunityPage() {
         </div>
       </Modal>
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 7: ATTENDANCE REVIEW RESOLUTION                                   */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={!!reviewingAttRecord}
         onClose={() => setReviewingAttRecord(null)}
@@ -2717,9 +2624,6 @@ export default function CommunityPage() {
         </form>
       </Modal>
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 8: COMPLAINT RESOLUTION                                           */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={!!resolvingComplaint}
         onClose={() => setResolvingComplaint(null)}
@@ -2772,9 +2676,6 @@ export default function CommunityPage() {
         </form>
       </Modal>
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 9: PROCESS MONTHLY SALARY PAYOUT                                  */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={payrollModalOpen}
         onClose={() => setPayrollModalOpen(false)}
@@ -2816,7 +2717,6 @@ export default function CommunityPage() {
             </select>
           </div>
 
-          {/* Super Admin Exception Override */}
           {isSuperAdmin && (
             <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-3">
               <label className="flex items-center gap-2 text-xs font-bold text-amber-900 cursor-pointer">
@@ -2892,9 +2792,6 @@ export default function CommunityPage() {
         </form>
       </Modal>
 
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-      {/* CONFIRM DIALOG: REMOVE SOCIAL FEED POST                                 */}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
       <ConfirmDialog
         open={!!postToRemove}
         title="Remove Social Feed Post"
@@ -2915,3 +2812,4 @@ export default function CommunityPage() {
     </div>
   );
 }
+

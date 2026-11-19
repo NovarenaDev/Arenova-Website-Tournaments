@@ -3,7 +3,7 @@ import React from 'react';
 export default function HomePage({ onNavigate }) {
   return (
     <main>
-      {/* Hero Section */}
+
       <section className="hero">
         <div className="hero-grid container">
           <div className="hero-copy">
@@ -78,7 +78,6 @@ export default function HomePage({ onNavigate }) {
         </div>
       </section>
 
-      {/* Feature Grid Section */}
       <section className="section">
         <div className="container">
           <div className="section-head center">
@@ -138,7 +137,6 @@ export default function HomePage({ onNavigate }) {
         </div>
       </section>
 
-      {/* Dark Process Section */}
       <section className="dark-section">
         <div className="container split">
           <div>
@@ -181,7 +179,6 @@ export default function HomePage({ onNavigate }) {
         </div>
       </section>
 
-      {/* Payment Box Section */}
       <section className="section">
         <div className="container payment-box">
           <div>
@@ -202,7 +199,6 @@ export default function HomePage({ onNavigate }) {
         </div>
       </section>
 
-      {/* Frequently Asked Questions (FAQ) Section - High Search Intent SEO */}
       <section className="faq-section" id="faq">
         <div className="container">
           <div className="section-head center">
@@ -288,7 +284,6 @@ export default function HomePage({ onNavigate }) {
           </div>
         </div>
 
-        {/* Structured Data: FAQPage Schema */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -350,7 +345,6 @@ export default function HomePage({ onNavigate }) {
         />
       </section>
 
-      {/* CTA Section */}
       <section className="cta-section">
         <div className="container cta-inner">
           <div>
@@ -370,3 +364,4 @@ export default function HomePage({ onNavigate }) {
     </main>
   );
 }
+

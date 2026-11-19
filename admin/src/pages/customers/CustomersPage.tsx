@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   UserPlus, Users, Wallet, AlertTriangle, Baby, ChevronDown,
   ChevronUp, ChevronRight, Pencil, Ban, Trash2, MapPin, Mail,
-  Phone, Calendar, Clock, Eye, CheckCircle2
+  Phone, Calendar, Clock, Eye, CheckCircle2, FileText, ExternalLink, Download
 } from 'lucide-react';
 import {
   Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button,
@@ -48,23 +48,46 @@ export default function CustomersPage() {
   const [expanded, setExpanded]   = useState<string | null>(null);
   const [avatarUpload, setAvatarUpload] = useState<{ customerId: string; customerName: string } | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const [todayOnly, setTodayOnly] = useState(false);
   const [actionCustomer, setActionCustomer] = useState<Customer | null>(null);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       const res = await getCustomers({ limit: 100 });
-      const list = extractDataList<Customer>(res);
+      const list = extractDataList<any>(res);
       const seen = new Set<string>();
       const unique: Customer[] = [];
-      for (const c of list) {
-        const id = c.id || (c as any)._id;
-        if (id && !seen.has(String(id))) {
-          seen.add(String(id));
-          unique.push(c);
-        } else if (!id) {
-          unique.push(c);
-        }
+      for (const raw of list) {
+        const id = raw.id || raw._id;
+        if (id && seen.has(String(id))) continue;
+        if (id) seen.add(String(id));
+
+        const rawRole = String(raw.role || raw.accountType || '').toLowerCase().trim();
+        const childrenCount = Array.isArray(raw.children) ? raw.children.length : Number(raw.children || 0);
+        const normalizedRole = rawRole === 'parent' || childrenCount > 0 ? 'parent' : 'individual';
+
+        const rawStatus = String(raw.status || (raw.isActive === false ? 'suspended' : 'active')).toLowerCase().trim();
+        const normalizedStatus = (['active', 'flagged', 'suspended'].includes(rawStatus) ? rawStatus : 'active') as Customer['status'];
+
+        const fullName = raw.name || `${raw.firstName || ''} ${raw.lastName || ''}`.trim();
+        const nameParts = fullName ? fullName.split(' ') : [];
+
+        unique.push({
+          ...raw,
+          id: String(id || ''),
+          firstName: raw.firstName || nameParts[0] || '',
+          lastName: raw.lastName || nameParts.slice(1).join(' ') || '',
+          email: raw.email || raw.emailId || raw.mailId || '',
+          phone: raw.phone || raw.phoneNumber || raw.mobile || raw.mobileNumber || '',
+          role: normalizedRole,
+          status: normalizedStatus,
+          children: childrenCount,
+          bookings: raw.bookings ?? raw.totalBookings ?? 0,
+          walletCredits: raw.walletCredits ?? 0,
+          joined: raw.joined || (raw.createdAt ? new Date(raw.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''),
+        });
       }
       setCustomers(unique);
     } catch (e: any) {
@@ -79,19 +102,72 @@ export default function CustomersPage() {
 
   const customerList = Array.isArray(customers) ? customers : [];
   const filtered = customerList.filter(c => {
-    const matchSearch = search === '' ||
-      `${c.firstName || ''} ${c.lastName || ''} ${c.email || ''} ${c.phone || ''}`.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filter === 'All' || c.status?.toLowerCase() === filter.toLowerCase();
+    const q = search.trim().toLowerCase();
+    const qDigits = q.replace(/[\s\-+]/g, '');
+    const haystack = `${c.firstName || ''} ${c.lastName || ''} ${c.email || ''} ${c.phone || ''}`.toLowerCase();
+    const phoneDigits = String(c.phone || '').replace(/[\s\-+]/g, '');
+    const matchSearch = q === '' || haystack.includes(q) || (qDigits.length >= 3 && phoneDigits.includes(qDigits));
+
+    const matchStatus = filter === 'All' || (c.status || 'active').toLowerCase() === filter.toLowerCase();
     const matchRole   = roleFilter === 'All Users' ||
       (roleFilter === 'Parents' && c.role === 'parent') ||
-      (roleFilter === 'Individual' && c.role === 'individual');
-    return matchSearch && matchStatus && matchRole;
+      (roleFilter === 'Individual' && c.role !== 'parent');
+
+    let matchToday = true;
+    if (todayOnly) {
+      const created = (c as any).createdAt || c.joined;
+      if (!created) matchToday = false;
+      else {
+        const d = new Date(created);
+        const now = new Date();
+        matchToday = !isNaN(d.getTime()) &&
+          d.getFullYear() === now.getFullYear() &&
+          d.getMonth() === now.getMonth() &&
+          d.getDate() === now.getDate();
+      }
+    }
+
+    return matchSearch && matchStatus && matchRole && matchToday;
   });
 
+  const exportCustomersCsv = useCallback(() => {
+    if (filtered.length === 0) {
+      alert('No customer records match the current filters to export.');
+      return;
+    }
+    const headers = ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Role', 'Status', 'Bookings', 'Wallet Credits', 'Joined'];
+    const escapeCsv = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+    const rows = filtered.map(c => [
+      c.id, c.firstName, c.lastName, c.email, c.phone, c.role, c.status, c.bookings, c.walletCredits, c.joined
+    ].map(escapeCsv).join(','));
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `arenova-customers-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filtered]);
+
+  useEffect(() => {
+    const onExport = () => exportCustomersCsv();
+    const onToday = (e: any) => setTodayOnly(Boolean(e?.detail?.active));
+    window.addEventListener('arenova:export', onExport);
+    window.addEventListener('arenova:today-filter', onToday);
+    return () => {
+      window.removeEventListener('arenova:export', onExport);
+      window.removeEventListener('arenova:today-filter', onToday);
+    };
+  }, [exportCustomersCsv]);
+
   const handleStatusChange = async (customer: Customer, status: string) => {
+    const cid = customer.id || (customer as any)._id;
+    if (!cid) return;
     try {
-      await updateCustomerStatus(customer.id, status);
-      setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, status: status as any } : c));
+      await updateCustomerStatus(cid, status);
+      setCustomers(prev => prev.map(c => (c.id || (c as any)._id) === cid ? { ...c, status: status as any } : c));
+      await load();
     } catch (err: any) {
       alert(err.message || 'Failed to update status');
     }
@@ -99,9 +175,10 @@ export default function CustomersPage() {
 
   const handleDelete = async () => {
     if (!toDelete) return;
+    const cid = toDelete.id || (toDelete as any)._id;
     try {
-      await deleteCustomer(toDelete.id);
-      setCustomers(prev => prev.filter(c => c.id !== toDelete.id));
+      await deleteCustomer(cid);
+      setCustomers(prev => prev.filter(c => (c.id || (c as any)._id) !== cid));
     } catch (err: any) {
       alert(err.message || 'Failed to delete customer');
     } finally {
@@ -113,20 +190,36 @@ export default function CustomersPage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !avatarUpload) return;
-    
+
+    setAvatarError('');
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Invalid file format. Please select a JPG, PNG, GIF, or WebP image.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError(`File size (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds the 5 MB limit.`);
+      e.target.value = '';
+      return;
+    }
+
     try {
       setUploadingAvatar(true);
       const res = await uploadImage(file);
-      if (res.success) {
-        setCustomers(prev => prev.map(c => 
-          c.id === avatarUpload.customerId ? { ...c, avatar: res.url } : c
+      const uploadedUrl = res?.url || res?.data?.url || res?.imageUrl || '';
+      if (uploadedUrl) {
+        setCustomers(prev => prev.map(c =>
+          (c.id || (c as any)._id) === avatarUpload.customerId ? { ...c, avatar: uploadedUrl } : c
         ));
         setAvatarUpload(null);
+      } else {
+        setAvatarError(res?.message || 'Upload succeeded but no URL was returned.');
       }
     } catch (err: any) {
-      alert(err.message || 'Avatar upload failed');
+      setAvatarError(err.message || 'Avatar upload failed');
     } finally {
       setUploadingAvatar(false);
+      e.target.value = '';
     }
   };
 
@@ -140,7 +233,7 @@ export default function CustomersPage() {
 
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
-      {/* Stats */}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total Users"  value={String(stats.total)}     icon={<Users className="h-4 w-4 text-blue-500"/>}         iconBg="bg-blue-50" />
         <StatCard label="Active"       value={String(stats.active)}    icon={<Users className="h-4 w-4 text-emerald-500"/>}      iconBg="bg-emerald-50" />
@@ -149,7 +242,6 @@ export default function CustomersPage() {
         <StatCard label="Parents"      value={String(stats.parents)}   icon={<Baby className="h-4 w-4 text-purple-500"/>}        iconBg="bg-purple-50" />
       </div>
 
-      {/* Main card */}
       <Card>
         <CardHeader>
           <CardTitle>All Customers ({filtered.length})</CardTitle>
@@ -264,7 +356,6 @@ export default function CustomersPage() {
         </CardContent>
       </Card>
 
-      {/* Customer Action Popup Modal */}
       <Modal
         open={Boolean(actionCustomer)}
         onClose={() => setActionCustomer(null)}
@@ -273,7 +364,7 @@ export default function CustomersPage() {
       >
         {actionCustomer && (
           <div className="space-y-4">
-            {/* Customer Summary Banner */}
+
             <div className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
               <Avatar initials={`${actionCustomer.firstName?.[0] || ''}${actionCustomer.lastName?.[0] || ''}`} size={44} />
               <div className="flex-1 min-w-0">
@@ -292,7 +383,6 @@ export default function CustomersPage() {
               </div>
             </div>
 
-            {/* Quick Actions List */}
             <div className="space-y-2">
               <button
                 className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
@@ -329,7 +419,6 @@ export default function CustomersPage() {
                 <ChevronRight className="h-4 w-4 text-slate-400" />
               </button>
 
-              {/* Status Change Buttons */}
               <div className="pt-2 border-t border-slate-100">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Change Account Status</p>
                 <div className="grid grid-cols-3 gap-2">
@@ -383,7 +472,6 @@ export default function CustomersPage() {
                 </div>
               </div>
 
-              {/* Danger: Delete */}
               <div className="pt-2 border-t border-slate-100">
                 <button
                   className="w-full flex items-center justify-between p-3 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-50 transition-colors text-left cursor-pointer"
@@ -408,61 +496,113 @@ export default function CustomersPage() {
         )}
       </Modal>
 
-      {/* Customer Detail Modal */}
-      {selected && (
-        <Modal
-          open={detailOpen}
-          onClose={() => setDetailOpen(false)}
-          title={`Customer: ${selected.firstName} ${selected.lastName}`}
-          size="md"
-        >
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-              <Avatar initials={`${selected.firstName?.[0] || ''}${selected.lastName?.[0] || ''}`} size={48} />
-              <div>
-                <p className="text-base font-bold text-slate-900">{selected.firstName} {selected.lastName}</p>
-                <p className="text-xs text-slate-500">{selected.email}</p>
-                <p className="text-xs text-slate-500">{selected.phone}</p>
+      {selected && (() => {
+        const sAny = selected as any;
+        const docs: Array<{ label: string; url: string }> = [];
+        const addDoc = (label: string, val: any) => {
+          if (!val) return;
+          if (typeof val === 'string' && val.trim()) docs.push({ label, url: val.trim() });
+          else if (Array.isArray(val)) val.forEach((v, i) => addDoc(`${label} #${i + 1}`, v));
+          else if (typeof val === 'object') {
+            if (val.url || val.fileUrl || val.documentUrl || val.uri) {
+              docs.push({ label: val.label || val.name || val.type || label, url: val.url || val.fileUrl || val.documentUrl || val.uri });
+            } else {
+              Object.entries(val).forEach(([k, v]) => addDoc(`${label}: ${k}`, v));
+            }
+          }
+        };
+        addDoc('Profile Photo', sAny.avatar || sAny.profileImage || sAny.photo);
+        addDoc('KYC Document', sAny.kycDocument || sAny.kycDocuments || sAny.documents || sAny.kyc?.documents);
+        addDoc('ID Proof', sAny.idProof || sAny.aadhaar || sAny.pan);
+
+        return (
+          <Modal
+            open={detailOpen}
+            onClose={() => setDetailOpen(false)}
+            title={`Customer: ${selected.firstName} ${selected.lastName}`}
+            size="md"
+          >
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                <Avatar initials={`${selected.firstName?.[0] || ''}${selected.lastName?.[0] || ''}`} size={48} />
+                <div>
+                  <p className="text-base font-bold text-slate-900">{selected.firstName} {selected.lastName}</p>
+                  <p className="text-xs text-slate-500">{selected.email}</p>
+                  <p className="text-xs text-slate-500">{selected.phone}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <DetailRow label="Role" value={<Badge className={ROLE_MAP[selected.role] || 'badge-gray'}>{selected.role}</Badge>} />
+                <DetailRow label="Status" value={<Badge className={STATUS_MAP[selected.status] || 'badge-gray'}>{selected.status}</Badge>} />
+                <DetailRow label="Total Bookings" value={<span className="font-semibold text-slate-900">{selected.bookings || 0}</span>} />
+                <DetailRow label="Wallet Credits" value={<span className="font-bold text-emerald-600">₹{selected.walletCredits || 0}</span>} />
+                <DetailRow label="Last Active" value={selected.lastActive || '—'} />
+                <DetailRow label="Member Since" value={selected.joined || '—'} />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-[#F05A22]" /> Uploaded Files & KYC Documents ({docs.length})
+                </p>
+                {docs.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">No files or KYC documents uploaded by this customer.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {docs.map((d, i) => (
+                      <a
+                        key={i}
+                        href={d.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-xs"
+                      >
+                        <span className="font-semibold text-slate-800 truncate pr-2">{d.label}</span>
+                        <span className="text-[#F05A22] font-bold flex items-center gap-1 flex-shrink-0">
+                          View <ExternalLink className="h-3 w-3" />
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <DetailRow label="Role" value={<Badge className={ROLE_MAP[selected.role] || 'badge-gray'}>{selected.role}</Badge>} />
-              <DetailRow label="Status" value={<Badge className={STATUS_MAP[selected.status] || 'badge-gray'}>{selected.status}</Badge>} />
-              <DetailRow label="Total Bookings" value={<span className="font-semibold text-slate-900">{selected.bookings || 0}</span>} />
-              <DetailRow label="Wallet Credits" value={<span className="font-bold text-emerald-600">₹{selected.walletCredits || 0}</span>} />
-              <DetailRow label="Last Active" value={selected.lastActive || '—'} />
-              <DetailRow label="Member Since" value={selected.joined || '—'} />
-            </div>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        );
+      })()}
 
-      {/* Avatar Upload Modal */}
       <Modal
         open={!!avatarUpload}
-        onClose={() => setAvatarUpload(null)}
+        onClose={() => { setAvatarUpload(null); setAvatarError(''); }}
         title={`Update Avatar - ${avatarUpload?.customerName}`}
         size="sm"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Select Image</label>
+            <label htmlFor="customer-avatar-file" className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Select Image <span className="text-slate-400 font-normal">(JPG, PNG, WebP · Max 5 MB)</span>
+            </label>
             <input
+              id="customer-avatar-file"
+              name="customerAvatar"
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               onChange={handleAvatarUpload}
               disabled={uploadingAvatar}
               className="input-field"
             />
-            {uploadingAvatar && <p className="text-xs text-slate-500 mt-1">Uploading...</p>}
+            {uploadingAvatar && <p className="text-xs text-slate-500 mt-1.5">Uploading image...</p>}
+            {avatarError && (
+              <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 mt-2 leading-relaxed">
+                {avatarError}
+              </p>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setAvatarUpload(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setAvatarUpload(null); setAvatarError(''); }}>Cancel</Button>
           </div>
         </div>
       </Modal>
 
-      {/* Confirm Delete Dialog */}
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => { setConfirmOpen(false); setToDelete(null); }}
@@ -475,3 +615,4 @@ export default function CustomersPage() {
     </div>
   );
 }
+

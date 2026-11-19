@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Star, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp,
   Ban, Trash2, Phone, Mail, Award, RotateCw, Edit2, Coins, RotateCcw,
-  ChevronRight, Upload
+  ChevronRight, Upload, FileText, ExternalLink, Lock
 } from 'lucide-react';
 import {
   Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button,
@@ -12,17 +12,16 @@ import {
 import {
   getAdminCoaches, getAdminCoach, approveKyc, updateCoachPricing,
   rejectKyc, banCoach, deleteAdminCoach, uploadImage, updateAdminCoach,
-  extractDataList
+  getMediaSignedUrl, extractDataList
 } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Coach } from '../../types';
 
-// Immediate purge of any legacy fake or cross-matched email overrides
 if (typeof window !== 'undefined') {
   try {
     localStorage.removeItem('arenova_coach_overrides');
   } catch {
-    // Ignore storage errors
+
   }
 }
 
@@ -44,8 +43,6 @@ const getInitials = (name?: string) => {
   if (!name) return 'U';
   return name.trim().split(/\s+/).map(n => n[0] || '').join('').slice(0, 2).toUpperCase() || 'U';
 };
-
-// ── Extraction Helpers ────────────────────────────────────────────────────────
 
 const getCoachPhone = (c: any): string => {
   const raw =
@@ -72,7 +69,6 @@ const getCoachPhone = (c: any): string => {
   return raw !== undefined && raw !== null ? String(raw).trim() : '';
 };
 
-// Strictly extracts the coach's own email from their backend record
 const getCoachEmail = (c: any): string => {
   if (!c) return '';
   const candidates = [
@@ -181,7 +177,7 @@ const getCoachEmail = (c: any): string => {
     if (val && typeof val === 'string' && val.trim().length > 4 && val.includes('@')) {
       const clean = val.trim().toLowerCase();
       if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
-        // Discard placeholders (like rohit.sharma@example.com)
+
         if (!clean.endsWith('@example.com') && !clean.endsWith('@test.com') && !clean.includes('example.com') && !clean.includes('noreply')) {
           return clean;
         }
@@ -193,7 +189,7 @@ const getCoachEmail = (c: any): string => {
 };
 
 const getCoachIndPrice = (c: any): number => {
-  // Approved/Active prices set by admin take top precedence
+
   const candidates = [
     c?.individualPrice,
     c?.pricing?.individualPrice,
@@ -225,7 +221,7 @@ const getCoachIndPrice = (c: any): number => {
 };
 
 const getCoachGrpPrice = (c: any): number => {
-  // Approved/Active group prices set by admin take top precedence
+
   const candidates = [
     c?.groupPricePerPerson,
     c?.pricing?.groupPricePerPerson,
@@ -255,7 +251,6 @@ const getCoachGrpPrice = (c: any): number => {
   return 0;
 };
 
-// Specifically extracts coach's proposed rate requested during onboarding
 const getCoachRequestedIndPrice = (c: any): number => {
   const candidates = [
     c?.requestedIndividualPrice,
@@ -291,6 +286,80 @@ const getCoachRequestedGrpPrice = (c: any): number => {
   return 0;
 };
 
+const getCoachKycDocuments = (c: any): Array<{ label: string; url: string; isImage: boolean }> => {
+  if (!c) return [];
+  const results: Array<{ label: string; url: string; isImage: boolean }> = [];
+  const seenUrls = new Set<string>();
+
+  const checkIsImage = (url: string, label: string) => {
+    if (/\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url)) return true;
+    if (/avatar|photo|selfie|image|pic/i.test(label) && !/\.pdf(\?.*)?$/i.test(url)) return true;
+    return false;
+  };
+
+  const addItem = (label: string, val: any) => {
+    if (!val) return;
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (!trimmed || seenUrls.has(trimmed)) return;
+
+      if (trimmed.includes('@') && !trimmed.includes('/')) return;
+      if (/^[\d\s+\-()]+$/.test(trimmed)) return;
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/') || trimmed.includes('/')) {
+        seenUrls.add(trimmed);
+        results.push({ label, url: trimmed, isImage: checkIsImage(trimmed, label) });
+      }
+      return;
+    }
+    if (Array.isArray(val)) {
+      val.forEach((item, idx) => addItem(`${label} #${idx + 1}`, item));
+      return;
+    }
+    if (typeof val === 'object') {
+      const urlCandidate = val.url || val.fileUrl || val.documentUrl || val.docUrl || val.s3Key || val.key || val.uri || val.path;
+      if (typeof urlCandidate === 'string' && urlCandidate.trim()) {
+        const niceLabel = val.label || val.name || val.title || val.documentType || val.type || label;
+        addItem(niceLabel, urlCandidate);
+      } else {
+        Object.entries(val).forEach(([k, v]) => {
+          if (['email', 'emailId', 'mailId', 'phone', 'phoneNumber', 'status', 'kycStatus', 'note', 'reason'].includes(k)) return;
+          const formattedKey = k.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, s => s.toUpperCase());
+          addItem(formattedKey, v);
+        });
+      }
+    }
+  };
+
+  addItem('KYC Documents', c.documents);
+  addItem('KYC Files', c.kycDocuments || c.kycFiles);
+  addItem('Certificates', c.certificates || c.certification || c.certifications);
+  addItem('ID Proof', c.idProof || c.aadhaar || c.aadhar || c.pan || c.governmentId || c.nationalId);
+  addItem('KYC Details', c.kycDetails || c.kycData || (typeof c.kyc === 'object' ? c.kyc : null));
+  addItem('Profile Documents', c.profile?.documents || c.profile?.kycDocuments || c.profile?.certificates);
+  addItem('Profile Photo / Avatar', c.avatar || c.profileImage || c.photo);
+
+  return results;
+};
+
+const openKycDocument = async (urlOrKey: string) => {
+  if (!urlOrKey) return;
+  if (urlOrKey.startsWith('http://') || urlOrKey.startsWith('https://') || urlOrKey.startsWith('data:') || urlOrKey.startsWith('blob:')) {
+    window.open(urlOrKey, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  try {
+    const res = await getMediaSignedUrl(urlOrKey);
+    const signedUrl = res?.url || res?.data?.url || res?.signedUrl;
+    if (signedUrl) {
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      alert('Could not resolve a viewable URL for this file.');
+    }
+  } catch (err: any) {
+    alert(err?.message || 'Failed to open protected document.');
+  }
+};
+
 export default function CoachesPage() {
   const { can } = useAuth();
   const [coaches, setCoaches]         = useState<Coach[]>([]);
@@ -298,22 +367,24 @@ export default function CoachesPage() {
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState('');
   const [filter, setFilter]           = useState('All');
+  const [todayOnly, setTodayOnly]     = useState(false);
   const [expanded, setExpanded]       = useState<string | null>(null);
 
-  // Verification & Approval Modal
   const [approveModal, setApproveModal] = useState<{
     id: string;
     name: string;
+    kyc: string;
     phone: string;
     email: string;
     individualPrice: string;
     groupPricePerPerson: string;
     requestedIndividualPrice: number;
     requestedGroupPricePerPerson: number;
+    documents: Array<{ label: string; url: string; isImage: boolean }>;
   } | null>(null);
+  const [approveErrors, setApproveErrors] = useState<{ individualPrice?: string; groupPricePerPerson?: string }>({});
   const [approving, setApproving] = useState(false);
 
-  // Dedicated Pricing Modal
   const [pricingModal, setPricingModal] = useState<{
     id: string;
     name: string;
@@ -322,26 +393,19 @@ export default function CoachesPage() {
     requestedIndividualPrice: number;
     requestedGroupPricePerPerson: number;
   } | null>(null);
+  const [pricingErrors, setPricingErrors] = useState<{ individualPrice?: string; groupPricePerPerson?: string }>({});
   const [savingPricing, setSavingPricing] = useState(false);
 
-  // Phone Modal
-  const [phoneModal, setPhoneModal] = useState<{ id: string; name: string; phone: string } | null>(null);
-  const [savingPhone, setSavingPhone] = useState(false);
+  const [docsModal, setDocsModal] = useState<{ name: string; documents: Array<{ label: string; url: string; isImage: boolean }> } | null>(null);
 
-  // Email Modal
-  const [emailModal, setEmailModal] = useState<{ id: string; name: string; email: string } | null>(null);
-  const [savingEmail, setSavingEmail] = useState(false);
-
-  // Rejection & Ban & Delete Modals
   const [rejectModal, setRejectModal] = useState<{ id: string; name: string; reason: string } | null>(null);
   const [banModal, setBanModal]       = useState<{ id: string; name: string; reason: string } | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ id: string; name: string } | null>(null);
 
-  // Avatar Upload
   const [avatarUpload, setAvatarUpload] = useState<{ coachId: string; coachName: string } | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
 
-  // Consolidated Single Action Modal
   const [actionCoach, setActionCoach] = useState<any | null>(null);
 
   const openApproveModal = async (coach: any) => {
@@ -352,29 +416,36 @@ export default function CoachesPage() {
     const reqGrp = getCoachRequestedGrpPrice(coach) || grpPrice;
     const coachPhone = getCoachPhone(coach);
     const coachEmail = getCoachEmail(coach);
+    const initialDocs = getCoachKycDocuments(coach);
 
+    const coachKyc = String(coach.kyc || coach.kycStatus || coach.profile?.kyc || 'pending').toLowerCase();
+
+    setApproveErrors({});
     setApproveModal({
       id: coachId,
       name: coach.name || 'Coach',
+      kyc: coachKyc,
       phone: coachPhone,
       email: coachEmail,
       individualPrice: indPrice ? String(indPrice) : (reqInd ? String(reqInd) : ''),
       groupPricePerPerson: grpPrice ? String(grpPrice) : (reqGrp ? String(reqGrp) : ''),
       requestedIndividualPrice: reqInd,
       requestedGroupPricePerPerson: reqGrp,
+      documents: initialDocs,
     });
 
-    // Asynchronously fetch latest details strictly from the backend coach record
     try {
       const res = await getAdminCoach(coachId);
       const detail = res?.data || res?.coach || res;
       if (detail) {
         const freshEmail = getCoachEmail(detail) || coachEmail;
         const freshPhone = getCoachPhone(detail) || coachPhone;
+        const freshKyc = String(detail.kyc || detail.kycStatus || detail.profile?.kyc || coachKyc).toLowerCase();
         const freshInd = getCoachIndPrice(detail) || indPrice;
         const freshGrp = getCoachGrpPrice(detail) || grpPrice;
         const freshReqInd = getCoachRequestedIndPrice(detail) || freshInd;
         const freshReqGrp = getCoachRequestedGrpPrice(detail) || freshGrp;
+        const freshDocs = getCoachKycDocuments(detail);
 
         if (freshEmail) {
           setCoaches(prev => prev.map(c => (c.id === coachId || (c as any)._id === coachId) ? { ...c, email: freshEmail } : c));
@@ -385,17 +456,37 @@ export default function CoachesPage() {
           if (!prev || prev.id !== coachId) return prev;
           return {
             ...prev,
+            kyc: freshKyc || prev.kyc,
             email: freshEmail || prev.email,
             phone: freshPhone || prev.phone,
             requestedIndividualPrice: freshReqInd,
             requestedGroupPricePerPerson: freshReqGrp,
             individualPrice: prev.individualPrice || (freshInd ? String(freshInd) : (freshReqInd ? String(freshReqInd) : '')),
             groupPricePerPerson: prev.groupPricePerPerson || (freshGrp ? String(freshGrp) : (freshReqGrp ? String(freshReqGrp) : '')),
+            documents: freshDocs.length > 0 ? freshDocs : prev.documents,
           };
         });
       }
     } catch {
-      // Background refresh ignore
+
+    }
+  };
+
+  const openDocsModal = async (coach: any) => {
+    const coachId = coach.id || coach._id;
+    const initialDocs = getCoachKycDocuments(coach);
+    setDocsModal({ name: coach.name || 'Coach', documents: initialDocs });
+    try {
+      const res = await getAdminCoach(coachId);
+      const detail = res?.data || res?.coach || res;
+      if (detail) {
+        const freshDocs = getCoachKycDocuments(detail);
+        if (freshDocs.length > 0) {
+          setDocsModal({ name: coach.name || detail.name || 'Coach', documents: freshDocs });
+        }
+      }
+    } catch {
+
     }
   };
 
@@ -405,6 +496,7 @@ export default function CoachesPage() {
     const reqInd = getCoachRequestedIndPrice(coach) || indPrice;
     const reqGrp = getCoachRequestedGrpPrice(coach) || grpPrice;
 
+    setPricingErrors({});
     setPricingModal({
       id: coach.id || coach._id,
       name: coach.name || 'Coach',
@@ -418,11 +510,10 @@ export default function CoachesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Query all coaches cleanly with a single request to avoid triggering 429 rate limits
+
       const res = await getAdminCoaches({ limit: 200 });
       const rawList = extractDataList(res);
 
-      // Strictly deduplicate coaches by ID to avoid any duplicates
       const seen = new Set<string>();
       const uniqueList: any[] = [];
       for (const c of rawList) {
@@ -476,12 +567,11 @@ export default function CoachesPage() {
 
       setCoaches(finalCoachData);
 
-      // Derive applications locally from coaches with under_review or pending kyc status
       const apps = finalCoachData.filter((c: any) => c.kyc === 'under_review' || c.kyc === 'pending');
       setApps(apps);
     } catch (err: any) {
       console.warn('Failed to load coaches:', err?.message || err);
-      // Preserve existing coaches on rate limit or network glitch rather than clearing to empty state
+
     } finally {
       setLoading(false);
     }
@@ -499,37 +589,106 @@ export default function CoachesPage() {
       (filter === 'Active' && c.kyc === 'approved' && (c.isActive ?? true)) ||
       (filter === 'Banned' && (c.kyc === 'approved' || !c.kyc) && c.isActive === false) ||
       (filter === 'Rejected' && c.kyc === 'rejected');
-    return matchSearch && matchFilter;
+
+    let matchToday = true;
+    if (todayOnly) {
+      const created = (c as any).createdAt || c.joined;
+      if (!created) matchToday = false;
+      else {
+        const d = new Date(created);
+        const now = new Date();
+        matchToday = !isNaN(d.getTime()) &&
+          d.getFullYear() === now.getFullYear() &&
+          d.getMonth() === now.getMonth() &&
+          d.getDate() === now.getDate();
+      }
+    }
+
+    return matchSearch && matchFilter && matchToday;
   });
+
+  const exportCoachesCsv = useCallback(() => {
+    if (filtered.length === 0) {
+      alert('No coach records match the current filters to export.');
+      return;
+    }
+    const headers = ['ID', 'Name', 'Email', 'Phone', 'Sports', 'KYC Status', 'Active', 'Individual Price (INR)', 'Group Price (INR)', 'Joined'];
+    const escapeCsv = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+    const rows = filtered.map(c => [
+      c.id || (c as any)._id,
+      c.name,
+      getCoachEmail(c),
+      getCoachPhone(c),
+      (c.sports || []).join('; '),
+      c.kyc,
+      c.isActive ? 'Yes' : 'No',
+      getCoachIndPrice(c),
+      getCoachGrpPrice(c),
+      c.joined
+    ].map(escapeCsv).join(','));
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `arenova-coaches-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filtered]);
+
+  useEffect(() => {
+    const onExport = () => exportCoachesCsv();
+    const onToday = (e: any) => setTodayOnly(Boolean(e?.detail?.active));
+    window.addEventListener('arenova:export', onExport);
+    window.addEventListener('arenova:today-filter', onToday);
+    return () => {
+      window.removeEventListener('arenova:export', onExport);
+      window.removeEventListener('arenova:today-filter', onToday);
+    };
+  }, [exportCoachesCsv]);
+
+  const validateRate = (raw: string, label: string): { valid: boolean; value: number; error?: string } => {
+    const trimmed = String(raw ?? '').trim();
+    if (!trimmed) {
+      return { valid: false, value: 0, error: `${label} is required.` };
+    }
+    if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
+      return { valid: false, value: 0, error: `${label} must be a valid positive number (no letters or negative signs).` };
+    }
+    const num = Number(trimmed);
+    if (!Number.isFinite(num) || num <= 0) {
+      return { valid: false, value: 0, error: `${label} must be greater than ₹0.` };
+    }
+    return { valid: true, value: num };
+  };
 
   const handleApproveConfirm = async () => {
     if (!approveModal) return;
-    const { id, phone, email, individualPrice, groupPricePerPerson, requestedIndividualPrice, requestedGroupPricePerPerson } = approveModal;
-    const indPrice = parseFloat(individualPrice) || requestedIndividualPrice || 0;
-    const grpPrice = parseFloat(groupPricePerPerson) || requestedGroupPricePerPerson || 0;
-    const cleanPhone = (phone || '').trim();
-    const cleanEmail = (email || '').trim().toLowerCase();
+    const { id, individualPrice, groupPricePerPerson } = approveModal;
+
+    const indCheck = validateRate(individualPrice, 'Individual session rate');
+    const grpCheck = validateRate(groupPricePerPerson, 'Group session rate');
+
+    if (!indCheck.valid || !grpCheck.valid) {
+      setApproveErrors({
+        individualPrice: indCheck.error,
+        groupPricePerPerson: grpCheck.error,
+      });
+      return;
+    }
+
+    setApproveErrors({});
+    const indPrice = indCheck.value;
+    const grpPrice = grpCheck.value;
 
     try {
       setApproving(true);
       await approveKyc(id, indPrice, grpPrice);
 
-      const updatePayload: any = {
+      await updateAdminCoach(id, {
         individualPrice: indPrice,
         groupPricePerPerson: grpPrice,
-      };
-      if (cleanPhone) {
-        updatePayload.phone = cleanPhone;
-        updatePayload.phoneNumber = cleanPhone;
-      }
-      if (cleanEmail) {
-        updatePayload.email = cleanEmail;
-        updatePayload.emailId = cleanEmail;
-        updatePayload.coachEmail = cleanEmail;
-        updatePayload.contactEmail = cleanEmail;
-      }
-
-      await updateAdminCoach(id, updatePayload).catch(() => {});
+      }).catch(() => {});
 
       setCoaches(prev => prev.map(c => (c.id === id || (c as any)._id === id) ? {
         ...c,
@@ -548,10 +707,7 @@ export default function CoachesPage() {
           ...(c.profile || {}),
           individualPrice: indPrice,
           groupPricePerPerson: grpPrice,
-        },
-        phone: cleanPhone || c.phone,
-        phoneNumber: cleanPhone || c.phoneNumber,
-        email: cleanEmail || c.email
+        }
       } : c));
 
       setApps(prev => prev.filter(a => (a.id || a._id) !== id));
@@ -567,8 +723,21 @@ export default function CoachesPage() {
   const handlePricingSave = async () => {
     if (!pricingModal) return;
     const { id, individualPrice, groupPricePerPerson } = pricingModal;
-    const indPrice = parseFloat(individualPrice) || 0;
-    const grpPrice = parseFloat(groupPricePerPerson) || 0;
+
+    const indCheck = validateRate(individualPrice, 'Individual session rate');
+    const grpCheck = validateRate(groupPricePerPerson, 'Group session rate');
+
+    if (!indCheck.valid || !grpCheck.valid) {
+      setPricingErrors({
+        individualPrice: indCheck.error,
+        groupPricePerPerson: grpCheck.error,
+      });
+      return;
+    }
+
+    setPricingErrors({});
+    const indPrice = indCheck.value;
+    const grpPrice = grpCheck.value;
 
     try {
       setSavingPricing(true);
@@ -614,45 +783,6 @@ export default function CoachesPage() {
       alert(err.message || 'Failed to update pricing');
     } finally {
       setSavingPricing(false);
-    }
-  };
-
-  const handlePhoneSave = async () => {
-    if (!phoneModal) return;
-    const { id, phone } = phoneModal;
-    const cleanPhone = (phone || '').trim();
-    try {
-      setSavingPhone(true);
-      await updateAdminCoach(id, { phone: cleanPhone, phoneNumber: cleanPhone });
-      setCoaches(prev => prev.map(c => (c.id === id || (c as any)._id === id) ? { ...c, phone: cleanPhone, phoneNumber: cleanPhone } : c));
-      setApps(prev => prev.map(a => (a.id === id || (a as any)._id === id) ? { ...a, phone: cleanPhone, phoneNumber: cleanPhone } : a));
-      setPhoneModal(null);
-    } catch (err: any) {
-      alert(err.message || 'Failed to update phone number');
-    } finally {
-      setSavingPhone(false);
-    }
-  };
-
-  const handleEmailSave = async () => {
-    if (!emailModal) return;
-    const { id, email } = emailModal;
-    const cleanEmail = (email || '').trim().toLowerCase();
-    try {
-      setSavingEmail(true);
-      await updateAdminCoach(id, {
-        email: cleanEmail,
-        emailId: cleanEmail,
-        coachEmail: cleanEmail,
-        contactEmail: cleanEmail
-      });
-      setCoaches(prev => prev.map(c => (c.id === id || (c as any)._id === id) ? { ...c, email: cleanEmail } : c));
-      setApps(prev => prev.map(a => (a.id === id || (a as any)._id === id) ? { ...a, email: cleanEmail } : a));
-      setEmailModal(null);
-    } catch (err: any) {
-      alert(err.message || 'Failed to update email address');
-    } finally {
-      setSavingEmail(false);
     }
   };
 
@@ -714,19 +844,36 @@ export default function CoachesPage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !avatarUpload) return;
+
+    setAvatarError('');
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Invalid file format. Please select a JPG, PNG, GIF, or WebP image.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError(`File size (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds the 5 MB limit.`);
+      e.target.value = '';
+      return;
+    }
+
     try {
       setUploadingAvatar(true);
       const res = await uploadImage(file);
-      if (res.success) {
+      const uploadedUrl = res?.url || res?.data?.url || res?.imageUrl || '';
+      if (uploadedUrl) {
         setCoaches(prev => prev.map(c =>
-          c.id === avatarUpload.coachId ? { ...c, avatar: res.url } : c
+          (c.id || (c as any)._id) === avatarUpload.coachId ? { ...c, avatar: uploadedUrl } : c
         ));
         setAvatarUpload(null);
+      } else {
+        setAvatarError(res?.message || 'Upload succeeded but no URL was returned.');
       }
     } catch (err: any) {
-      alert(err.message || 'Avatar upload failed');
+      setAvatarError(err.message || 'Avatar upload failed');
     } finally {
       setUploadingAvatar(false);
+      e.target.value = '';
     }
   };
 
@@ -748,7 +895,7 @@ export default function CoachesPage() {
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 p-3 sm:p-5 lg:p-6 min-w-0 max-w-full">
-      {/* Stats Cards */}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <div className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setFilter('All')}>
           <StatCard label="Total Coaches"   value={String(stats.total)}    icon={<Award className="h-4 w-4 text-[#F05A22]"/>}        iconBg="bg-[#FFF0E6]" />
@@ -767,7 +914,6 @@ export default function CoachesPage() {
         </div>
       </div>
 
-      {/* Pending Applications Section */}
       {applications.length > 0 && (
         <Card className="border border-gray-200 bg-white shadow-sm rounded-2xl overflow-hidden">
           <CardHeader className="bg-slate-50/80 border-b border-gray-200/80 py-4 px-4 sm:px-6">
@@ -801,7 +947,7 @@ export default function CoachesPage() {
               return (
                 <div key={app._id || app.id} className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-xs hover:border-gray-300 hover:shadow-sm transition-all min-w-0">
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 min-w-0">
-                    {/* Left: Coach Info */}
+
                     <div className="flex items-start gap-4 min-w-0 sm:min-w-[260px] flex-1">
                       <Avatar initials={getInitials(app.name)} size={48} />
                       <div className="space-y-1.5">
@@ -812,9 +958,8 @@ export default function CoachesPage() {
                           </span>
                         </div>
 
-                        {/* Contact details */}
                         <div className="flex items-center gap-2 text-xs text-gray-600 flex-wrap">
-                          {/* Email badge */}
+
                           <span className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-md text-slate-700">
                             <Mail className="h-3.5 w-3.5 text-slate-400" />
                             {email ? (
@@ -822,32 +967,14 @@ export default function CoachesPage() {
                             ) : (
                               <span className="text-amber-600 font-medium">No email</span>
                             )}
-                            {can('coaches_write') && (
-                              <button
-                                onClick={() => setEmailModal({ id: app._id || app.id, name: app.name, email })}
-                                className="text-[10px] text-[#F05A22] hover:underline font-bold ml-1 cursor-pointer"
-                              >
-                                {email ? 'Edit' : '+ Add'}
-                              </button>
-                            )}
                           </span>
 
-                          {/* Phone badge */}
                           <span className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-md text-slate-700">
                             <Phone className="h-3.5 w-3.5 text-slate-400" />
                             <span className="font-medium text-slate-900">{phone || 'No phone'}</span>
-                            {can('coaches_write') && (
-                              <button
-                                onClick={() => setPhoneModal({ id: app._id || app.id, name: app.name, phone })}
-                                className="text-[10px] text-[#F05A22] hover:underline font-bold ml-1 cursor-pointer"
-                              >
-                                {phone ? 'Edit' : '+ Add'}
-                              </button>
-                            )}
                           </span>
                         </div>
 
-                        {/* Sports pills */}
                         <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                           {(app.sports || []).map((s: string) => (
                             <span key={s} className="bg-slate-100 text-slate-700 text-[11px] font-medium px-2 py-0.5 rounded-md border border-slate-200/70">
@@ -863,7 +990,6 @@ export default function CoachesPage() {
                       </div>
                     </div>
 
-                    {/* Middle: Coach Proposed Pricing Block */}
                     <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 min-w-0 sm:min-w-[260px] flex-1">
                       <div className="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-slate-200/60">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 truncate">
@@ -892,7 +1018,6 @@ export default function CoachesPage() {
                       </div>
                     </div>
 
-                    {/* Right: Actions */}
                     {can('coaches_write') && (
                       <div className="flex items-center justify-center shrink-0">
                         <Button
@@ -912,7 +1037,6 @@ export default function CoachesPage() {
         </Card>
       )}
 
-      {/* All Coaches Table Card */}
       <Card className="bg-white border border-gray-200 shadow-sm">
         <CardHeader className="py-4">
           <CardTitle className="text-base font-bold text-gray-900">All Coaches ({filtered.length})</CardTitle>
@@ -968,7 +1092,7 @@ export default function CoachesPage() {
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-gray-900 truncate max-w-[160px] sm:max-w-[200px]" title={c.name || 'Unknown Coach'}>{c.name || 'Unknown Coach'}</p>
                               <div className="flex flex-col gap-0.5 mt-0.5 min-w-0">
-                                {/* Email */}
+
                                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
                                   <Mail className="h-3 w-3 text-gray-400 shrink-0" />
                                   {c.email ? (
@@ -976,28 +1100,11 @@ export default function CoachesPage() {
                                   ) : (
                                     <span className="text-gray-400 italic text-[11px]">No email</span>
                                   )}
-                                  {can('coaches_write') && (
-                                    <button
-                                      onClick={() => setEmailModal({ id: c.id || (c as any)._id, name: c.name, email: c.email || '' })}
-                                      className="text-[10px] text-[#F05A22] hover:underline font-semibold cursor-pointer"
-                                    >
-                                      {c.email ? 'Edit' : '+ Add'}
-                                    </button>
-                                  )}
                                 </div>
 
-                                {/* Phone */}
                                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
                                   <Phone className="h-3 w-3 text-gray-400 shrink-0" />
                                   <span>{c.phone || 'No phone'}</span>
-                                  {can('coaches_write') && (
-                                    <button
-                                      onClick={() => setPhoneModal({ id: c.id || (c as any)._id, name: c.name, phone: c.phone || '' })}
-                                      className="text-[10px] text-[#F05A22] hover:underline font-semibold cursor-pointer"
-                                    >
-                                      {c.phone ? 'Edit' : '+ Add'}
-                                    </button>
-                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1013,7 +1120,7 @@ export default function CoachesPage() {
                           </div>
                         </Td>
                         <Td><Badge className={KYC_MAP[c.kyc] || 'badge-gray'}>{c.kyc?.replace('_', ' ') || 'pending'}</Badge></Td>
-                        {/* Dedicated Pricing Column */}
+
                         <Td>
                           <div className="flex flex-col gap-0.5 text-xs">
                             <div className="flex items-center gap-1.5">
@@ -1061,32 +1168,16 @@ export default function CoachesPage() {
                           <Td colSpan={can('coaches_write') ? 10 : 9} className="bg-gray-50/80 p-4">
                             <div className="bg-white rounded-lg border border-gray-200 p-4 grid grid-cols-2 lg:grid-cols-4 gap-4 shadow-xs">
                               <div>
-                                <p className="text-[10px] font-semibold text-gray-400 uppercase">Email</p>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <p className="text-xs font-semibold text-gray-900">{c.email || 'N/A'}</p>
-                                  {can('coaches_write') && (
-                                    <button
-                                      onClick={() => setEmailModal({ id: c.id, name: c.name, email: c.email || '' })}
-                                      className="text-[10px] text-[#F05A22] hover:underline font-semibold cursor-pointer"
-                                    >
-                                      Edit
-                                    </button>
-                                  )}
-                                </div>
+                                <p className="text-[10px] font-semibold text-gray-400 uppercase flex items-center gap-1">
+                                  Email <Lock className="h-2.5 w-2.5 text-gray-400" />
+                                </p>
+                                <p className="text-xs font-semibold text-gray-900 mt-0.5">{c.email || 'N/A'}</p>
                               </div>
                               <div>
-                                <p className="text-[10px] font-semibold text-gray-400 uppercase">Phone</p>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <p className="text-xs font-semibold text-gray-900">{c.phone || 'N/A'}</p>
-                                  {can('coaches_write') && (
-                                    <button
-                                      onClick={() => setPhoneModal({ id: c.id, name: c.name, phone: c.phone || '' })}
-                                      className="text-[10px] text-[#F05A22] hover:underline font-semibold cursor-pointer"
-                                    >
-                                      Edit
-                                    </button>
-                                  )}
-                                </div>
+                                <p className="text-[10px] font-semibold text-gray-400 uppercase flex items-center gap-1">
+                                  Phone <Lock className="h-2.5 w-2.5 text-gray-400" />
+                                </p>
+                                <p className="text-xs font-semibold text-gray-900 mt-0.5">{c.phone || 'N/A'}</p>
                               </div>
                               <div><p className="text-[10px] font-semibold text-gray-400 uppercase">Joined</p><p className="text-xs text-gray-800 mt-0.5">{c.joined || 'N/A'}</p></div>
                               <div><p className="text-[10px] font-semibold text-gray-400 uppercase">No Shows</p><p className="text-xs text-gray-800 mt-0.5">{c.noShows || 0}</p></div>
@@ -1106,6 +1197,44 @@ export default function CoachesPage() {
                                 <p className="text-[10px] font-semibold text-gray-400 uppercase">Pending Payout</p>
                                 <p className="text-xs font-bold text-amber-600 mt-0.5">{fmt(c.pendingPayout)}</p>
                               </div>
+
+                              {(() => {
+                                const docs = getCoachKycDocuments(c);
+                                return (
+                                  <div className="col-span-2 lg:col-span-4 pt-2 border-t border-gray-100">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <p className="text-[10px] font-semibold text-gray-500 uppercase flex items-center gap-1">
+                                        <FileText className="h-3 w-3 text-[#F05A22]" /> Uploaded KYC Documents & Files ({docs.length})
+                                      </p>
+                                      <button
+                                        type="button"
+                                        onClick={() => openDocsModal(c)}
+                                        className="text-[11px] font-semibold text-[#F05A22] hover:underline cursor-pointer"
+                                      >
+                                        Open Document Viewer
+                                      </button>
+                                    </div>
+                                    {docs.length === 0 ? (
+                                      <p className="text-xs text-gray-400 italic">No KYC files found in list payload — click "Open Document Viewer" to fetch full profile files.</p>
+                                    ) : (
+                                      <div className="flex flex-wrap gap-2">
+                                        {docs.map((d, idx) => (
+                                          <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => openKycDocument(d.url)}
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 text-xs font-medium text-gray-800 cursor-pointer"
+                                          >
+                                            <FileText className="h-3 w-3 text-[#F05A22]" />
+                                            <span>{d.label}</span>
+                                            <ExternalLink className="h-3 w-3 text-gray-400" />
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                               {can('coaches_write') && (
                                 <div className="col-span-2 lg:col-span-4 pt-2 flex items-center justify-between border-t border-gray-100">
                                   <Button
@@ -1136,32 +1265,39 @@ export default function CoachesPage() {
         </CardContent>
       </Card>
 
-      {/* Avatar Upload Modal */}
       <Modal
         open={!!avatarUpload}
-        onClose={() => setAvatarUpload(null)}
+        onClose={() => { setAvatarUpload(null); setAvatarError(''); }}
         title={`Update Avatar - ${avatarUpload?.coachName}`}
         size="sm"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">Coach Avatar</label>
+            <label htmlFor="coach-avatar-file" className="block text-xs font-medium text-gray-700 mb-1.5">
+              Coach Avatar <span className="text-gray-400 font-normal">(JPG, PNG, WebP · Max 5 MB)</span>
+            </label>
             <input
+              id="coach-avatar-file"
+              name="coachAvatar"
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               onChange={handleAvatarUpload}
               disabled={uploadingAvatar}
               className="input-field"
             />
             {uploadingAvatar && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
+            {avatarError && (
+              <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 mt-2 leading-relaxed">
+                {avatarError}
+              </p>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setAvatarUpload(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setAvatarUpload(null); setAvatarError(''); }}>Cancel</Button>
           </div>
         </div>
       </Modal>
 
-      {/* Verify & Approve Modal */}
       <Modal
         open={!!approveModal}
         onClose={() => setApproveModal(null)}
@@ -1169,13 +1305,39 @@ export default function CoachesPage() {
         size="md"
       >
         <div className="space-y-4">
-          {/* Coach Summary Box */}
+
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <span className="font-bold text-gray-900 text-sm">{approveModal?.name}</span>
-              <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                Pending KYC
-              </span>
+              {(() => {
+                const kyc = approveModal?.kyc || 'pending';
+                if (kyc === 'approved') {
+                  return (
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                      Approved
+                    </span>
+                  );
+                }
+                if (kyc === 'rejected') {
+                  return (
+                    <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                      Rejected
+                    </span>
+                  );
+                }
+                if (kyc === 'under_review') {
+                  return (
+                    <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                      Under Review
+                    </span>
+                  );
+                }
+                return (
+                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                    Pending KYC
+                  </span>
+                );
+              })()}
             </div>
             <div className="flex items-center gap-3 text-xs text-gray-600 flex-wrap">
               <span className="flex items-center gap-1"><Mail className="h-3 w-3 text-gray-400" /> {approveModal?.email || 'No email on record'}</span>
@@ -1184,7 +1346,6 @@ export default function CoachesPage() {
             </div>
           </div>
 
-          {/* Proposed Pricing Card */}
           <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
@@ -1226,40 +1387,84 @@ export default function CoachesPage() {
             </p>
           </div>
 
-          {/* Contact Details Inputs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Input
-              label="Coach Email Address"
-              type="email"
-              placeholder="coach@example.com"
-              value={approveModal?.email || ''}
-              onChange={e => setApproveModal(prev => prev ? { ...prev, email: e.target.value } : null)}
-            />
-            <Input
-              label="Coach Phone Number"
-              type="tel"
-              placeholder="e.g. +91 98765 43210"
-              value={approveModal?.phone || ''}
-              onChange={e => setApproveModal(prev => prev ? { ...prev, phone: e.target.value } : null)}
-            />
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+              <Lock className="h-3 w-3 text-slate-400" /> Contact Details (Coach-Managed · Read-Only)
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-700">
+              <div><span className="text-slate-400">Email:</span> <strong className="text-slate-900">{approveModal?.email || 'Not provided'}</strong></div>
+              <div><span className="text-slate-400">Phone:</span> <strong className="text-slate-900">{approveModal?.phone || 'Not provided'}</strong></div>
+            </div>
           </div>
 
-          {/* Pricing Inputs */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+            <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5 text-[#F05A22]" />
+              Uploaded KYC Files & Certificates ({approveModal?.documents?.length || 0})
+            </p>
+            {!approveModal?.documents || approveModal.documents.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No KYC files found on this coach's profile.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {approveModal.documents.map((doc, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => openKycDocument(doc.url)}
+                    className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                      {doc.isImage ? (
+                        <img src={doc.url} alt={doc.label} className="h-8 w-8 rounded object-cover border border-slate-200 flex-shrink-0" />
+                      ) : (
+                        <div className="h-8 w-8 rounded bg-orange-50 text-[#F05A22] flex items-center justify-center flex-shrink-0">
+                          <FileText className="h-4 w-4" />
+                        </div>
+                      )}
+                      <span className="text-xs font-semibold text-slate-800 truncate">{doc.label}</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#F05A22] flex items-center gap-1 flex-shrink-0">
+                      View <ExternalLink className="h-3 w-3" />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Input
-              label="Approved Individual Price (₹)"
-              type="number"
-              placeholder="e.g. 500"
-              value={approveModal?.individualPrice || ''}
-              onChange={e => setApproveModal(prev => prev ? { ...prev, individualPrice: e.target.value } : null)}
-            />
-            <Input
-              label="Approved Group Price / Person (₹)"
-              type="number"
-              placeholder="e.g. 200"
-              value={approveModal?.groupPricePerPerson || ''}
-              onChange={e => setApproveModal(prev => prev ? { ...prev, groupPricePerPerson: e.target.value } : null)}
-            />
+            <div>
+              <Input
+                label="Approved Individual Price (₹) *"
+                type="number"
+                min={1}
+                placeholder="e.g. 500"
+                value={approveModal?.individualPrice || ''}
+                onChange={e => {
+                  setApproveErrors(prev => ({ ...prev, individualPrice: undefined }));
+                  setApproveModal(prev => prev ? { ...prev, individualPrice: e.target.value } : null);
+                }}
+              />
+              {approveErrors.individualPrice && (
+                <p className="text-[11px] text-rose-600 font-medium mt-1">{approveErrors.individualPrice}</p>
+              )}
+            </div>
+            <div>
+              <Input
+                label="Approved Group Price / Person (₹) *"
+                type="number"
+                min={1}
+                placeholder="e.g. 200"
+                value={approveModal?.groupPricePerPerson || ''}
+                onChange={e => {
+                  setApproveErrors(prev => ({ ...prev, groupPricePerPerson: undefined }));
+                  setApproveModal(prev => prev ? { ...prev, groupPricePerPerson: e.target.value } : null);
+                }}
+              />
+              {approveErrors.groupPricePerPerson && (
+                <p className="text-[11px] text-rose-600 font-medium mt-1">{approveErrors.groupPricePerPerson}</p>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
@@ -1279,10 +1484,9 @@ export default function CoachesPage() {
         </div>
       </Modal>
 
-      {/* Edit Pricing Modal */}
       <Modal
         open={!!pricingModal}
-        onClose={() => setPricingModal(null)}
+        onClose={() => { setPricingModal(null); setPricingErrors({}); }}
         title={`Edit Pricing - ${pricingModal?.name}`}
         size="md"
       >
@@ -1305,20 +1509,38 @@ export default function CoachesPage() {
             </div>
           </div>
 
-          <Input
-            label="Individual Session Price (₹)"
-            type="number"
-            placeholder="e.g. 500"
-            value={pricingModal?.individualPrice || ''}
-            onChange={e => setPricingModal(prev => prev ? { ...prev, individualPrice: e.target.value } : null)}
-          />
-          <Input
-            label="Group Session Price per Person (₹)"
-            type="number"
-            placeholder="e.g. 200"
-            value={pricingModal?.groupPricePerPerson || ''}
-            onChange={e => setPricingModal(prev => prev ? { ...prev, groupPricePerPerson: e.target.value } : null)}
-          />
+          <div>
+            <Input
+              label="Individual Session Price (₹) *"
+              type="number"
+              min={1}
+              placeholder="e.g. 500"
+              value={pricingModal?.individualPrice || ''}
+              onChange={e => {
+                setPricingErrors(prev => ({ ...prev, individualPrice: undefined }));
+                setPricingModal(prev => prev ? { ...prev, individualPrice: e.target.value } : null);
+              }}
+            />
+            {pricingErrors.individualPrice && (
+              <p className="text-[11px] text-rose-600 font-medium mt-1">{pricingErrors.individualPrice}</p>
+            )}
+          </div>
+          <div>
+            <Input
+              label="Group Session Price per Person (₹) *"
+              type="number"
+              min={1}
+              placeholder="e.g. 200"
+              value={pricingModal?.groupPricePerPerson || ''}
+              onChange={e => {
+                setPricingErrors(prev => ({ ...prev, groupPricePerPerson: undefined }));
+                setPricingModal(prev => prev ? { ...prev, groupPricePerPerson: e.target.value } : null);
+              }}
+            />
+            {pricingErrors.groupPricePerPerson && (
+              <p className="text-[11px] text-rose-600 font-medium mt-1">{pricingErrors.groupPricePerPerson}</p>
+            )}
+          </div>
 
           <div className="flex items-center justify-between pt-2">
             <button
@@ -1326,17 +1548,18 @@ export default function CoachesPage() {
               className="text-xs text-[#F05A22] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
               onClick={() => {
                 if (!pricingModal) return;
+                setPricingErrors({});
                 setPricingModal(prev => prev ? {
                   ...prev,
-                  individualPrice: String(prev.requestedIndividualPrice || 0),
-                  groupPricePerPerson: String(prev.requestedGroupPricePerPerson || 0)
+                  individualPrice: String(prev.requestedIndividualPrice || ''),
+                  groupPricePerPerson: String(prev.requestedGroupPricePerPerson || '')
                 } : null);
               }}
             >
               <RotateCcw className="h-3 w-3" /> Use Proposed Rates
             </button>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setPricingModal(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => { setPricingModal(null); setPricingErrors({}); }}>Cancel</Button>
               <Button variant="primary" disabled={savingPricing} onClick={handlePricingSave}>
                 {savingPricing ? 'Saving...' : 'Save Pricing'}
               </Button>
@@ -1345,61 +1568,53 @@ export default function CoachesPage() {
         </div>
       </Modal>
 
-      {/* Edit Phone Number Modal */}
       <Modal
-        open={!!phoneModal}
-        onClose={() => setPhoneModal(null)}
-        title={`Update Phone Number - ${phoneModal?.name}`}
-        size="sm"
+        open={!!docsModal}
+        onClose={() => setDocsModal(null)}
+        title={`Uploaded KYC Files - ${docsModal?.name}`}
+        size="md"
       >
-        <div className="space-y-4">
-          <Input
-            label="Phone Number"
-            type="tel"
-            placeholder="e.g. +91 98765 43210 or 9876543210"
-            value={phoneModal?.phone || ''}
-            onChange={e => setPhoneModal(prev => prev ? { ...prev, phone: e.target.value } : null)}
-          />
-          <p className="text-[11px] text-gray-500">
-            Enter the active mobile contact number for this coach to receive notifications and player bookings.
-          </p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setPhoneModal(null)}>Cancel</Button>
-            <Button variant="primary" disabled={savingPhone} onClick={handlePhoneSave}>
-              {savingPhone ? 'Saving...' : 'Save Phone Number'}
-            </Button>
+        <div className="space-y-3">
+          {!docsModal?.documents || docsModal.documents.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
+              <FileText className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-slate-600">No KYC documents or uploaded files found for this coach.</p>
+              <p className="text-[11px] text-slate-400 mt-1">If the coach uploaded files from the mobile app, verify the backend coach detail endpoint returns their document URLs/keys.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {docsModal.documents.map((doc, idx) => (
+                <div key={idx} className="border border-slate-200 rounded-2xl p-3 bg-slate-50/70 flex flex-col gap-2">
+                  {doc.isImage ? (
+                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-white border border-slate-200">
+                      <img src={doc.url} alt={doc.label} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="aspect-video w-full rounded-xl bg-white border border-slate-200 flex flex-col items-center justify-center text-slate-400">
+                      <FileText className="h-8 w-8 text-[#F05A22] mb-1" />
+                      <span className="text-[11px] font-medium text-slate-500">Document File</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-800 truncate">{doc.label}</span>
+                    <Button
+                      variant="outline"
+                      className="h-7 text-[11px] px-2.5 flex-shrink-0"
+                      onClick={() => openKycDocument(doc.url)}
+                    >
+                      Open <ExternalLink className="h-3 w-3 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setDocsModal(null)}>Close</Button>
           </div>
         </div>
       </Modal>
 
-      {/* Edit Email Modal */}
-      <Modal
-        open={!!emailModal}
-        onClose={() => setEmailModal(null)}
-        title={`Update Email Address - ${emailModal?.name}`}
-        size="sm"
-      >
-        <div className="space-y-4">
-          <Input
-            label="Email Address"
-            type="email"
-            placeholder="coach@example.com"
-            value={emailModal?.email || ''}
-            onChange={e => setEmailModal(prev => prev ? { ...prev, email: e.target.value } : null)}
-          />
-          <p className="text-[11px] text-gray-500">
-            Update the primary email address on file for this coach for account communications and notifications.
-          </p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setEmailModal(null)}>Cancel</Button>
-            <Button variant="primary" disabled={savingEmail} onClick={handleEmailSave}>
-              {savingEmail ? 'Saving...' : 'Save Email Address'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Reject Modal */}
       <Modal
         open={!!rejectModal}
         onClose={() => setRejectModal(null)}
@@ -1420,7 +1635,6 @@ export default function CoachesPage() {
         </div>
       </Modal>
 
-      {/* Ban Modal */}
       <Modal
         open={!!banModal}
         onClose={() => setBanModal(null)}
@@ -1441,7 +1655,6 @@ export default function CoachesPage() {
         </div>
       </Modal>
 
-      {/* Unified Coach Actions Popup Modal */}
       <Modal
         open={Boolean(actionCoach)}
         onClose={() => setActionCoach(null)}
@@ -1450,7 +1663,7 @@ export default function CoachesPage() {
       >
         {actionCoach && (
           <div className="space-y-4">
-            {/* Coach Banner */}
+
             <div className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
               <Avatar initials={actionCoach.name ? actionCoach.name.slice(0, 2) : 'CO'} size={44} />
               <div className="flex-1 min-w-0">
@@ -1478,7 +1691,6 @@ export default function CoachesPage() {
               </div>
             </div>
 
-            {/* Actions List */}
             <div className="space-y-2">
               <button
                 className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
@@ -1491,8 +1703,16 @@ export default function CoachesPage() {
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600"><CheckCircle className="h-4 w-4" /></div>
                   <div>
-                    <p className="text-xs font-bold text-slate-900">Verify KYC & Set Approved Rates</p>
-                    <p className="text-[11px] text-slate-500">Approve coach credentials and decide session pricing</p>
+                    <p className="text-xs font-bold text-slate-900">
+                      {actionCoach.kyc === 'approved'
+                        ? 'KYC Approved · Review Credentials & Rates'
+                        : 'Verify KYC & Set Approved Rates'}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {actionCoach.kyc === 'approved'
+                        ? 'Inspect KYC documents and adjust approved session rates'
+                        : 'Approve coach credentials and decide session pricing'}
+                    </p>
                   </div>
                 </div>
                 <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -1516,41 +1736,23 @@ export default function CoachesPage() {
                 <ChevronRight className="h-4 w-4 text-slate-400" />
               </button>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
-                  onClick={() => {
-                    const id = actionCoach.id || actionCoach._id;
-                    const phone = getCoachPhone(actionCoach);
-                    const name = actionCoach.name || 'Coach';
-                    setActionCoach(null);
-                    setPhoneModal({ id, name, phone });
-                  }}
-                >
-                  <div className="p-2 rounded-lg bg-blue-50 text-blue-600"><Phone className="h-4 w-4" /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-900">Edit Phone</p>
-                    <p className="text-[10px] text-slate-500 truncate">{getCoachPhone(actionCoach) || 'Add phone'}</p>
+              <button
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
+                onClick={() => {
+                  const target = actionCoach;
+                  setActionCoach(null);
+                  openDocsModal(target);
+                }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-blue-50 text-blue-600"><FileText className="h-4 w-4" /></div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">View Uploaded KYC Files</p>
+                    <p className="text-[11px] text-slate-500">Inspect ID proof, certificates, and uploaded documents</p>
                   </div>
-                </button>
-
-                <button
-                  className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
-                  onClick={() => {
-                    const id = actionCoach.id || actionCoach._id;
-                    const email = getCoachEmail(actionCoach);
-                    const name = actionCoach.name || 'Coach';
-                    setActionCoach(null);
-                    setEmailModal({ id, name, email });
-                  }}
-                >
-                  <div className="p-2 rounded-lg bg-purple-50 text-purple-600"><Mail className="h-4 w-4" /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-900">Edit Email</p>
-                    <p className="text-[10px] text-slate-500 truncate">{getCoachEmail(actionCoach) || 'Add email'}</p>
-                  </div>
-                </button>
-              </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </button>
 
               <button
                 className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
@@ -1570,7 +1772,6 @@ export default function CoachesPage() {
                 <ChevronRight className="h-4 w-4 text-slate-400" />
               </button>
 
-              {/* Status & Moderation Controls */}
               <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
                 {actionCoach.isActive ? (
                   <button
@@ -1612,7 +1813,6 @@ export default function CoachesPage() {
                 )}
               </div>
 
-              {/* Danger: Delete */}
               <div className="pt-2 border-t border-slate-100">
                 <button
                   className="w-full flex items-center justify-between p-3 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-50 transition-colors text-left cursor-pointer"
@@ -1638,7 +1838,6 @@ export default function CoachesPage() {
         )}
       </Modal>
 
-      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={!!deleteModal}
         onClose={() => setDeleteModal(null)}
@@ -1651,3 +1850,4 @@ export default function CoachesPage() {
     </div>
   );
 }
+

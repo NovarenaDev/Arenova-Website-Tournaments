@@ -92,7 +92,6 @@ export default function RatingsPage() {
           if (id && seenR.has(id)) continue;
           if (id) seenR.add(id);
 
-          // Resolve User Name
           let userName = 'Customer';
           if (r.userName) userName = r.userName;
           else if (r.customerName) userName = r.customerName;
@@ -106,7 +105,6 @@ export default function RatingsPage() {
             userName = um[String(r.userId)];
           }
 
-          // Resolve Coach Name
           let coachName = 'Coach';
           if (r.coachName) coachName = r.coachName;
           else if (typeof r.coach === 'object' && r.coach !== null) {
@@ -310,3 +308,4 @@ export default function RatingsPage() {
     </div>
   );
 }
+

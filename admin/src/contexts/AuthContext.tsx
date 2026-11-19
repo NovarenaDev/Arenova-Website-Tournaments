@@ -30,7 +30,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const [loading, setLoading] = useState(true);
 
-  // Restore session on mount
   useEffect(() => {
     const restore = async () => {
       const token = localStorage.getItem(TOKEN_KEY);
@@ -96,3 +95,4 @@ export const useAuth = () => {
   if (!ctx) throw new Error('useAuth must be inside AuthProvider');
   return ctx;
 };
+

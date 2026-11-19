@@ -37,7 +37,6 @@ export default function LegalPage({ docType, onNavigateLegal, onBack }) {
             Effective Date: <strong>11 October 2026</strong> • Official policy documentation for Arenova, operated by Novarena Technologies LLP.
           </p>
 
-          {/* Quick Legal Navigation Tabs */}
           <div style={{ display: 'flex', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
             <button
               onClick={() => handleTabClick('terms')}
@@ -101,9 +100,7 @@ export default function LegalPage({ docType, onNavigateLegal, onBack }) {
               fontSize: '15px'
             }}
           >
-            {/* ========================================================= */}
-            {/* 1. TERMS & CONDITIONS                                     */}
-            {/* ========================================================= */}
+
             {activeDoc === 'terms' && (
               <article>
                 <div style={{ background: 'var(--soft)', padding: '16px 20px', borderRadius: '10px', border: '1px solid var(--line)', marginBottom: '30px' }}>
@@ -232,9 +229,6 @@ export default function LegalPage({ docType, onNavigateLegal, onBack }) {
               </article>
             )}
 
-            {/* ========================================================= */}
-            {/* 2. PRIVACY POLICY                                         */}
-            {/* ========================================================= */}
             {activeDoc === 'privacy' && (
               <article>
                 <div style={{ background: 'var(--soft)', padding: '16px 20px', borderRadius: '10px', border: '1px solid var(--line)', marginBottom: '30px' }}>
@@ -348,9 +342,6 @@ export default function LegalPage({ docType, onNavigateLegal, onBack }) {
               </article>
             )}
 
-            {/* ========================================================= */}
-            {/* 3. REFUND & CANCELLATION POLICY                           */}
-            {/* ========================================================= */}
             {activeDoc === 'refund' && (
               <article>
                 <div style={{ background: 'var(--soft)', padding: '16px 20px', borderRadius: '10px', border: '1px solid var(--line)', marginBottom: '30px' }}>
@@ -448,3 +439,4 @@ export default function LegalPage({ docType, onNavigateLegal, onBack }) {
     </main>
   );
 }
+

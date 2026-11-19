@@ -1,4 +1,3 @@
-// ── Base URL configuration ──────────────────────────────────────
 const rawEnvUrl = (import.meta.env.VITE_API_BASE_URL || 'https://api.getarenova.com').trim().replace(/\/+$/, '');
 export const BASE_URL = rawEnvUrl.endsWith('/api') ? rawEnvUrl : `${rawEnvUrl}/api`;
 
@@ -20,7 +19,6 @@ export const getAdminToken = () => {
   return _token;
 };
 
-// Universal helper to reliably extract an array list from any backend response wrapper
 export function extractDataList<T = any>(res: any): T[] {
   if (!res) return [];
   if (Array.isArray(res)) return res;
@@ -78,7 +76,6 @@ export function extractDataList<T = any>(res: any): T[] {
   return [];
 }
 
-// Validator for authentic coach email addresses (rejects empty strings and dummy placeholders like @example.com)
 export function isValidCoachEmail(val: any): boolean {
   if (!val || typeof val !== 'string') return false;
   const s = val.trim().toLowerCase();
@@ -91,7 +88,6 @@ export function isValidCoachEmail(val: any): boolean {
   return true;
 }
 
-// Helper function to recursively normalize response data
 function normalizeData(obj: any): any {
   if (!obj || typeof obj !== 'object') {
     if (typeof obj === 'string') {
@@ -105,14 +101,13 @@ function normalizeData(obj: any): any {
     }
     return obj;
   }
-  
+
   if (Array.isArray(obj)) {
     return obj.map(normalizeData);
   }
-  
+
   const normalized: any = { ...obj };
-  
-  // Flatten coach profile if it exists (preserving existing valid properties)
+
   if (normalized.profile && typeof normalized.profile === 'object') {
     const profile = normalized.profile;
     for (const key of Object.keys(profile)) {
@@ -125,8 +120,7 @@ function normalizeData(obj: any): any {
       }
     }
   }
-  
-  // Flatten user or userId object if attached
+
   const u = (normalized.user && typeof normalized.user === 'object' ? normalized.user : null) ||
             (normalized.userId && typeof normalized.userId === 'object' ? normalized.userId : null);
   if (u) {
@@ -146,7 +140,6 @@ function normalizeData(obj: any): any {
     }
   }
 
-  // Extract email / mail ID strictly from this object's own direct coach onboarding fields
   const candidateEmail =
     (isValidCoachEmail(normalized.email) && normalized.email) ||
     (isValidCoachEmail(normalized.emailId) && normalized.emailId) ||
@@ -264,13 +257,12 @@ function normalizeData(obj: any): any {
     normalized.emailId = resolvedEmail;
     normalized.mailId = resolvedEmail;
   } else if ('sports' in normalized || 'kyc' in normalized || 'kycStatus' in normalized) {
-    // Only set empty on genuine coach records, not on wrapper responses
+
     normalized.email = '';
     normalized.emailId = '';
     normalized.mailId = '';
   }
 
-  // Extract phone number from all possible direct and nested fields
   const rawPhone =
     normalized.phone ||
     normalized.phoneNumber ||
@@ -331,7 +323,6 @@ function normalizeData(obj: any): any {
   normalized.phone = (rawPhone !== undefined && rawPhone !== null) ? String(rawPhone).trim() : '';
   normalized.phoneNumber = normalized.phone;
 
-  // Normalize kyc status safely without stringifying KYC objects to "[object Object]"
   if (normalized.kyc !== undefined && normalized.kyc !== null) {
     if (typeof normalized.kyc === 'object') {
       const kycObj = normalized.kyc;
@@ -347,13 +338,11 @@ function normalizeData(obj: any): any {
     normalized.kyc = String(normalized.kycStatus).toLowerCase();
     normalized.kycStatus = normalized.kyc;
   }
-  
-  // 1. Map _id to id if id doesn't exist
+
   if ('_id' in normalized && !('id' in normalized)) {
     normalized.id = normalized._id;
   }
-  
-  // 2. Map createdAt to joined if joined doesn't exist
+
   if ('createdAt' in normalized && !('joined' in normalized)) {
     normalized.joined = new Date(normalized.createdAt).toLocaleDateString('en-IN', {
       day: 'numeric',
@@ -362,12 +351,10 @@ function normalizeData(obj: any): any {
     });
   }
 
-  // 3. Map totalBookings to bookings
   if ('totalBookings' in normalized && !('bookings' in normalized)) {
     normalized.bookings = normalized.totalBookings;
   }
 
-  // 4. Normalize pricing & requested onboarding fee fields
   const reqInd =
     normalized.requestedIndividualPrice ??
     normalized.requestedIndividualFee ??
@@ -417,7 +404,6 @@ function normalizeData(obj: any): any {
     normalized.requestedGroupPricePerPerson = Number(reqGrp);
   }
 
-  // Also resolve approved/active individualPrice and groupPricePerPerson
   const indPrice =
     normalized.individualPrice ??
     normalized.pricing?.individualPrice ??
@@ -441,24 +427,21 @@ function normalizeData(obj: any): any {
   if (grpPrice !== undefined && grpPrice !== null && !isNaN(Number(grpPrice))) {
     normalized.groupPricePerPerson = Number(grpPrice);
   }
-  
-  // 5. Fallback missing numeric values for Coach to 0
+
   if ('kyc' in normalized && 'sports' in normalized) {
     if (!('grossEarnings' in normalized)) normalized.grossEarnings = 0;
     if (!('netEarnings' in normalized)) normalized.netEarnings = 0;
     if (!('pendingPayout' in normalized)) normalized.pendingPayout = 0;
     if (!('noShows' in normalized)) normalized.noShows = 0;
   }
-  
-  // Recursively normalize children properties
+
   for (const key of Object.keys(normalized)) {
     normalized[key] = normalizeData(normalized[key]);
   }
-  
+
   return normalized;
 }
 
-// ── Core fetch wrapper ────────────────────────────────────────────────────────
 export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {}
@@ -484,7 +467,7 @@ export async function apiRequest<T = any>(
   }
 
   if (res.status === 429) {
-    console.error(`[Rate Limit (HTTP 429)] ${requestUrl}: Server rate limit active.`);
+    console.warn(`[Rate Limit (HTTP 429)] ${requestUrl}: Server rate limit active.`);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('api:ratelimit', { detail: { url: requestUrl } }));
     }
@@ -557,3 +540,4 @@ export const put  = <T = any>(url: string, body: any, opts?: RequestInit) =>
 
 export const del  = <T = any>(url: string, opts?: RequestInit) =>
   apiRequest<T>(url, { method: 'DELETE', ...opts });
+

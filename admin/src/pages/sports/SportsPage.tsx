@@ -5,7 +5,6 @@ import { getAdminSports, createSport, updateSport, deleteSport, uploadImage, ext
 import { useAuth } from '../../contexts/AuthContext';
 import type { Sport } from '../../types';
 
-
 export default function SportsPage() {
   const { can } = useAuth();
   const [sports, setSports]     = useState<Sport[]>([]);
@@ -54,7 +53,7 @@ export default function SportsPage() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     try {
       setUploading(true);
       const res = await uploadImage(file);
@@ -224,3 +223,4 @@ export default function SportsPage() {
     </div>
   );
 }
+

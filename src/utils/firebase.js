@@ -17,7 +17,6 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:144453754365:web:970dc7d74ac1db01f84d94',
 };
 
-// Check if variables are missing
 const isFirebaseConfigured = !!(
   firebaseConfig.apiKey &&
   firebaseConfig.authDomain &&
@@ -32,7 +31,7 @@ if (isFirebaseConfigured) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
   } catch (error) {
-    // Firebase initialization fallback
+
   }
 }
 

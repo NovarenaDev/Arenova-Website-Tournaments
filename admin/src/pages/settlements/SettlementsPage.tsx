@@ -29,21 +29,16 @@ export default function SettlementsPage() {
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('disputes');
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 1. DISPUTES QUEUE STATE
-  // ─────────────────────────────────────────────────────────────────────────────
   const [disputes, setDisputes] = useState<DisputeItem[]>([]);
   const [loadingDisputes, setLoadingDisputes] = useState(false);
   const [disputeHoldFilter, setDisputeHoldFilter] = useState<'all' | 'holds'>('all');
   const [disputeSearch, setDisputeSearch] = useState('');
   const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(null);
 
-  // Settlement Evidence Modal
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidence, setEvidence] = useState<SettlementDetail | null>(null);
 
-  // Resolution Action Modals
   const [resolveActionModal, setResolveActionModal] = useState<{
     bookingId: string;
     action: 'RELEASE_TO_COACH' | 'REFUND_TO_CUSTOMER';
@@ -52,9 +47,6 @@ export default function SettlementsPage() {
   } | null>(null);
   const [resolving, setResolving] = useState(false);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 2. WITHDRAWALS REVIEW STATE
-  // ─────────────────────────────────────────────────────────────────────────────
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
   const [withdrawalStatusFilter, setWithdrawalStatusFilter] = useState<string>('pending');
@@ -67,9 +59,6 @@ export default function SettlementsPage() {
   } | null>(null);
   const [processingWithdrawal, setProcessingWithdrawal] = useState(false);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 3. REFUND OPERATIONS STATE
-  // ─────────────────────────────────────────────────────────────────────────────
   const [refunds, setRefunds] = useState<RefundItem[]>([]);
   const [loadingRefunds, setLoadingRefunds] = useState(false);
   const [refundStatusFilter, setRefundStatusFilter] = useState<string>('all');
@@ -82,7 +71,6 @@ export default function SettlementsPage() {
   } | null>(null);
   const [processingRefund, setProcessingRefund] = useState(false);
 
-  // Name Resolution Maps
   const [coachMap, setCoachMap] = useState<Record<string, string>>({});
   const [userMap, setUserMap]   = useState<Record<string, string>>({});
 
@@ -114,9 +102,6 @@ export default function SettlementsPage() {
     });
   }, []);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // LOADERS
-  // ─────────────────────────────────────────────────────────────────────────────
   const loadDisputes = useCallback(async () => {
     try {
       setLoadingDisputes(true);
@@ -177,7 +162,6 @@ export default function SettlementsPage() {
     else if (activeTab === 'refunds') loadRefunds();
   }, [activeTab, loadDisputes, loadWithdrawals, loadRefunds]);
 
-  // Open Settlement Evidence Detail Modal
   const openSettlementDetail = async (dispute: DisputeItem) => {
     setSelectedDispute(dispute);
     setEvidenceModalOpen(true);
@@ -190,7 +174,7 @@ export default function SettlementsPage() {
       setEvidence(detail);
     } catch (err: any) {
       console.warn('Failed to load settlement detail:', err);
-      // Fallback detail from dispute row
+
       setEvidence({
         bookingId,
         grossPaid: dispute.grossPaid ?? dispute.amount ?? 0,
@@ -205,7 +189,6 @@ export default function SettlementsPage() {
     }
   };
 
-  // Submit Dispute Resolution (Release to Coach or Refund to Customer)
   const handleResolveDispute = async () => {
     if (!resolveActionModal) return;
     const { bookingId, action, reason, policyReference } = resolveActionModal;
@@ -227,7 +210,6 @@ export default function SettlementsPage() {
     }
   };
 
-  // Process Withdrawal (Approve / Reject)
   const handleWithdrawalAction = async () => {
     if (!withdrawalActionModal) return;
     const { id, action, remarks } = withdrawalActionModal;
@@ -247,7 +229,6 @@ export default function SettlementsPage() {
     }
   };
 
-  // Process Refund (Approve / Reject / Reconcile)
   const handleRefundAction = async () => {
     if (!refundActionModal) return;
     const { id, action, reason, gatewayRef, notes } = refundActionModal;
@@ -269,7 +250,6 @@ export default function SettlementsPage() {
     }
   };
 
-  // Filtered Disputes
   const filteredDisputes = disputes.filter(d => {
     if (disputeHoldFilter === 'holds' && !d.financialHold) return false;
     if (!disputeSearch.trim()) return true;
@@ -283,7 +263,7 @@ export default function SettlementsPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto">
-      {/* Page Header */}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
@@ -315,7 +295,6 @@ export default function SettlementsPage() {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200">
         <button
           onClick={() => setActiveTab('disputes')}
@@ -372,12 +351,9 @@ export default function SettlementsPage() {
         </button>
       </div>
 
-      {/* ───────────────────────────────────────────────────────────────────────── */}
-      {/* TAB 1: DISPUTE QUEUE */}
-      {/* ───────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'disputes' && (
         <div className="space-y-4">
-          {/* Quick Stats */}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard
               label="Active Disputes"
@@ -405,7 +381,6 @@ export default function SettlementsPage() {
             />
           </div>
 
-          {/* Filters Bar */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
             <div className="flex items-center gap-2">
               <button
@@ -445,7 +420,6 @@ export default function SettlementsPage() {
             </div>
           </div>
 
-          {/* Disputes Table */}
           <Card>
             <Table>
               <Thead>
@@ -551,12 +525,9 @@ export default function SettlementsPage() {
         </div>
       )}
 
-      {/* ───────────────────────────────────────────────────────────────────────── */}
-      {/* TAB 2: WITHDRAWALS REVIEW */}
-      {/* ───────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'withdrawals' && (
         <div className="space-y-4">
-          {/* Quick Stats */}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard
               label="Pending Payouts"
@@ -584,7 +555,6 @@ export default function SettlementsPage() {
             />
           </div>
 
-          {/* Filter Bar */}
           <div className="flex items-center justify-between bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
             <div className="flex items-center gap-2">
               {['pending', 'approved', 'rejected', 'all'].map(st => (
@@ -604,7 +574,6 @@ export default function SettlementsPage() {
             </div>
           </div>
 
-          {/* Withdrawals Table */}
           <Card>
             <Table>
               <Thead>
@@ -717,12 +686,9 @@ export default function SettlementsPage() {
         </div>
       )}
 
-      {/* ───────────────────────────────────────────────────────────────────────── */}
-      {/* TAB 3: REFUND OPERATIONS */}
-      {/* ───────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'refunds' && (
         <div className="space-y-4">
-          {/* Quick Stats */}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard
               label="Pending Session Refunds"
@@ -750,7 +716,6 @@ export default function SettlementsPage() {
             />
           </div>
 
-          {/* Filter Bar */}
           <div className="flex items-center justify-between bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
             <div className="flex items-center gap-2">
               {['all', 'pending', 'approved', 'reconciled', 'rejected'].map(st => (
@@ -770,7 +735,6 @@ export default function SettlementsPage() {
             </div>
           </div>
 
-          {/* Refunds Table */}
           <Card>
             <Table>
               <Thead>
@@ -879,9 +843,6 @@ export default function SettlementsPage() {
         </div>
       )}
 
-      {/* ───────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 1: SETTLEMENT EVIDENCE DETAIL (Super Admin arbitration) */}
-      {/* ───────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={evidenceModalOpen}
         onClose={() => setEvidenceModalOpen(false)}
@@ -899,7 +860,7 @@ export default function SettlementsPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Financial Overview Card */}
+
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-3">
                 <div>
@@ -929,7 +890,6 @@ export default function SettlementsPage() {
               </div>
             </div>
 
-            {/* Attendance Timestamps */}
             <div>
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-[#F05A22]" /> Attendance Timestamps & Verification
@@ -966,7 +926,6 @@ export default function SettlementsPage() {
               </div>
             </div>
 
-            {/* Customer Complaints */}
             <div>
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Customer Complaints & Claims
@@ -987,7 +946,6 @@ export default function SettlementsPage() {
               </div>
             </div>
 
-            {/* Coach Reports */}
             <div>
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <UserCheck className="h-3.5 w-3.5 text-blue-500" /> Coach Session Report
@@ -1008,7 +966,6 @@ export default function SettlementsPage() {
               </div>
             </div>
 
-            {/* Resolution Buttons */}
             <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-end gap-3">
               <Button
                 variant="outline"
@@ -1050,9 +1007,6 @@ export default function SettlementsPage() {
         )}
       </Modal>
 
-      {/* ───────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 2: RESOLVE DISPUTE CONFIRMATION (Release / Refund) */}
-      {/* ───────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={Boolean(resolveActionModal)}
         onClose={() => setResolveActionModal(null)}
@@ -1131,9 +1085,6 @@ export default function SettlementsPage() {
         )}
       </Modal>
 
-      {/* ───────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 3: WITHDRAWAL ACTION (Approve / Reject) */}
-      {/* ───────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={Boolean(withdrawalActionModal)}
         onClose={() => setWithdrawalActionModal(null)}
@@ -1188,9 +1139,6 @@ export default function SettlementsPage() {
         )}
       </Modal>
 
-      {/* ───────────────────────────────────────────────────────────────────────── */}
-      {/* MODAL 4: REFUND ACTION (Approve / Reject / Reconcile) */}
-      {/* ───────────────────────────────────────────────────────────────────────── */}
       <Modal
         open={Boolean(refundActionModal)}
         onClose={() => setRefundActionModal(null)}
@@ -1277,3 +1225,4 @@ export default function SettlementsPage() {
     </div>
   );
 }
+

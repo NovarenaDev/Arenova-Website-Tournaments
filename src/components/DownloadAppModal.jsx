@@ -17,11 +17,10 @@ export default function DownloadAppModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  // Future APK location: placed in public folder or CDN
   const apkDownloadUrl = '/arenova-latest.apk';
 
   const handleDownloadClick = () => {
-    // Triggers download or prompts user
+
     const link = document.createElement('a');
     link.href = apkDownloadUrl;
     link.setAttribute('download', 'arenova-latest.apk');
@@ -51,7 +50,6 @@ export default function DownloadAppModal({ isOpen, onClose }) {
           Experience tournament draws, live match scoring, real-time push alerts, and digital athlete passes in one high-performance app.
         </p>
 
-        {/* Android APK Primary Download Card */}
         <div
           style={{
             background: 'var(--soft)',
@@ -128,7 +126,6 @@ export default function DownloadAppModal({ isOpen, onClose }) {
           </p>
         </div>
 
-        {/* Coming Soon Stores */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
           <div
             style={{
@@ -183,3 +180,4 @@ export default function DownloadAppModal({ isOpen, onClose }) {
     </div>
   );
 }
+

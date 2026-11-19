@@ -3,16 +3,13 @@ import { BASE_URL } from './client';
 
 export { extractDataList };
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
 export const adminLogin = (email: string, password: string) =>
   post('/auth/admin/login', { email, password });
 
 export const adminGetMe = () => get('/auth/admin/me');
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
 export const getDashboard = () => get('/admin/dashboard');
 
-// ── Customers ─────────────────────────────────────────────────────────────────
 export const getCustomers = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
   return get(`/admin/customers${q ? '?' + q : ''}`);
@@ -22,7 +19,6 @@ export const updateCustomerStatus = (id: string, status: string) =>
   put(`/admin/customers/${id}/status`, { status });
 export const deleteCustomer = (id: string) => del(`/admin/customers/${id}`);
 
-// ── Coaches ───────────────────────────────────────────────────────────────────
 export const getAdminCoaches = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
   return get(`/admin/coaches${q ? '?' + q : ''}`);
@@ -54,19 +50,16 @@ export const updateCoachPricing = async (id: string, individualPrice: number, gr
     individualFee: individualPrice
   };
 
-  // 1. Direct coach update endpoint
   try {
     const res = await put(`/admin/coaches/${id}`, payload);
     if (res && res.success !== false) return res;
   } catch {}
 
-  // 2. Dedicated pricing endpoint if supported
   try {
     const res = await put(`/admin/coaches/${id}/pricing`, payload);
     if (res && res.success !== false) return res;
   } catch {}
 
-  // 3. KYC approve endpoint
   try {
     const res = await put(`/admin/coaches/${id}/kyc/approve`, { individualPrice, groupPricePerPerson });
     if (res && res.success !== false) return res;
@@ -80,9 +73,6 @@ export const banCoach   = (id: string, reason: string) =>
   put(`/admin/coaches/${id}/ban`, { banReason: reason });
 export const deleteAdminCoach = (id: string) => del(`/admin/coaches/${id}`);
 
-
-
-// ── Bookings ──────────────────────────────────────────────────────────────────
 export const getAdminBookings = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
   return get(`/admin/bookings${q ? '?' + q : ''}`);
@@ -91,8 +81,6 @@ export const getBooking = (id: string) => get(`/bookings/${id}`);
 export const updateBookingStatus = (id: string, status: string) =>
   put(`/admin/bookings/${id}/status`, { status });
 
-
-// ── Reviews / Ratings ─────────────────────────────────────────────────────────
 export const getAdminReviews = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
   return get(`/admin/reviews${q ? '?' + q : ''}`);
@@ -100,13 +88,11 @@ export const getAdminReviews = (params: Record<string, any> = {}) => {
 export const flagReview   = (id: string) => put(`/admin/reviews/${id}/flag`, {});
 export const deleteReview = (id: string) => del(`/admin/reviews/${id}`);
 
-// ── Sports ────────────────────────────────────────────────────────────────────
 export const getAdminSports  = () => get('/admin/sports');
 export const createSport     = (data: any) => post('/admin/sports', data);
 export const updateSport     = (id: string, data: any) => put(`/admin/sports/${id}`, data);
 export const deleteSport     = (id: string) => del(`/admin/sports/${id}`);
 
-// ── Tournaments ───────────────────────────────────────────────────────────────
 export const getTournamentOptions = () => get('/novare/tournaments/options');
 export const getPublicTournaments = () => get('/novare/tournaments');
 
@@ -115,30 +101,34 @@ export const getAdminTournaments = (params: Record<string, any> = {}) => {
   return get(`/admin/novare/tournaments${q ? '?' + q : ''}`);
 };
 
-export const createTournament = (formData: FormData) => {
-  return fetch(`${BASE_URL}/admin/novare/tournaments`, {
+export const createTournament = async (formData: FormData) => {
+  const res = await fetch(`${BASE_URL}/admin/novare/tournaments`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${getAdminToken()}`
     },
     body: formData
-  }).then(res => {
-    if (!res.ok) throw new Error('Failed to create tournament');
-    return res.json();
   });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) {
+    throw new Error(data?.message || data?.error || `Failed to create tournament (HTTP ${res.status})`);
+  }
+  return data;
 };
 
-export const updateTournament = (id: string, formData: FormData) => {
-  return fetch(`${BASE_URL}/admin/novare/tournaments/${id}`, {
+export const updateTournament = async (id: string, formData: FormData) => {
+  const res = await fetch(`${BASE_URL}/admin/novare/tournaments/${id}`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${getAdminToken()}`
     },
     body: formData
-  }).then(res => {
-    if (!res.ok) throw new Error('Failed to update tournament');
-    return res.json();
   });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) {
+    throw new Error(data?.message || data?.error || `Failed to update tournament (HTTP ${res.status})`);
+  }
+  return data;
 };
 
 export const deleteTournament    = (id: string) => del(`/admin/novare/tournaments/${id}`);
@@ -156,7 +146,6 @@ export const exportTournamentRegistrations = (id: string) => {
   });
 };
 
-// ── Venues ────────────────────────────────────────────────────────────────────
 export const getVenues       = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
   return get(`/venues${q ? '?' + q : ''}`);
@@ -167,7 +156,6 @@ export const createVenue     = (data: any) => post('/admin/venues', data);
 export const updateVenue     = (id: string, data: any) => put(`/admin/venues/${id}`, data);
 export const deleteVenue     = (id: string) => del(`/admin/venues/${id}`);
 
-// ── Community ─────────────────────────────────────────────────────────────────
 export const getAdminCommunity    = () => get('/admin/community');
 export const removeCommunityPost  = (id: string) => put(`/admin/community/${id}/remove`, {});
 
@@ -212,7 +200,6 @@ export const addCommunityProgram = (communityId: string, programData: any) =>
 export const updateCommunityProgram = (communityId: string, programId: string, programData: any) =>
   put(`/admin/communities/${communityId}/programs/${programId}`, programData);
 
-// ── Coach Assignment & Salary Contract ────────────────────────────────────────
 export const assignCoachToProgram = (programId: string, coachId: string, salary: number) =>
   post(`/admin/programs/${programId}/coaches`, { coachId, salary });
 
@@ -225,13 +212,11 @@ export const updateProgramCoachSalary = (programId: string, coachId: string, sal
 export const removeCoachFromProgram = (programId: string, coachId: string) =>
   del(`/admin/programs/${programId}/coaches/${coachId}`);
 
-// ── Scoped Community Staff Permissions ────────────────────────────────────────
 export const assignCommunityAdmin = (
   communityId: string,
   data: { adminId: string; permissions: string[]; active: boolean }
 ) => post(`/admin/communities/${communityId}/admins`, data);
 
-// ── Subscriptions & Ledger ────────────────────────────────────────────────────
 export const getProgramSubscriptions = (programId: string, params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
   return get(`/admin/programs/${programId}/subscriptions${q ? '?' + q : ''}`);
@@ -248,7 +233,6 @@ export const getCommunityLedger = (communityId: string, params: Record<string, a
   return get(`/admin/communities/${communityId}/ledger${q ? '?' + q : ''}`);
 };
 
-// ── Attendance Review ─────────────────────────────────────────────────────────
 export const getProgramAttendance = (programId: string, params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
   return get(`/admin/communities/programs/${programId}/attendance${q ? '?' + q : ''}`);
@@ -259,7 +243,6 @@ export const reviewCommunityAttendance = (
   data: { action: 'ACKNOWLEDGED' | 'EXCUSED' | 'NEEDS_FOLLOW_UP'; reason: string }
 ) => post(`/admin/community-attendance/${id}/review`, data);
 
-// ── Complaint Review & Resolution ─────────────────────────────────────────────
 export const getCommunityComplaints = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
   return get(`/admin/community-complaints${q ? '?' + q : ''}`);
@@ -270,7 +253,6 @@ export const resolveCommunityComplaint = (
   data: { status: 'RESOLVED' | 'MANUAL_REVIEW'; reason: string }
 ) => post(`/admin/community-complaints/${id}/resolve`, data);
 
-// ── Program Cancellation & Pro-Rata Refunds ───────────────────────────────────
 export const cancelCommunityProgram = (programId: string, reason: string) =>
   post(`/admin/programs/${programId}/cancel`, { reason });
 
@@ -291,7 +273,6 @@ export const reconcileCommunityRefund = (id: string) =>
 export const approveCommunityRefund = (id: string, reason: string, policyReference: string) =>
   post(`/admin/refunds/${id}/approve`, { reason, policyReference });
 
-// ── Payroll & Coach Salary Processing ─────────────────────────────────────────
 export const processCoachSalary = (data: {
   coachId: string;
   programId: string;
@@ -306,7 +287,6 @@ export const getSalaryPayouts = (params: Record<string, any> = {}) => {
   return get(`/admin/salary-payouts${q ? '?' + q : ''}`);
 };
 
-// ── Admins ────────────────────────────────────────────────────────────────────
 export const getAdmins         = () => get('/admin/admins');
 export const createAdmin       = (data: any) => post('/admin/admins', data);
 export const updateAdmin       = (id: string, data: any) => put(`/admin/admins/${id}`, data);
@@ -314,7 +294,6 @@ export const deleteAdmin       = (id: string) => del(`/admin/admins/${id}`);
 export const resetAdminPassword = (id: string, newPassword: string) =>
   put(`/admin/admins/${id}/reset-password`, { newPassword });
 
-// Upload
 export const uploadImage = async (file: File) => {
   const formData = new FormData();
   formData.append('image', file);
@@ -329,9 +308,10 @@ export const uploadImage = async (file: File) => {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.success === false) {
-    if (data?.message === 'User not found' || String(data?.message).toLowerCase().includes('user not found')) {
+    const msg = String(data?.message || '').toLowerCase();
+    if (res.status === 401 || msg.includes('user not found') || msg.includes('invalid token') || msg.includes('no token')) {
       throw new Error(
-        "Upload failed: The backend '/api/upload/image' route is currently configured with User authentication instead of Admin authentication (backend returned 'User not found'). Please paste a direct image URL or have the backend developer allow Admin tokens on /api/upload/image."
+        `Backend upload permission error (HTTP ${res.status}): The /api/upload/image endpoint rejected your Admin token ("${data?.message || 'Invalid token'}"). This endpoint currently only accepts mobile User/Coach tokens. Please paste a direct image URL below, or ask the backend developer to allow Admin tokens on /api/upload/image.`
       );
     }
     throw new Error(data?.message || `Upload failed with HTTP status ${res.status}`);
@@ -339,11 +319,13 @@ export const uploadImage = async (file: File) => {
   return data;
 };
 
-// ── Notifications ─────────────────────────────────────────────────────────────
-export const broadcastNotification = (data: { title: string; body: string; targetRole?: string }) =>
-  post('/admin/notifications/broadcast', data);
+export const broadcastNotification = (data: {
+  title: string;
+  body: string;
+  type?: 'booking' | 'review' | 'payment' | 'system' | 'promotion' | 'kyc' | string;
+  audience?: string;
+}) => post('/admin/notifications/broadcast', data);
 
-// ── Payouts & Wallets ─────────────────────────────────────────────────────────
 export const getAdminWithdrawals = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
   return get(`/admin/withdrawals${q ? '?' + q : ''}`);
@@ -353,14 +335,20 @@ export const approveWithdrawal = (id: string, remarks?: string) =>
 export const rejectWithdrawal = (id: string, remarks?: string) =>
   put(`/admin/withdrawals/${id}/reject`, { remarks });
 
-// ── User Notifications ────────────────────────────────────────────────────────
-export const getMyNotifications = () =>
-  get('/admin/notifications').catch(() => get('/notifications')).catch(() => ({ data: [] }));
-export const markNotificationRead = (id: string) => put(`/notifications/${id}/read`, {});
-export const markAllNotificationsRead = () => put('/notifications/read-all', {});
-export const deleteNotification = (id: string) => del(`/notifications/${id}`);
+export const getMyNotifications = (params: Record<string, any> = {}) => {
+  const q = new URLSearchParams(params).toString();
+  return get(`/admin/notifications${q ? '?' + q : ''}`).catch(() => ({ data: [] }));
+};
+export const markNotificationRead = (id: string) =>
+  put(`/admin/notifications/${id}/read`, {}).catch(() => ({ success: false }));
+export const markAllNotificationsRead = () =>
+  put('/admin/notifications/read-all', {}).catch(() => ({ success: false }));
+export const deleteNotification = (id: string) =>
+  del(`/admin/notifications/${id}`).catch(() => ({ success: false }));
 
-// ── Enquiries ─────────────────────────────────────────────────────────────────
+export const getMediaSignedUrl = (key: string) =>
+  get(`/media/signed-url?key=${encodeURIComponent(key)}`);
+
 export const getEnquiryStats = () => get('/admin/novare/enquiries/stats');
 export const getEnquiries = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
@@ -374,7 +362,6 @@ export const updateEnquiryStatus = (id: string, status: string, adminNotes?: str
   });
 export const deleteEnquiry = (id: string) => del(`/admin/novare/enquiries/${id}`);
 
-// ── Subscriptions & Transactions ──────────────────────────────────────────────
 export const verifySubscriptionPayment = (paymentData: any) =>
   post('/subscriptions/verify-payment', paymentData);
 
@@ -383,7 +370,6 @@ export const getAdminTransactions = (params: Record<string, any> = {}) => {
   return get(`/admin/transactions${q ? '?' + q : ''}`);
 };
 
-// ── Activity & Audit Logs ─────────────────────────────────────────────────────
 export const getAuditLogs = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams();
   for (const [key, val] of Object.entries(params)) {
@@ -407,8 +393,6 @@ export const getAuditLogsSummary = (params: { startDate?: string; endDate?: stri
   return get(`/admin/audit-logs/summary${queryString}`);
 };
 
-// ── Super Admin Review & Settlement Tools ─────────────────────────────────────
-// Dispute Queue: GET /api/admin/bookings/disputes?page=1&limit=50
 export const getAdminDisputes = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams();
   for (const [key, val] of Object.entries(params)) {
@@ -420,14 +404,10 @@ export const getAdminDisputes = (params: Record<string, any> = {}) => {
   return get(`/admin/bookings/disputes${queryString}`);
 };
 
-// Settlement Evidence Detail: GET /api/admin/bookings/:bookingId/settlement
 export const getSettlementDetail = (bookingId: string) => {
   return get(`/admin/bookings/${bookingId}/settlement`);
 };
 
-// Dispute Resolution Actions: POST /api/admin/bookings/:bookingId/resolve-dispute
-// Release to Coach: { action: 'RELEASE_TO_COACH', reason }
-// Refund to Customer: { action: 'REFUND_TO_CUSTOMER', reason, policyReference }
 export const resolveDispute = (
   bookingId: string,
   payload: { action: 'RELEASE_TO_COACH' | 'REFUND_TO_CUSTOMER'; reason?: string; policyReference?: string }
@@ -435,7 +415,6 @@ export const resolveDispute = (
   return post(`/admin/bookings/${bookingId}/resolve-dispute`, payload);
 };
 
-// Refund Operations: GET /api/admin/refunds?sourceType=SESSION
 export const getAdminRefunds = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams();
   for (const [key, val] of Object.entries(params)) {
@@ -459,7 +438,6 @@ export const reconcileRefund = (id: string, data: any = {}) => {
   return post(`/admin/refunds/${id}/reconcile`, data);
 };
 
-// ── Admin Banners ─────────────────────────────────────────────────────────────
 export const getAdminBanners = (params: { type?: 'coach' | 'player' } = {}) => {
   const q = new URLSearchParams();
   if (params.type) q.append('type', params.type);
@@ -492,5 +470,4 @@ export const deleteAdminBanner = (id: string) => del(`/admin/banners/${id}`);
 
 export const reorderAdminBanners = (banners: Array<{ id: string; order: number }>) =>
   put('/admin/banners/reorder', { banners });
-
 

@@ -21,7 +21,7 @@ export default function Navbar({
         setLogoSrc(secureLogo);
       }
     } catch (e) {
-      // Fallback to default bundled logo
+
     }
   }, []);
 
@@ -229,3 +229,4 @@ export default function Navbar({
     </header>
   );
 }
+

@@ -12,7 +12,7 @@ export class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Caught by ErrorBoundary without polluting client console
+
   }
 
   handleReset = () => {
@@ -53,7 +53,7 @@ export class ErrorBoundary extends Component {
             }}>
               <AlertTriangle size={32} />
             </div>
-            
+
             <div>
               <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '12px' }}>
                 Something went wrong
@@ -63,7 +63,7 @@ export class ErrorBoundary extends Component {
               </p>
             </div>
 
-            <button 
+            <button
               onClick={this.handleReset}
               className="btn btn-primary"
               style={{ width: '100%' }}
@@ -79,3 +79,4 @@ export class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
+

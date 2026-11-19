@@ -1,4 +1,3 @@
-// Base URL configuration for Arenova API (Production backend: https://api.getarenova.com)
 const rawBase = (import.meta.env.VITE_API_BASE_URL || 'https://api.getarenova.com').trim().replace(/\/+$/, '');
 const BASE_URL = (() => {
   if (!rawBase || rawBase === '/api') {
@@ -7,8 +6,6 @@ const BASE_URL = (() => {
   return rawBase.endsWith('/api') ? rawBase.slice(0, -4) : rawBase;
 })();
 
-// Helper to normalize any legacy media/banner URLs from the database
-// Converts to absolute https://api.getarenova.com/api/media/... paths
 const normalizeMediaUrls = (data) => {
   if (!data || typeof data !== 'object') return data;
   if (Array.isArray(data)) return data.map(normalizeMediaUrls);
@@ -29,8 +26,6 @@ const normalizeMediaUrls = (data) => {
   return normalized;
 };
 
-
-// Local storage helpers for auth state
 const STORAGE_KEYS = {
   TOKEN: 'arenova_auth_token',
   REFRESH_TOKEN: 'arenova_refresh_token',
@@ -47,7 +42,6 @@ export const getStoredAuth = () => {
     user = null;
   }
 
-  // Fallback to resolve user ID from JWT token claims if missing in stored user object
   if (token && (!user || (!user._id && !user.id))) {
     try {
       if (token.includes('.')) {
@@ -65,7 +59,7 @@ export const getStoredAuth = () => {
         }
       }
     } catch (e) {
-      // Decode fallback
+
     }
   }
 
@@ -87,7 +81,7 @@ export const setStoredAuth = (token, refreshToken, user) => {
         const decoded = JSON.parse(atob(token.split('.')[1]));
         resolvedId = decoded.id || decoded._id || decoded.userId || decoded.sub || decoded.novareUserId;
       } catch (e) {
-        // Fallback
+
       }
     }
 
@@ -110,17 +104,15 @@ export const clearStoredAuth = () => {
   localStorage.removeItem('arenova_permanent_uid');
 };
 
-// Immediate cleanup of obsolete dummy registration caches
 if (typeof window !== 'undefined') {
   try {
     localStorage.removeItem('arenova_confirmed_registrations');
     localStorage.removeItem('arenova_permanent_uid');
   } catch (e) {
-    // Ignore storage access errors
+
   }
 }
 
-// Helper for fetch with Authorization headers and user-friendly error formatting
 const request = async (endpoint, options = {}) => {
   const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
   const isPublicAuthEndpoint =
@@ -130,7 +122,7 @@ const request = async (endpoint, options = {}) => {
     endpoint.includes('/auth/coach/verify-otp') ||
     endpoint.includes('/auth/register') ||
     endpoint.includes('/auth/verify-email-otp');
-  
+
   const method = (options.method || 'GET').toUpperCase();
   const hasBody = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
@@ -154,7 +146,7 @@ const request = async (endpoint, options = {}) => {
       headers,
     });
   } catch (netErr) {
-    // If browser experiences a transient network interface switch or connection reset (ERR_NETWORK_CHANGED), retry once
+
     await new Promise(r => setTimeout(r, 400));
     try {
       response = await fetch(requestUrl, {
@@ -174,7 +166,6 @@ const request = async (endpoint, options = {}) => {
       console.error(`[ARENOVA API ERROR] ${response.status} ${requestUrl}:`, errorData);
       const rawText = typeof errorData === 'string' ? errorData : JSON.stringify(errorData);
 
-      // Distinguish between actual tournament category duplicate vs email/phone duplicate
       if (
         (rawText.includes('E11000') || rawText.toLowerCase().includes('duplicate key')) &&
         (rawText.includes('novareregistrations') || rawText.includes('categoryName'))
@@ -196,7 +187,7 @@ const request = async (endpoint, options = {}) => {
         errorMessage = typeof errorData.error === 'string' ? errorData.error : (errorData.error.message || errorMessage);
       }
     } catch (e) {
-      // Ignored
+
     }
 
     const err = new Error(errorMessage);
@@ -210,7 +201,7 @@ const request = async (endpoint, options = {}) => {
 };
 
 export const api = {
-  // Current User Profile (Database Direct)
+
   getCurrentUser: async () => {
     try {
       const res = await request('/api/users/me');
@@ -239,14 +230,13 @@ export const api = {
     }
   },
 
-  // Tournaments
   getTournaments: async (params = {}) => {
     const query = new URLSearchParams();
     if (params.sport) query.append('sport', params.sport);
     if (params.city) query.append('city', params.city);
     if (params.page) query.append('page', params.page);
     if (params.limit) query.append('limit', params.limit);
-    
+
     const queryString = query.toString() ? `?${query.toString()}` : '';
     return request(`/api/novare/tournaments${queryString}`);
   },
@@ -255,7 +245,6 @@ export const api = {
     return request(`/api/novare/tournaments/${id}`);
   },
 
-  // Player & Parent Authentication (Unified Identity System)
   registerEmail: async ({ firstName, lastName, role, phone, email, password }) => {
     return request('/api/auth/register', {
       method: 'POST',
@@ -274,7 +263,6 @@ export const api = {
     return data;
   },
 
-  // Phone Authentication: Player / Parent (with purpose: "register" | "login")
   sendPhoneOtp: async (phoneOrPayload, purposeParam = 'login') => {
     let phone, purpose;
     if (typeof phoneOrPayload === 'object' && phoneOrPayload !== null) {
@@ -292,7 +280,7 @@ export const api = {
   },
 
   verifyPhoneOtp: async (payload) => {
-    // payload: { phone, otp, purpose, firstName, lastName, role }
+
     const purpose = payload.purpose || 'login';
     const body = {
       phone: String(payload.phone).trim(),
@@ -313,7 +301,6 @@ export const api = {
     return data;
   },
 
-  // Phone Authentication: Coach (with purpose: "register" | "login")
   sendCoachOtp: async (phoneOrPayload, purposeParam = 'login') => {
     let phone, purpose;
     if (typeof phoneOrPayload === 'object' && phoneOrPayload !== null) {
@@ -331,7 +318,7 @@ export const api = {
   },
 
   verifyCoachOtp: async (payload) => {
-    // payload: { phone, otp, purpose, name, sports }
+
     const purpose = payload.purpose || 'login';
     const body = {
       phone: String(payload.phone).trim(),
@@ -363,7 +350,7 @@ export const api = {
   },
 
   updateUserProfile: async (profileData) => {
-    // If updating email, route via /api/auth/complete-profile since /api/users/me only handles non-sensitive fields
+
     if (profileData.email) {
       return api.completeProfile(profileData);
     }
@@ -385,13 +372,12 @@ export const api = {
     return data;
   },
 
-  // Legacy fallback
   syncUser: async (idToken) => {
     const data = await request('/api/novare/auth/sync', {
       method: 'POST',
       body: JSON.stringify({ idToken }),
     });
-    
+
     if (data.success && data.token) {
       setStoredAuth(data.token, data.refreshToken, data.data || {});
     }
@@ -399,7 +385,7 @@ export const api = {
   },
 
   completeProfile: async (payload) => {
-    // Backend endpoint: PUT /api/auth/complete-profile { firstName, lastName, email, address }
+
     const cleanPayload = {
       firstName: payload.firstName,
       lastName: payload.lastName,
@@ -414,7 +400,7 @@ export const api = {
         body: JSON.stringify(cleanPayload),
       });
     } catch (authErr) {
-      // If complete-profile endpoint fails, fallback to PUT /api/users/me (non-sensitive profile fields)
+
       const userPayload = {
         firstName: payload.firstName,
         lastName: payload.lastName,
@@ -447,9 +433,8 @@ export const api = {
     return data;
   },
 
-  // Registrations
   registerForTournament: async (id, registrationData) => {
-    // registrationData: { categoryName, partnerUserId, partnerName, partnerPhone, teamName, teamMembers: [{ name, phone, role }], playerName, playerEmail, playerPhone }
+
     return request(`/api/novare/tournaments/${id}/register`, {
       method: 'POST',
       body: JSON.stringify(registrationData),
@@ -467,7 +452,7 @@ export const api = {
   },
 
   getMyRegistrations: async () => {
-    // Pure backend database fetch - returns confirmed registrations directly from MongoDB
+
     const res = await request('/api/novare/registrations/my');
     let list = [];
     if (Array.isArray(res)) {
@@ -491,16 +476,14 @@ export const api = {
     return request(`/api/novare/registrations/${id}`);
   },
 
-  // Enquiries
   submitEnquiry: async (enquiryData) => {
-    // enquiryData: { firstName, lastName, email, company, serviceInterestedIn, message }
+
     return request('/api/novare/enquiries', {
       method: 'POST',
       body: JSON.stringify(enquiryData),
     });
   },
 
-  // Invoices (https://api.getarenova.com/api-docs/#/Invoices)
   getMyInvoices: async (params = {}) => {
     const query = new URLSearchParams();
     if (params.type) query.append('type', params.type);
@@ -534,3 +517,4 @@ export const api = {
     return request(`/api/invoices/${id}/download`);
   },
 };
+

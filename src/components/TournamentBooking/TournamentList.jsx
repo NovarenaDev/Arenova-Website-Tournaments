@@ -11,6 +11,30 @@ const SPORT_IMAGES = {
   tennis: badmintonImg
 };
 
+const isTournamentClosed = (t) => {
+  if (t?.isRegistrationOpen === false || t?.registrationOpen === false) {
+    return true;
+  }
+  const status = String(t?.status || '').toUpperCase().trim();
+  const regStatus = String(t?.registrationStatus || '').toUpperCase().trim();
+  if (['COMPLETED', 'CANCELLED', 'CANCELED', 'CLOSED', 'REGISTRATION_CLOSED', 'DRAFT'].includes(status)) {
+    return true;
+  }
+  if (['CLOSED', 'ENDED', 'EXPIRED'].includes(regStatus)) {
+    return true;
+  }
+  const now = Date.now();
+  if (t?.registrationEndDate) {
+    const regEnd = new Date(t.registrationEndDate).getTime();
+    if (!isNaN(regEnd) && regEnd < now) return true;
+  }
+  if (t?.endDate) {
+    const end = new Date(t.endDate).getTime();
+    if (!isNaN(end) && end < now) return true;
+  }
+  return false;
+};
+
 export default function TournamentList({
   tournaments,
   loading,
@@ -21,10 +45,11 @@ export default function TournamentList({
   setSelectedSport
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('open');
 
   const sports = ['All', 'Badminton', 'Pickleball', 'Cricket', 'Basketball'];
 
-  const filteredTournaments = (tournaments || []).filter((t) => {
+  const baseFiltered = (tournaments || []).filter((t) => {
     const matchesSearch =
       (t.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (t.city || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -38,9 +63,34 @@ export default function TournamentList({
     return matchesSearch && matchesSport;
   });
 
+  const openTournaments = baseFiltered.filter((t) => !isTournamentClosed(t));
+  const closedTournaments = baseFiltered.filter((t) => isTournamentClosed(t));
+  const effectiveTab = closedTournaments.length === 0 ? 'open' : activeTab;
+  const filteredTournaments = effectiveTab === 'open' ? openTournaments : closedTournaments;
+
   return (
     <div className="tournament-explorer">
-      {/* Search & Filter Bar */}
+      {closedTournaments.length > 0 && (
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '18px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`filter-btn ${effectiveTab === 'open' ? 'active' : ''}`}
+            onClick={() => setActiveTab('open')}
+            style={{ padding: '10px 18px', fontSize: '14px', fontWeight: '700' }}
+          >
+            Open & Live ({openTournaments.length})
+          </button>
+          <button
+            type="button"
+            className={`filter-btn ${effectiveTab === 'closed' ? 'active' : ''}`}
+            onClick={() => setActiveTab('closed')}
+            style={{ padding: '10px 18px', fontSize: '14px', fontWeight: '700' }}
+          >
+            Closed / Past ({closedTournaments.length})
+          </button>
+        </div>
+      )}
+
       <div className="tournament-filter-bar">
         <div className="search-input-wrap">
           <span className="search-icon">🔍</span>
@@ -67,7 +117,6 @@ export default function TournamentList({
         </div>
       </div>
 
-      {/* Loading state */}
       {loading && (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
           <div style={{ fontSize: '32px', marginBottom: '12px' }}>⏳</div>
@@ -75,7 +124,6 @@ export default function TournamentList({
         </div>
       )}
 
-      {/* Error state */}
       {!loading && error && filteredTournaments.length === 0 && (
         <div
           style={{
@@ -102,7 +150,6 @@ export default function TournamentList({
         </div>
       )}
 
-      {/* Empty state */}
       {!loading && !error && filteredTournaments.length === 0 && (
         <div
           style={{
@@ -123,13 +170,11 @@ export default function TournamentList({
         </div>
       )}
 
-      {/* Grid of tournaments */}
       {!loading && filteredTournaments.length > 0 && (
         <div className="tournaments-grid">
           {filteredTournaments.map((tournament) => {
             const sportKey = (tournament.sport || 'badminton').toLowerCase();
-            
-            // Tournament banner resolution - keep same-origin relative /api/media/... to avoid CORP errors
+
             let rawBanner = tournament.banner ||
               tournament.bannerImage ||
               tournament.image ||
@@ -151,7 +196,6 @@ export default function TournamentList({
 
             const dateRange = endDate && endDate !== startDate ? `${startDate} - ${endDate}` : startDate;
 
-            // Extract category fee from backend response
             const categoryFees = (tournament.categories || [])
               .map((c) => (typeof c === 'object' && typeof c.fee === 'number' ? c.fee : null))
               .filter((f) => f !== null);
@@ -186,24 +230,31 @@ export default function TournamentList({
                       e.target.src = SPORT_IMAGES[sportKey] || badmintonImg;
                     }}
                   />
-                  {tournament.status && (
-                    <span
-                      style={{
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        background: tournament.status.toUpperCase() === 'PUBLISHED' ? '#edf7d9' : '#fff',
-                        color: tournament.status.toUpperCase() === 'PUBLISHED' ? '#4b6e15' : 'var(--ink)',
-                        fontSize: '10px',
-                        fontWeight: '800',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
-                        letterSpacing: '0.05em'
-                      }}
-                    >
-                      {tournament.status.toUpperCase()}
-                    </span>
-                  )}
+                  {(() => {
+                    const closed = isTournamentClosed(tournament);
+                    const rawStatus = (tournament.status || 'PUBLISHED').toUpperCase();
+                    const badgeLabel = closed
+                      ? (['COMPLETED', 'CANCELLED', 'CANCELED'].includes(rawStatus) ? rawStatus : 'CLOSED')
+                      : rawStatus;
+                    return (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: '12px',
+                          right: '12px',
+                          background: closed ? '#fee2e2' : (rawStatus === 'PUBLISHED' ? '#edf7d9' : '#fff'),
+                          color: closed ? '#b91c1c' : (rawStatus === 'PUBLISHED' ? '#4b6e15' : 'var(--ink)'),
+                          fontSize: '10px',
+                          fontWeight: '800',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          letterSpacing: '0.05em'
+                        }}
+                      >
+                        {badgeLabel}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <div className="tournament-card-body">
@@ -228,10 +279,10 @@ export default function TournamentList({
                       </div>
                     )}
                     {tournament.registrationEndDate && (
-                      <div style={{ color: '#b45309', fontSize: '12px', fontWeight: '600' }}>
+                      <div style={{ color: isTournamentClosed(tournament) ? '#b91c1c' : '#b45309', fontSize: '12px', fontWeight: '600' }}>
                         <span>⏰</span>
                         <span>
-                          Registration Closes: {new Date(tournament.registrationEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {isTournamentClosed(tournament) ? 'Registration Closed:' : 'Registration Closes:'} {new Date(tournament.registrationEndDate).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
                         </span>
                       </div>
                     )}
@@ -243,13 +294,29 @@ export default function TournamentList({
                       <strong>{displayFee}</strong>
                     </div>
 
-                    <button
-                      className="btn btn-primary"
-                      style={{ padding: '10px 18px', fontSize: '13px' }}
-                      onClick={() => onSelectTournament(tournament)}
-                    >
-                      View & Register →
-                    </button>
+                    {isTournamentClosed(tournament) ? (
+                      <span
+                        style={{
+                          padding: '9px 14px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          borderRadius: '8px',
+                          background: '#f1f5f9',
+                          color: '#64748b',
+                          border: '1px solid #e2e8f0'
+                        }}
+                      >
+                        Registration Closed
+                      </span>
+                    ) : (
+                      <button
+                        className="btn btn-primary"
+                        style={{ padding: '10px 18px', fontSize: '13px' }}
+                        onClick={() => onSelectTournament(tournament)}
+                      >
+                        View & Register →
+                      </button>
+                    )}
                   </div>
                 </div>
               </article>
@@ -260,3 +327,4 @@ export default function TournamentList({
     </div>
   );
 }
+

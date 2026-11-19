@@ -183,7 +183,7 @@ export default function BookingsPage() {
 
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
-      {/* Stat cards */}
+
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard label="Total Bookings"  value={String(stats.total)}     sub="All recorded sessions"  icon={<CalendarDays className="h-4 w-4 text-[#F05A22]" />}  iconBg="bg-[#F05A22]/10" subColor="text-slate-600" />
         <StatCard label="Pending Action"  value={String(stats.pending)}   sub="Requested & accepted"   icon={<Clock        className="h-4 w-4 text-amber-500" />}  iconBg="bg-amber-50"     subColor="text-amber-600" />
@@ -287,3 +287,4 @@ export default function BookingsPage() {
     </div>
   );
 }
+

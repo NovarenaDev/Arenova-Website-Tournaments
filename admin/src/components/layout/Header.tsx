@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Bell, Download, Calendar, Menu, Trash2, CheckSquare } from 'lucide-react';
-import { getMyNotifications, markAllNotificationsRead, deleteNotification } from '../../api';
+import { getMyNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification } from '../../api';
 import { clsx } from 'clsx';
 
 const TITLES: Record<string, string> = {
@@ -19,8 +19,9 @@ const TITLES: Record<string, string> = {
   '/tournaments': 'Tournaments',
   '/community':   'Community Centers',
   '/venues':      'Venues',
-  '/banners':     'App Banners Management',
-  '/admins':      'Admin Management',
+  '/banners':       'App Banners Management',
+  '/notifications': 'Push Notifications & Broadcasts',
+  '/admins':        'Admin Management',
   '/audit-logs':  'Admin Activity / Audit Logs',
   '/enquiries':   'Customer Enquiries',
   '/settings':    'Settings',
@@ -33,24 +34,90 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [todayOnly, setTodayOnly] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setTodayOnly(false);
+  }, [location.pathname]);
+
+  const READ_IDS_KEY = 'kridext_admin_read_notifs';
+  const READ_ALL_TS_KEY = 'kridext_admin_read_all_ts';
+  const DISMISSED_IDS_KEY = 'kridext_admin_dismissed_notifs';
+
+  const getLocalReadState = () => {
+    try {
+      const ids = JSON.parse(localStorage.getItem(READ_IDS_KEY) || '[]');
+      const dismissed = JSON.parse(localStorage.getItem(DISMISSED_IDS_KEY) || '[]');
+      const allTs = Number(localStorage.getItem(READ_ALL_TS_KEY) || '0');
+      return {
+        ids: new Set<string>(Array.isArray(ids) ? ids : []),
+        dismissed: new Set<string>(Array.isArray(dismissed) ? dismissed : []),
+        allTs
+      };
+    } catch {
+      return { ids: new Set<string>(), dismissed: new Set<string>(), allTs: 0 };
+    }
+  };
 
   const loadNotifications = async () => {
     try {
       const res = await getMyNotifications();
       const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      const seen = new Set<string>();
-      const unique = [];
+      const { ids: localReadIds, dismissed: localDismissedIds, allTs } = getLocalReadState();
+
+      const seenIds = new Set<string>();
+      const byId: any[] = [];
       for (const item of raw) {
         const id = item?.id || item?._id;
-        if (id && !seen.has(String(id))) {
-          seen.add(String(id));
-          unique.push(item);
-        } else if (!id) {
-          unique.push(item);
+        const contentKey = `${(item.title || '').trim()}||${(item.body || item.message || '').trim()}`;
+        if (id && localDismissedIds.has(String(id))) continue;
+        if (localDismissedIds.has(contentKey)) continue;
+        if (id && seenIds.has(String(id))) continue;
+        if (id) seenIds.add(String(id));
+
+        const createdMs = item?.createdAt ? new Date(item.createdAt).getTime() : 0;
+        const isBackendRead = Boolean(item.read ?? item.isRead);
+        const isLocalRead =
+          (id && localReadIds.has(String(id))) ||
+          localReadIds.has(contentKey) ||
+          (allTs > 0 && (createdMs === 0 || createdMs <= allTs));
+
+        if (isBackendRead || isLocalRead) continue;
+
+        byId.push({
+          ...item,
+          id: id || `${item.title}-${item.createdAt || Math.random()}`,
+          contentKey,
+          read: false,
+        });
+      }
+
+      const contentMap = new Map<string, any>();
+      for (const item of byId) {
+        const existing = contentMap.get(item.contentKey);
+        if (!existing) {
+          contentMap.set(item.contentKey, {
+            ...item,
+            body: item.body || item.message || '',
+            duplicateIds: item._id || item.id ? [String(item._id || item.id)] : [],
+          });
+        } else {
+          if (item._id || item.id) existing.duplicateIds.push(String(item._id || item.id));
+          const existingTs = existing.createdAt ? new Date(existing.createdAt).getTime() : 0;
+          const itemTs = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+          if (itemTs > existingTs) existing.createdAt = item.createdAt;
+          existing.read = existing.read && item.read;
         }
       }
-      setNotifications(unique);
+
+      const deduped = Array.from(contentMap.values()).sort((a, b) => {
+        const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return tb - ta;
+      });
+
+      setNotifications(deduped);
     } catch {
       setNotifications([]);
     }
@@ -58,9 +125,19 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
   useEffect(() => {
     loadNotifications();
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadNotifications();
+      }
+    }, 30000);
+    const onFocus = () => loadNotifications();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
-  // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -71,22 +148,64 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleMarkAllRead = async () => {
+  const handleMarkOneRead = async (n: any) => {
+    const id = n.id || n._id;
+    const allIds: string[] = Array.isArray(n.duplicateIds) && n.duplicateIds.length ? n.duplicateIds : (id ? [String(id)] : []);
+    setNotifications(prev => prev.filter(item => (item.id || item._id) !== id));
     try {
-      await markAllNotificationsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    } catch {
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      const { ids } = getLocalReadState();
+      allIds.forEach(dId => ids.add(dId));
+      if (n.contentKey) ids.add(n.contentKey);
+      localStorage.setItem(READ_IDS_KEY, JSON.stringify(Array.from(ids).slice(-200)));
+    } catch {}
+    for (const dId of allIds.slice(0, 5)) {
+      markNotificationRead(dId).catch(() => {});
     }
   };
 
-  const handleDeleteNotification = async (id: string) => {
+  const handleMarkAllRead = async () => {
+    const current = notifications;
+    setNotifications([]);
     try {
-      await deleteNotification(id);
-      setNotifications(prev => prev.filter(n => n.id !== id));
+      localStorage.setItem(READ_ALL_TS_KEY, String(Date.now()));
+      const { ids } = getLocalReadState();
+      current.forEach(n => {
+        if (n.contentKey) ids.add(n.contentKey);
+        (n.duplicateIds || []).forEach((dId: string) => ids.add(dId));
+      });
+      localStorage.setItem(READ_IDS_KEY, JSON.stringify(Array.from(ids).slice(-200)));
+    } catch {}
+    try {
+      await markAllNotificationsRead();
     } catch {
-      setNotifications(prev => prev.filter(n => n.id !== id));
+
     }
+  };
+
+  const handleDeleteNotification = async (e: React.MouseEvent, n: any) => {
+    e.stopPropagation();
+    const id = n.id || n._id;
+    const allIds: string[] = Array.isArray(n.duplicateIds) && n.duplicateIds.length ? n.duplicateIds : (id ? [String(id)] : []);
+    setNotifications(prev => prev.filter(item => (item.id || item._id) !== id));
+    try {
+      const { dismissed } = getLocalReadState();
+      allIds.forEach(dId => dismissed.add(dId));
+      if (n.contentKey) dismissed.add(n.contentKey);
+      localStorage.setItem(DISMISSED_IDS_KEY, JSON.stringify(Array.from(dismissed).slice(-200)));
+    } catch {}
+    for (const dId of allIds.slice(0, 5)) {
+      deleteNotification(dId).catch(() => {});
+    }
+  };
+
+  const handleToggleToday = () => {
+    const next = !todayOnly;
+    setTodayOnly(next);
+    window.dispatchEvent(new CustomEvent('arenova:today-filter', { detail: { active: next } }));
+  };
+
+  const handleExportClick = () => {
+    window.dispatchEvent(new CustomEvent('arenova:export', { detail: { path: location.pathname } }));
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -104,19 +223,40 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         <span className="h-4 w-1 rounded-full bg-[#F05A22] inline-block hidden md:inline-block flex-shrink-0" />
         <h1 className="text-sm font-bold text-slate-900 truncate">{title}</h1>
       </div>
-      
+
       <div className="flex items-center gap-2 flex-shrink-0">
-        <button className="hidden sm:flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer">
-          <Calendar className="h-3 w-3 text-slate-400" />Today
+        <button
+          type="button"
+          onClick={handleToggleToday}
+          title={todayOnly ? 'Showing today only (click to reset)' : 'Filter records for today'}
+          className={clsx(
+            'hidden sm:flex h-8 items-center gap-1.5 rounded-xl border px-3 text-[11px] font-medium transition-colors cursor-pointer',
+            todayOnly
+              ? 'border-[#F05A22] bg-orange-50 text-[#F05A22] font-semibold'
+              : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          )}
+        >
+          <Calendar className={clsx('h-3 w-3', todayOnly ? 'text-[#F05A22]' : 'text-slate-400')} />
+          {todayOnly ? 'Today (Active)' : 'Today'}
         </button>
-        <button className="hidden sm:flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer">
+        <button
+          type="button"
+          onClick={handleExportClick}
+          title="Export current view to CSV"
+          className="hidden sm:flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+        >
           <Download className="h-3 w-3 text-slate-400" />Export
         </button>
-        
-        {/* Notifications Dropdown Bell */}
+
         <div className="relative" ref={dropdownRef}>
           <button
-            onClick={() => setShowNotifications(prev => !prev)}
+            type="button"
+            aria-label="Notifications"
+            onClick={() => {
+              const next = !showNotifications;
+              setShowNotifications(next);
+              if (next) loadNotifications();
+            }}
             className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
           >
             <Bell className="h-3.5 w-3.5" />
@@ -125,13 +265,15 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             )}
           </button>
 
-          {/* Notifications Dropdown Panel */}
           {showNotifications && (
             <div className="absolute right-0 top-[42px] z-50 w-[calc(100vw-1.5rem)] sm:w-80 max-w-sm rounded-2xl border border-slate-200 bg-white p-4 shadow-xl space-y-3">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <span className="text-xs font-bold text-slate-900">Notifications ({unreadCount} new)</span>
+                <span className="text-xs font-bold text-slate-900">
+                  Notifications {unreadCount > 0 ? `(${unreadCount} new)` : ''}
+                </span>
                 {unreadCount > 0 && (
                   <button
+                    type="button"
                     onClick={handleMarkAllRead}
                     className="text-[10px] font-semibold text-[#F05A22] hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0"
                   >
@@ -145,22 +287,27 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                   <p className="text-[11px] text-slate-400 italic text-center py-4">No notifications</p>
                 ) : (
                   notifications.map(n => (
-                    <div key={n.id} className={clsx(
-                      "flex items-start gap-2.5 p-2 rounded-lg border text-left relative group transition-colors",
-                      n.read ? "bg-white border-[#e5e7eb]" : "bg-[#FFF0E6]/20 border-[#FFD2B8]"
-                    )}>
+                    <div
+                      key={n.id || n._id}
+                      onClick={() => handleMarkOneRead(n)}
+                      className={clsx(
+                        "flex items-start gap-2.5 p-2 rounded-lg border text-left relative group transition-colors cursor-pointer",
+                        n.read ? "bg-white border-[#e5e7eb] hover:bg-slate-50" : "bg-[#FFF0E6]/30 border-[#FFD2B8] hover:bg-[#FFF0E6]/50"
+                      )}
+                    >
                       {!n.read && (
                         <span className="h-1.5 w-1.5 rounded-full bg-[#F05A22] mt-1.5 flex-shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-[#111827] leading-snug">{n.title}</p>
+                        <p className={clsx("text-[11px] leading-snug", n.read ? "font-medium text-[#374151]" : "font-bold text-[#111827]")}>{n.title}</p>
                         <p className="text-[10px] text-[#4b5563] mt-0.5 leading-relaxed">{n.body}</p>
                         <span className="text-[8px] text-[#5c6370] block mt-1 font-mono">
-                          {new Date(n.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                          {n.createdAt ? new Date(n.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}
                         </span>
                       </div>
                       <button
-                        onClick={() => handleDeleteNotification(n.id)}
+                        type="button"
+                        onClick={(e) => handleDeleteNotification(e, n)}
                         className="text-[#5c6370] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 bg-transparent border-0 cursor-pointer self-start"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -176,3 +323,4 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
     </header>
   );
 }
+

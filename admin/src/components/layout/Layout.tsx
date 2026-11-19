@@ -25,7 +25,7 @@ export function Layout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 relative">
-      {/* Mobile Sidebar Backdrop */}
+
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden"
@@ -33,11 +33,10 @@ export function Layout() {
         />
       )}
 
-      {/* Responsive Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        {/* Header with hamburger toggle */}
+
         <Header onMenuClick={() => setSidebarOpen(prev => !prev)} />
         {rateLimited && (
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-xs text-amber-800 flex items-center justify-between">
@@ -65,3 +64,4 @@ export function ProtectedRoute({ permission }: { permission: Permission }) {
   }
   return <Outlet />;
 }
+

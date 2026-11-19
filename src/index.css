@@ -724,17 +724,19 @@ img {
   background: none;
   border: none;
   text-align: left;
-  color: #c5c9ce;
+  color: #475569;
   font-size: 14px;
+  font-weight: 500;
   margin: 9px 0;
   cursor: pointer;
   padding: 0;
-  transition: color 0.15s;
+  transition: color 0.15s ease;
 }
 
 .footer-grid > div:not(:first-child) a:hover,
 .footer-grid > div:not(:first-child) button:hover {
-  color: #ffffff;
+  color: #f05a22;
+  text-decoration: underline;
 }
 
 .footer-bottom {

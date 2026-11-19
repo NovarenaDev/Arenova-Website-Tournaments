@@ -16,7 +16,6 @@ import WhatsAppButton from './components/WhatsAppButton';
 import SEOHead from './components/SEOHead';
 import { api, getStoredAuth, clearStoredAuth } from './utils/api';
 
-// Parse current URL path for direct access without login
 const parseRouteFromLocation = () => {
   const path = window.location.pathname.toLowerCase().replace(/\/$/, '') || '/';
   if (path === '/contact') {
@@ -64,7 +63,6 @@ export default function App() {
   const [loadingTournaments, setLoadingTournaments] = useState(false);
   const [tournamentsError, setTournamentsError] = useState('');
 
-  // Centralized navigation that keeps browser URL and history in sync
   const navigateTo = (target, customDocType = null) => {
     let newPage = target;
     let newDocType = customDocType;
@@ -117,7 +115,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Sync state on browser Back / Forward buttons
   useEffect(() => {
     const handlePopState = () => {
       const route = parseRouteFromLocation();
@@ -131,7 +128,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Fetch tournaments from API - strictly backend data without any mock/duplicate fallback
   const fetchTournaments = async () => {
     setLoadingTournaments(true);
     setTournamentsError('');
@@ -156,7 +152,7 @@ export default function App() {
       };
 
       const rawList = extractList(data);
-      // Strictly deduplicate by ID so no tournament ever appears twice
+
       const seen = new Set();
       const uniqueList = [];
       for (const t of rawList) {
@@ -179,19 +175,19 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Clear any stale mock tokens and dummy registration caches
+
     try {
       localStorage.removeItem('arenova_confirmed_registrations');
       localStorage.removeItem('arenova_permanent_uid');
     } catch (e) {
-      // Ignore storage access errors
+
     }
     const currentAuth = getStoredAuth();
     if (currentAuth?.token && (!currentAuth.token.includes('.') || currentAuth.token.startsWith('mock_') || currentAuth.token.startsWith('arenova_token_'))) {
       clearStoredAuth();
       setAuthObj(getStoredAuth());
     } else if (currentAuth?.token) {
-      // Always sync live user profile from database on load
+
       api.getCurrentUser().then(res => {
         const userData = res?.data || res?.user || res;
         if (userData && (userData._id || userData.id || userData.phone || userData.email)) {
@@ -333,3 +329,4 @@ export default function App() {
     </div>
   );
 }
+

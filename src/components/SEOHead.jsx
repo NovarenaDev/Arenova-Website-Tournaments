@@ -103,7 +103,7 @@ const SEO_CONFIGS = {
     title: 'My Profile & Tournament Bookings | Arenova',
     description: 'View your tournament registrations, tickets, payment receipts, and profile settings on Arenova.',
     path: '/dashboard',
-    noIndex: true, // Do not index private user dashboard
+    noIndex: true,
     breadcrumbs: []
   }
 };
@@ -120,10 +120,8 @@ export default function SEOHead({ activePage, legalDocType = 'terms' }) {
     const config = SEO_CONFIGS[configKey] || SEO_CONFIGS.home;
     const fullUrl = `${SITE_URL}${config.path === '/' ? '' : config.path}`;
 
-    // 1. Update Title
     document.title = config.title;
 
-    // Helper to safely set meta tag attributes
     const setMetaTag = (attribute, attrValue, content) => {
       if (!content) return;
       let el = document.querySelector(`meta[${attribute}="${attrValue}"]`);
@@ -135,7 +133,6 @@ export default function SEOHead({ activePage, legalDocType = 'terms' }) {
       el.setAttribute('content', content);
     };
 
-    // 2. Standard Meta Tags
     setMetaTag('name', 'description', config.description);
     if (config.keywords) {
       setMetaTag('name', 'keywords', config.keywords);
@@ -143,7 +140,6 @@ export default function SEOHead({ activePage, legalDocType = 'terms' }) {
     setMetaTag('name', 'robots', config.noIndex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1');
     setMetaTag('name', 'googlebot', config.noIndex ? 'noindex, nofollow' : 'index, follow');
 
-    // 3. Canonical Tag
     let canonical = document.querySelector('link[rel="canonical"]');
     if (!canonical) {
       canonical = document.createElement('link');
@@ -152,19 +148,16 @@ export default function SEOHead({ activePage, legalDocType = 'terms' }) {
     }
     canonical.setAttribute('href', fullUrl);
 
-    // 4. Open Graph Tags
     setMetaTag('property', 'og:title', config.title);
     setMetaTag('property', 'og:description', config.description);
     setMetaTag('property', 'og:url', fullUrl);
     setMetaTag('property', 'og:image', DEFAULT_IMAGE);
 
-    // 5. Twitter Card Tags
     setMetaTag('name', 'twitter:title', config.title);
     setMetaTag('name', 'twitter:description', config.description);
     setMetaTag('name', 'twitter:url', fullUrl);
     setMetaTag('name', 'twitter:image', DEFAULT_IMAGE);
 
-    // 6. Dynamic Breadcrumbs Structured Data (JSON-LD)
     const existingBreadcrumb = document.getElementById('schema-breadcrumbs');
     if (existingBreadcrumb) {
       existingBreadcrumb.remove();
@@ -192,3 +185,4 @@ export default function SEOHead({ activePage, legalDocType = 'terms' }) {
 
   return null;
 }
+

@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
 
-/**
- * Minimalist Floating WhatsApp Action Button
- * Direct WhatsApp chat with Arenova customer support: +91 7793934108
- */
 export default function WhatsAppButton() {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -22,10 +18,10 @@ export default function WhatsAppButton() {
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
-        pointerEvents: 'none' // Allow click only on the actual interactive button
+        pointerEvents: 'none'
       }}
     >
-      {/* Sleek minimal hover tooltip */}
+
       <div
         style={{
           background: 'rgba(16, 17, 20, 0.92)',
@@ -47,7 +43,6 @@ export default function WhatsAppButton() {
         Chat with Arenova
       </div>
 
-      {/* Floating Action Button */}
       <a
         href={whatsappUrl}
         target="_blank"
@@ -82,7 +77,7 @@ export default function WhatsAppButton() {
           xmlns="http://www.w3.org/2000/svg"
           style={{ display: 'block' }}
         >
-          {/* Official WhatsApp silhouette */}
+
           <path
             fillRule="evenodd"
             clipRule="evenodd"
@@ -94,3 +89,4 @@ export default function WhatsAppButton() {
     </aside>
   );
 }
+

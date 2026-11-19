@@ -2,15 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { api, getStoredAuth } from '../utils/api';
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
-  // Mode: 'login' | 'register'
+
   const [authMode, setAuthMode] = useState('login');
-  // Method: 'phone' | 'email'
+
   const [authMethod, setAuthMethod] = useState('phone');
-  // Step: 'credentials' | 'otp'
+
   const [authStep, setAuthStep] = useState('credentials');
 
-  // Form Fields
-  const [role, setRole] = useState('player'); // 'player' | 'parent'
+  const [role, setRole] = useState('player');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
@@ -18,13 +17,11 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
 
-  // UI state
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
 
-  // Reset state when modal is opened or closed
   useEffect(() => {
     if (isOpen) {
       setAuthStep('credentials');
@@ -35,7 +32,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     }
   }, [isOpen]);
 
-  // Resend OTP countdown timer
   useEffect(() => {
     if (resendTimer > 0) {
       const interval = setInterval(() => {
@@ -47,7 +43,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
   if (!isOpen) return null;
 
-  // Helper to format phone to string (e.g. 10 digits "9000000001")
   const formatPhoneNumber = (raw) => {
     if (!raw) return '';
     const digits = raw.trim().replace(/\D/g, '');
@@ -73,13 +68,11 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     setOtp('');
   };
 
-  // Step 1: Submit Initial Form (Login or Register Step 1)
   const handleSubmitInitial = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
 
-    // --- REGISTRATION FLOW ---
     if (authMode === 'register') {
       if (!firstName.trim() || !lastName.trim()) {
         setErrorMsg('Please enter your First Name and Last Name.');
@@ -125,7 +118,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           setLoading(false);
         }
       } else {
-        // Phone Registration: Step 1 (Send OTP with purpose: "register")
+
         const cleanPhone = phone.trim().replace(/\D/g, '');
         if (cleanPhone.length < 10) {
           setErrorMsg('Please enter a valid 10-digit mobile number.');
@@ -147,7 +140,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             setErrorMsg(res?.message || 'Failed to send OTP.');
           }
         } catch (err) {
-          // Backend returns 409 if number is already registered
+
           setErrorMsg(err.message || 'Failed to send OTP. This number may already be registered.');
         } finally {
           setLoading(false);
@@ -155,7 +148,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       }
     }
 
-    // --- LOGIN FLOW ---
     if (authMode === 'login') {
       if (authMethod === 'email') {
         if (!email.trim() || !email.includes('@')) {
@@ -179,7 +171,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           setLoading(false);
         }
       } else {
-        // Phone Login: Step 1 (Send OTP with purpose: "login")
+
         const cleanPhone = phone.trim().replace(/\D/g, '');
         if (cleanPhone.length < 10) {
           setErrorMsg('Please enter a valid 10-digit mobile number.');
@@ -201,7 +193,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             setErrorMsg(res?.message || 'Failed to send OTP.');
           }
         } catch (err) {
-          // An unregistered number returns 404: show backend message and do not navigate to OTP
+
           setErrorMsg(err.message || 'Account not found. Please register or check your mobile number.');
         } finally {
           setLoading(false);
@@ -210,7 +202,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     }
   };
 
-  // Step 2: Submit OTP Verification
   const handleSubmitOtp = async (e) => {
     e.preventDefault();
     const cleanOtp = otp.trim().replace(/\D/g, '');
@@ -225,10 +216,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     try {
       if (authMode === 'register') {
         if (authMethod === 'email') {
-          // Verify Email OTP
+
           await api.verifyEmailOtp(email.trim(), cleanOtp);
         } else {
-          // Verify Phone OTP with registration profile payload and purpose: "register"
+
           const formattedPhone = formatPhoneNumber(phone);
           await api.verifyPhoneOtp({
             phone: formattedPhone,
@@ -240,7 +231,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           });
         }
       } else {
-        // Login via Phone: verify phone OTP with purpose: "login"
+
         const formattedPhone = formatPhoneNumber(phone);
         await api.verifyPhoneOtp({
           phone: formattedPhone,
@@ -259,7 +250,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     }
   };
 
-  // Resend OTP handler
   const handleResendOtp = async () => {
     if (resendTimer > 0 || loading) return;
     setErrorMsg('');
@@ -323,12 +313,11 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           position: 'relative'
         }}
       >
-        {/* Close Button */}
+
         <button className="modal-close" onClick={onClose} aria-label="Close">
           ✕
         </button>
 
-        {/* Header / Brand */}
         <div style={{ marginBottom: '22px' }}>
           <div className="eyebrow" style={{ display: 'inline-block', marginBottom: '8px' }}>
             ARENOVA IDENTITY
@@ -358,7 +347,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           </p>
         </div>
 
-        {/* Global Error & Success Alerts */}
         {errorMsg && (
           <div
             style={{
@@ -410,10 +398,9 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           </div>
         )}
 
-        {/* STEP 1: CREDENTIALS (LOGIN / REGISTER) */}
         {authStep === 'credentials' && (
           <div>
-            {/* Mode Switch (Sign In vs Register) Tabs */}
+
             <div
               style={{
                 display: 'flex',
@@ -465,7 +452,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               </button>
             </div>
 
-            {/* Method Switch (Phone vs Email) */}
             <div
               style={{
                 display: 'flex',
@@ -517,12 +503,11 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               </button>
             </div>
 
-            {/* FORM */}
             <form onSubmit={handleSubmitInitial} style={{ display: 'grid', gap: '14px' }}>
-              {/* Registration Upfront Profile Fields */}
+
               {authMode === 'register' && (
                 <>
-                  {/* Role Selector: Player vs Parent */}
+
                   <div>
                     <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--ink)', display: 'block', marginBottom: '6px' }}>
                       Registering As:
@@ -602,7 +587,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                     </div>
                   </div>
 
-                  {/* Name Inputs */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <div>
                       <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--ink)', display: 'block', marginBottom: '4px' }}>
@@ -652,7 +636,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 </>
               )}
 
-              {/* PHONE INPUT (Used in Phone Login, Phone Register, and Email Register) */}
               {(authMethod === 'phone' || (authMode === 'register' && authMethod === 'email')) && (
                 <div>
                   <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--ink)', display: 'block', marginBottom: '4px' }}>
@@ -693,7 +676,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 </div>
               )}
 
-              {/* EMAIL & PASSWORD INPUTS */}
               {authMethod === 'email' && (
                 <>
                   <div>
@@ -744,7 +726,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 </>
               )}
 
-              {/* Action Button */}
               <button
                 type="submit"
                 disabled={loading}
@@ -771,7 +752,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           </div>
         )}
 
-        {/* STEP 2: OTP VERIFICATION */}
         {authStep === 'otp' && (
           <form onSubmit={handleSubmitOtp} style={{ display: 'grid', gap: '16px' }}>
             <div>
@@ -855,3 +835,4 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     </div>
   );
 }
+

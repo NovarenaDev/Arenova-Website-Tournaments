@@ -48,7 +48,7 @@ export default function TournamentDetails({
     : startDate;
 
   const regDeadline = tournament.registrationEndDate
-    ? new Date(tournament.registrationEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    ? new Date(tournament.registrationEndDate).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
     : null;
 
   return (
@@ -155,7 +155,7 @@ export default function TournamentDetails({
             )}
           </div>
 
-          {tournament.rules && (
+          {tournament.rules && String(tournament.rules).trim() !== '' && String(tournament.rules).trim().toLowerCase() !== 'string' && (
             <div>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', marginBottom: '10px' }}>
                 Tournament Rules
@@ -167,7 +167,6 @@ export default function TournamentDetails({
           )}
         </div>
 
-        {/* Sidebar Info Card */}
         <div style={{
           background: 'var(--soft)',
           border: '1px solid var(--line)',
@@ -226,7 +225,6 @@ export default function TournamentDetails({
         </div>
       </div>
 
-      {/* Structured Data: SportsEvent Schema */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -272,3 +270,4 @@ export default function TournamentDetails({
     </div>
   );
 }
+

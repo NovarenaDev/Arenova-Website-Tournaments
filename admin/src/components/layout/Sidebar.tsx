@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import {
   LayoutDashboard, Users, UserCheck, CalendarDays,
   TrendingUp, Star, Trophy, Shield, Settings, LogOut,
-  Medal, MapPin, MessageSquare, Mail, History, Scale, ImageIcon
+  Medal, MapPin, MessageSquare, Mail, History, Scale, ImageIcon, Bell
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLE_LABELS, ROLE_COLORS } from '../../types';
@@ -33,6 +33,7 @@ const NAV: NavItem[] = [
   { href:'/venues',       label:'Venues',         icon:MapPin,          permission:'sports',     group:'Content' },
   { href:'/sports',       label:'Sports',         icon:Trophy,          permission:'sports',     group:'Content' },
   { href:'/banners',      label:'Banners',        icon:ImageIcon,       permission:'sports',     group:'Content' },
+  { href:'/notifications',label:'Notifications',  icon:Bell,            permission:'sports',     group:'Content' },
   { href:'/admins',       label:'Manage Admins',  icon:Shield,          permission:'admins' },
 ];
 
@@ -48,7 +49,6 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
     return n.permission ? hasPermission(n.permission as any) : true;
   });
 
-  // Group items for section labels
   const groups = ['', 'Users', 'Activity', 'Content'];
   const groupLabels: Record<string, string> = {
     'Users': 'USERS',
@@ -61,7 +61,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
       "fixed inset-y-0 left-0 z-50 flex h-screen w-[220px] flex-shrink-0 flex-col border-r border-[#e5e7eb] bg-white transition-transform duration-200 md:static md:translate-x-0",
       isOpen ? "translate-x-0" : "-translate-x-full"
     )}>
-      {/* Logo */}
+
       <div className="flex items-center gap-3 border-b border-[#e5e7eb] px-4 py-[18px]">
         <img src={logo} alt="Arenova Logo" className="h-8 w-auto object-contain flex-shrink-0" />
         <div>
@@ -69,14 +69,12 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
         </div>
       </div>
 
-      {/* Role badge */}
       {admin && (
         <div className="px-4 py-2.5 border-b border-[#e5e7eb]">
           <Badge className={ROLE_COLORS[admin.role]}>{ROLE_LABELS[admin.role]}</Badge>
         </div>
       )}
 
-      {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         {groups.map(group => {
           const items = visibleNav.filter(n => (n.group || '') === group);
@@ -106,7 +104,6 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
         })}
       </nav>
 
-      {/* Footer */}
       <div className="border-t border-[#e5e7eb] px-2 py-3 space-y-0.5">
         {hasPermission('customers') && (
           <Link
@@ -148,3 +145,4 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
     </aside>
   );
 }
+

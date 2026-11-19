@@ -30,7 +30,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 sm:p-6 bg-[#f8fafc] text-slate-900 font-sans">
       <div className="w-full max-w-[420px]">
-        {/* Brand Header */}
+
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-white border border-slate-200/90 shadow-sm p-3 mb-4">
             <img src={logo} alt="Arenova Logo" className="h-full w-full object-contain" />
@@ -39,7 +39,6 @@ export default function LoginPage() {
           <p className="text-xs text-slate-500 mt-1">Sign in to your administrative control panel</p>
         </div>
 
-        {/* Login Card */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-[0_4px_20px_rgba(15,23,42,0.06)] p-6 sm:p-8">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -121,3 +120,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

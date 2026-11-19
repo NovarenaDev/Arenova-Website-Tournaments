@@ -14,7 +14,7 @@ export default function TournamentsPage({
   onViewDashboard,
   initialSubView = 'live'
 }) {
-  // Sub-views: 'overview' (reference tournaments.html), 'live' (dedicated tournament finder), 'details', 'register'
+
   const [subView, setSubView] = useState(initialSubView);
   const [selectedTournament, setSelectedTournament] = useState(null);
   const [selectedSport, setSelectedSport] = useState('');
@@ -25,7 +25,6 @@ export default function TournamentsPage({
     }
   }, [initialSubView]);
 
-  // Payment modal state
   const [paymentData, setPaymentData] = useState(null);
   const [pendingRegister, setPendingRegister] = useState(false);
 
@@ -45,7 +44,6 @@ export default function TournamentsPage({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Automatically continue to registration once authenticated
   useEffect(() => {
     if (authObj?.token && pendingRegister) {
       setPendingRegister(false);
@@ -65,7 +63,7 @@ export default function TournamentsPage({
 
   return (
     <main>
-      {/* 1. Sub-view: Tournament Details */}
+
       {subView === 'details' && selectedTournament && (
         <section className="section" style={{ paddingTop: '40px' }}>
           <div className="container">
@@ -81,7 +79,6 @@ export default function TournamentsPage({
         </section>
       )}
 
-      {/* 2. Sub-view: Registration Form */}
       {subView === 'register' && selectedTournament && (
         <section className="section" style={{ paddingTop: '40px' }}>
           <div className="container">
@@ -97,7 +94,6 @@ export default function TournamentsPage({
         </section>
       )}
 
-      {/* 3. Sub-view: Dedicated Live Tournaments Page (Navigated from Register Now) */}
       {subView === 'live' && (
         <section className="section" style={{ paddingTop: '40px' }}>
           <div className="container">
@@ -139,10 +135,9 @@ export default function TournamentsPage({
         </section>
       )}
 
-      {/* 4. Primary View: Pure tournaments.html showcase with small Register Now navigation button */}
       {subView === 'overview' && (
         <>
-          {/* Reference Page Hero with Right-aligned prominent Register Action */}
+
           <section className="page-hero" style={{ padding: '80px 0 40px' }}>
             <div className="container">
               <div
@@ -154,7 +149,7 @@ export default function TournamentsPage({
                   alignItems: 'center'
                 }}
               >
-                {/* Left: Headline & Introduction */}
+
                 <div>
                   <div className="eyebrow">TOURNAMENTS</div>
                   <h1 style={{ marginBottom: '16px' }}>
@@ -167,7 +162,6 @@ export default function TournamentsPage({
                   </p>
                 </div>
 
-                {/* Right: Prominent, High-Visibility Registration Action Box */}
                 <div
                   style={{
                     background: '#101114',
@@ -253,7 +247,6 @@ export default function TournamentsPage({
             </div>
           </section>
 
-          {/* Supported Categories from Reference HTML with Optimized Vertical Spacing */}
           <section className="section" style={{ paddingTop: '30px', paddingBottom: '70px' }}>
             <div className="container">
               <div className="section-head" style={{ marginBottom: '32px' }}>
@@ -285,7 +278,6 @@ export default function TournamentsPage({
             </div>
           </section>
 
-          {/* Digital Tournament Flow Timeline from Reference HTML */}
           <section className="dark-section">
             <div className="container">
               <div className="eyebrow light">DIGITAL TOURNAMENT FLOW</div>
@@ -321,7 +313,6 @@ export default function TournamentsPage({
         </>
       )}
 
-      {/* Payment & Confirmation Modal */}
       {paymentData && (
         <PaymentModal
           registration={paymentData.registration}
@@ -333,7 +324,7 @@ export default function TournamentsPage({
             setSubView('live');
           }}
           onPaymentComplete={() => {
-            // Completed
+
           }}
           onViewDashboard={() => {
             setPaymentData(null);
@@ -344,3 +335,4 @@ export default function TournamentsPage({
     </main>
   );
 }
+

@@ -38,7 +38,7 @@ export default function ContactPage() {
           firstName = parts[0];
           lastName = parts.slice(1).join(' ');
         } else {
-          lastName = '.'; // Backend requires non-empty string for lastName
+          lastName = '.';
         }
       }
 
@@ -53,7 +53,7 @@ export default function ContactPage() {
         lastName,
         email: formData.email.trim(),
         company: 'Individual / Club',
-        serviceInterestedIn: 'Other', // Backend schema enum constraint: 'Other' is valid
+        serviceInterestedIn: 'Other',
         message: `[Mobile: ${formData.mobile || 'N/A'}] [Interest: ${formData.subject || 'General enquiry'}]\n\n${formData.message.trim()}`
       };
 
@@ -284,3 +284,4 @@ export default function ContactPage() {
     </main>
   );
 }
+

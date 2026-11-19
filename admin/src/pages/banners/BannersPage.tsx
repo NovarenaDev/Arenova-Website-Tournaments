@@ -46,14 +46,12 @@ export default function BannersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [showMobileSimulator, setShowMobileSimulator] = useState(false);
 
-  // Create / Edit Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadError, setUploadError] = useState<string>('');
 
-  // Form Fields
   const [formType, setFormType] = useState<BannerTargetType>('player');
   const [formImageUrl, setFormImageUrl] = useState('');
   const [formLink, setFormLink] = useState('');
@@ -62,17 +60,15 @@ export default function BannersPage() {
   const [formTitle, setFormTitle] = useState('');
   const [createForBoth, setCreateForBoth] = useState(false);
 
-  // Delete Dialog State
   const [deleteConfirm, setDeleteConfirm] = useState<Banner | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Load Banners
   const loadBanners = useCallback(async () => {
     try {
       setLoading(true);
       const res = await getAdminBanners();
       const list = extractDataList<Banner>(res);
-      // Sort by order ascending
+
       const sorted = [...list].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
       setBanners(sorted);
     } catch (err: any) {
@@ -87,13 +83,12 @@ export default function BannersPage() {
     loadBanners();
   }, [loadBanners]);
 
-  // Open Create Modal
   const openCreateModal = () => {
     setEditingBanner(null);
     setFormType(audienceFilter === 'coach' ? 'coach' : 'player');
     setFormImageUrl('');
     setFormLink('');
-    // Suggest next order number
+
     const maxOrder = banners.reduce((max, b) => Math.max(max, Number(b.order) || 0), 0);
     setFormOrder(maxOrder + 1);
     setFormIsActive(true);
@@ -103,7 +98,6 @@ export default function BannersPage() {
     setModalOpen(true);
   };
 
-  // Open Edit Modal
   const openEditModal = (banner: Banner) => {
     setEditingBanner(banner);
     setFormType(banner.type || 'player');
@@ -117,7 +111,6 @@ export default function BannersPage() {
     setModalOpen(true);
   };
 
-  // Handle Image Upload via file picker
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -140,7 +133,6 @@ export default function BannersPage() {
     }
   };
 
-  // Handle Save (Create or Update)
   const handleSaveBanner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formImageUrl.trim()) {
@@ -166,7 +158,7 @@ export default function BannersPage() {
       } else {
         await createAdminBanner(payload);
         if (createForBoth) {
-          // Create the twin banner for the opposite target type
+
           const twinType: BannerTargetType = formType === 'player' ? 'coach' : 'player';
           await createAdminBanner({ ...payload, type: twinType }).catch(() => {});
         }
@@ -181,25 +173,22 @@ export default function BannersPage() {
     }
   };
 
-  // Quick toggle active status
   const handleToggleActive = async (banner: Banner) => {
     const id = banner.id || banner._id;
     if (!id) return;
     const newStatus = !banner.isActive;
 
-    // Optimistic UI update
     setBanners(prev => prev.map(b => (b.id === id || b._id === id) ? { ...b, isActive: newStatus } : b));
 
     try {
       await updateAdminBanner(id, { isActive: newStatus });
     } catch (err: any) {
       alert(err.message || 'Failed to update banner status');
-      // Revert on error
+
       setBanners(prev => prev.map(b => (b.id === id || b._id === id) ? { ...b, isActive: !newStatus } : b));
     }
   };
 
-  // Reorder Banner: Move Up / Down
   const handleMoveOrder = async (banner: Banner, direction: 'up' | 'down') => {
     const list = [...filteredBanners];
     const currentIndex = list.findIndex(b => (b.id || b._id) === (banner.id || banner._id));
@@ -208,18 +197,15 @@ export default function BannersPage() {
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
     if (targetIndex < 0 || targetIndex >= list.length) return;
 
-    // Swap items
     const temp = list[currentIndex];
     list[currentIndex] = list[targetIndex];
     list[targetIndex] = temp;
 
-    // Recalculate normalized sequential orders
     const reorderedPayload = list.map((b, idx) => ({
       id: String(b.id || b._id || ''),
       order: idx + 1
     }));
 
-    // Optimistic state update
     const updatedMap = new Map(reorderedPayload.map(item => [item.id, item.order]));
     setBanners(prev => prev.map(b => {
       const bId = String(b.id || b._id || '');
@@ -234,7 +220,6 @@ export default function BannersPage() {
     }
   };
 
-  // Handle Delete Confirmation
   const handleDeleteConfirm = async () => {
     if (!deleteConfirm) return;
     const id = deleteConfirm.id || deleteConfirm._id;
@@ -252,15 +237,14 @@ export default function BannersPage() {
     }
   };
 
-  // Filtered Banners list
   const filteredBanners = useMemo(() => {
     return banners.filter(b => {
-      // Audience Filter
+
       if (audienceFilter !== 'all' && b.type !== audienceFilter) return false;
-      // Status Filter
+
       if (statusFilter === 'active' && !b.isActive) return false;
       if (statusFilter === 'inactive' && b.isActive) return false;
-      // Search
+
       if (search.trim()) {
         const q = search.toLowerCase();
         const link = (b.link || '').toLowerCase();
@@ -272,13 +256,11 @@ export default function BannersPage() {
     });
   }, [banners, audienceFilter, statusFilter, search]);
 
-  // Active banners for mobile simulator preview
   const activeSimulatorBanners = useMemo(() => {
     const targetType = audienceFilter === 'coach' ? 'coach' : 'player';
     return banners.filter(b => b.isActive && b.type === targetType);
   }, [banners, audienceFilter]);
 
-  // Stats
   const stats = useMemo(() => {
     return {
       total: banners.length,
@@ -290,9 +272,7 @@ export default function BannersPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto font-sans">
-      {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* 1. PAGE HEADER                                                     */}
-      {/* ─────────────────────────────────────────────────────────────────── */}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F05A22]/10 text-[#F05A22] border border-[#F05A22]/20 shadow-xs">
@@ -340,9 +320,6 @@ export default function BannersPage() {
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* 2. STAT CARDS                                                      */}
-      {/* ─────────────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           label="Total Banners"
@@ -378,9 +355,6 @@ export default function BannersPage() {
         />
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* 3. OPTIONAL MOBILE CAROUSEL SIMULATOR                              */}
-      {/* ─────────────────────────────────────────────────────────────────── */}
       {showMobileSimulator && (
         <Card className="border-[#F05A22]/20 bg-gradient-to-r from-slate-50 to-orange-50/20 p-4 sm:p-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3">
@@ -439,11 +413,8 @@ export default function BannersPage() {
         </Card>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* 4. FILTERS & CONTROLS BAR                                          */}
-      {/* ─────────────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-xs">
-        {/* Audience Tabs */}
+
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
           <button
             type="button"
@@ -485,7 +456,6 @@ export default function BannersPage() {
           </button>
         </div>
 
-        {/* Status Filter & View Toggle */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <div className="flex items-center gap-1">
             {(['all', 'active', 'inactive'] as const).map(st => (
@@ -505,7 +475,6 @@ export default function BannersPage() {
             ))}
           </div>
 
-          {/* Grid vs Table Toggle */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
             <button
               type="button"
@@ -527,9 +496,6 @@ export default function BannersPage() {
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* 5. BANNERS LISTING: GRID VIEW                                      */}
-      {/* ─────────────────────────────────────────────────────────────────── */}
       {loading ? (
         <div className="py-20 text-center">
           <RefreshCw className="h-7 w-7 animate-spin mx-auto mb-2 text-[#F05A22]" />
@@ -567,7 +533,7 @@ export default function BannersPage() {
                   b.isActive ? "border-slate-200/90" : "border-slate-200/60 opacity-80 bg-slate-50/40"
                 )}
               >
-                {/* Top Banner Image Container */}
+
                 <div>
                   <div className="aspect-[16/9] w-full bg-slate-100 relative overflow-hidden group">
                     <img
@@ -579,7 +545,6 @@ export default function BannersPage() {
                       }}
                     />
 
-                    {/* Overlay Badges */}
                     <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-900/85 text-white backdrop-blur-xs flex items-center gap-1">
                         <MoveVertical className="h-2.5 w-2.5" /> Order #{b.order ?? (idx + 1)}
@@ -605,7 +570,6 @@ export default function BannersPage() {
                       </button>
                     </div>
 
-                    {/* External image link open preview */}
                     <a
                       href={b.imageUrl}
                       target="_blank"
@@ -617,7 +581,6 @@ export default function BannersPage() {
                     </a>
                   </div>
 
-                  {/* Card Body */}
                   <div className="p-3.5 space-y-2">
                     {b.title && (
                       <h4 className="text-xs font-bold text-slate-900 truncate" title={b.title}>
@@ -634,9 +597,8 @@ export default function BannersPage() {
                   </div>
                 </div>
 
-                {/* Card Footer Actions */}
                 <div className="p-3 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between gap-2">
-                  {/* Sequence Reorder Controls */}
+
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
@@ -668,7 +630,6 @@ export default function BannersPage() {
                     </button>
                   </div>
 
-                  {/* Edit & Delete Controls */}
                   {can('sports_write') && (
                     <div className="flex items-center gap-1.5">
                       <Button
@@ -695,9 +656,7 @@ export default function BannersPage() {
           })}
         </div>
       ) : (
-        /* ─────────────────────────────────────────────────────────────────── */
-        /* 5B. BANNERS LISTING: TABLE VIEW                                     */
-        /* ─────────────────────────────────────────────────────────────────── */
+
         <Card>
           <Table>
             <Thead>
@@ -808,9 +767,6 @@ export default function BannersPage() {
         </Card>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* 6. CREATE / EDIT BANNER MODAL                                      */}
-      {/* ─────────────────────────────────────────────────────────────────── */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -818,7 +774,7 @@ export default function BannersPage() {
         size="lg"
       >
         <form onSubmit={handleSaveBanner} className="space-y-5">
-          {/* Target Audience Selector */}
+
           <div>
             <label className="block text-xs font-bold text-slate-900 mb-2">
               Target Audience / App Destination <span className="text-rose-500">*</span>
@@ -876,13 +832,11 @@ export default function BannersPage() {
             )}
           </div>
 
-          {/* Banner Image Input & File Upload */}
           <div className="space-y-3">
             <label className="block text-xs font-bold text-slate-900">
               Banner Artwork / Image <span className="text-rose-500">*</span>
             </label>
 
-            {/* Direct File Upload Drop Zone */}
             <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 bg-slate-50 text-center hover:bg-slate-100/70 transition-colors">
               <input
                 type="file"
@@ -912,7 +866,6 @@ export default function BannersPage() {
               </label>
             </div>
 
-            {/* Upload Error / Backend Warning Notice */}
             {uploadError && (
               <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs">
                 <div className="flex items-start gap-2.5">
@@ -930,7 +883,6 @@ export default function BannersPage() {
               </div>
             )}
 
-            {/* Quick Preset Sample Banners */}
             <div>
               <span className="text-[11px] font-semibold text-slate-500 block mb-1.5">
                 Quick Sample Presets (Click to use):
@@ -957,7 +909,6 @@ export default function BannersPage() {
               </div>
             </div>
 
-            {/* Or Paste Direct Image URL */}
             <div>
               <span className="text-[11px] font-semibold text-slate-500 block mb-1">
                 Or paste direct Image URL:
@@ -975,7 +926,6 @@ export default function BannersPage() {
               />
             </div>
 
-            {/* Live Preview Box */}
             {formImageUrl && (
               <div className="mt-2">
                 <span className="text-[11px] font-bold text-slate-700 block mb-1">
@@ -995,7 +945,6 @@ export default function BannersPage() {
             )}
           </div>
 
-          {/* Navigation Link / Destination */}
           <div className="space-y-1.5">
             <label className="block text-xs font-bold text-slate-900">
               Click Destination / Deep Link <span className="text-slate-400 font-normal">(optional)</span>
@@ -1008,7 +957,6 @@ export default function BannersPage() {
               className="input-field text-xs font-mono"
             />
 
-            {/* Link Quick Presets */}
             <div className="flex items-center gap-1.5 flex-wrap pt-1">
               <span className="text-[10px] font-semibold text-slate-400 uppercase">Presets:</span>
               {LINK_PRESETS.map(p => (
@@ -1024,7 +972,6 @@ export default function BannersPage() {
             </div>
           </div>
 
-          {/* Order and Status Row */}
           <div className="grid grid-cols-2 gap-4 pt-1">
             <div>
               <label className="block text-xs font-bold text-slate-900 mb-1">
@@ -1063,7 +1010,6 @@ export default function BannersPage() {
             </div>
           </div>
 
-          {/* Optional Label / Title */}
           <div>
             <label className="block text-xs font-bold text-slate-900 mb-1">
               Internal Label / Campaign Title <span className="text-slate-400 font-normal">(optional)</span>
@@ -1077,7 +1023,6 @@ export default function BannersPage() {
             />
           </div>
 
-          {/* Submit Actions */}
           <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
             <Button
               type="button"
@@ -1100,9 +1045,6 @@ export default function BannersPage() {
         </form>
       </Modal>
 
-      {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* 7. DELETE CONFIRMATION DIALOG                                      */}
-      {/* ─────────────────────────────────────────────────────────────────── */}
       <ConfirmDialog
         open={Boolean(deleteConfirm)}
         onClose={() => setDeleteConfirm(null)}

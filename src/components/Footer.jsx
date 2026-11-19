@@ -12,7 +12,7 @@ export default function Footer({ onNavigate, onOpenLegal }) {
         setLogoSrc(secureLogo);
       }
     } catch {
-      // Keep default
+
     }
   }, []);
 
@@ -100,3 +100,4 @@ export default function Footer({ onNavigate, onOpenLegal }) {
     </footer>
   );
 }
+

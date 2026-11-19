@@ -18,7 +18,7 @@ function VenueFormModal({ v, open, onClose, onSave }: { v: Venue | null; open: b
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     try {
       setUploading(true);
       const res = await uploadImage(file);
@@ -122,7 +122,7 @@ export default function VenuesPage() {
         setViewV(detail);
       }
     } catch {
-      // Keep existing venue object if detail call fails
+
     }
   };
 
@@ -232,3 +232,4 @@ export default function VenuesPage() {
     </div>
   );
 }
+

@@ -95,7 +95,6 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
 
-  // Merge API data with local defaults
   const totalBookings  = stats?.totalBookings  ?? bookings.length ?? 0;
   const totalCustomers = stats?.totalCustomers ?? 0;
   const totalCoaches   = stats?.totalCoaches   ?? 0;
@@ -104,7 +103,6 @@ export default function DashboardPage() {
   const recentBookings = stats?.recentBookings  ?? [];
   const recentCustomers = stats?.recentCustomers ?? [];
 
-  // Dynamic booking state distribution strictly based on real data
   const bookingsCount = bookings.length;
   const completedCount = bookings.filter(b => b.status === 'completed').length;
   const confirmedCount = bookings.filter(b => b.status === 'confirmed').length;
@@ -120,7 +118,6 @@ export default function DashboardPage() {
     { label: 'No-Show',   count: noShowCount,    pct: bookingsCount ? Math.round((noShowCount / bookingsCount) * 100) : 0,    color: 'bg-[#5c6370]' },
   ];
 
-  // Dynamic sports bookings share strictly based on real data
   const sportCounts: Record<string, number> = {};
   bookings.forEach(b => {
     if (b.sport) {
@@ -137,7 +134,6 @@ export default function DashboardPage() {
     color: sportColors[idx % sportColors.length]
   })).sort((a, b) => b.pct - a.pct).slice(0, 5);
 
-  // Dynamic monthly aggregations for line chart strictly based on real data
   const monthlyData: Record<string, { revenue: number; bookings: number }> = {};
   bookings.forEach(b => {
     try {
@@ -154,7 +150,7 @@ export default function DashboardPage() {
   });
 
   const monthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  
+
   const defaultMonths = () => {
     const list = [];
     const now = new Date();
@@ -185,7 +181,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
-      {/* KPI Stats */}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           label="Total Bookings"
@@ -221,7 +217,6 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Chart Section */}
       <Card>
         <CardHeader>
           <CardTitle>Revenue & Bookings Trend</CardTitle>
@@ -247,7 +242,6 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Detail grids */}
       <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-3 min-w-0">
         <Card>
           <CardHeader><CardTitle>Sport Booking Share</CardTitle></CardHeader>
@@ -291,7 +285,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Recent Bookings */}
       {recentBookings.length > 0 && (
         <Card>
           <CardHeader><CardTitle>Recent Bookings</CardTitle></CardHeader>
@@ -318,3 +311,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

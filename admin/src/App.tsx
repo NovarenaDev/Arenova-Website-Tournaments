@@ -17,18 +17,18 @@ import SettlementsPage  from './pages/settlements/SettlementsPage';
 import TournamentsPage  from './pages/tournaments/TournamentsPage';
 import CommunityPage    from './pages/community/CommunityPage';
 import VenuesPage       from './pages/venues/VenuesPage';
-import BannersPage      from './pages/banners/BannersPage';
-import SettingsPage     from './pages/settings/SettingsPage';
+import BannersPage       from './pages/banners/BannersPage';
+import NotificationsPage from './pages/notifications/NotificationsPage';
+import SettingsPage      from './pages/settings/SettingsPage';
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter basename="/admin" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
-          {/* Public */}
+
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected — all require auth (Layout checks) */}
           <Route element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
@@ -59,11 +59,12 @@ export default function App() {
             </Route>
 
             <Route element={<ProtectedRoute permission="sports" />}>
-              <Route path="/sports"       element={<SportsPage />} />
-              <Route path="/tournaments"  element={<TournamentsPage />} />
-              <Route path="/banners"      element={<BannersPage />} />
-              <Route path="/community"    element={<CommunityPage />} />
-              <Route path="/venues"       element={<VenuesPage />} />
+              <Route path="/sports"        element={<SportsPage />} />
+              <Route path="/tournaments"   element={<TournamentsPage />} />
+              <Route path="/banners"       element={<BannersPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/community"     element={<CommunityPage />} />
+              <Route path="/venues"        element={<VenuesPage />} />
             </Route>
 
             <Route element={<ProtectedRoute permission="admins" />}>
@@ -74,7 +75,6 @@ export default function App() {
 
             <Route path="/settings" element={<SettingsPage />} />
 
-            {/* Catch-all */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Routes>
@@ -82,3 +82,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

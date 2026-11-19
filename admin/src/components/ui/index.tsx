@@ -1,13 +1,11 @@
-import React, { ReactNode, useEffect } from 'react';
+import React, { ReactNode, useEffect, useId } from 'react';
 import { clsx } from 'clsx';
 import { X, AlertTriangle } from 'lucide-react';
 
-// ── Badge ─────────────────────────────────────────────────────────────────────
 export function Badge({ className, children }: { className?: string; children: ReactNode }) {
   return <span className={clsx('badge', className)}>{children}</span>;
 }
 
-// ── Card ──────────────────────────────────────────────────────────────────────
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
   return <div className={clsx('card', className)}>{children}</div>;
 }
@@ -21,7 +19,6 @@ export function CardContent({ className, children }: { className?: string; child
   return <div className={clsx('px-4 sm:px-5 py-4 sm:py-5 min-w-0', className)}>{children}</div>;
 }
 
-// ── Stat Card ─────────────────────────────────────────────────────────────────
 interface StatCardProps { label: string; value: string; sub?: string; subColor?: string; icon: ReactNode; iconBg?: string; }
 export function StatCard({ label, value, sub, subColor = 'text-emerald-600', icon, iconBg = 'bg-emerald-50 text-emerald-600' }: StatCardProps) {
   return (
@@ -38,7 +35,6 @@ export function StatCard({ label, value, sub, subColor = 'text-emerald-600', ico
   );
 }
 
-// ── Table ─────────────────────────────────────────────────────────────────────
 export function Table({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className="w-full overflow-x-auto min-w-0">
@@ -58,7 +54,6 @@ export function Tr({ children, className, onClick }: { children: ReactNode; clas
   return <tr onClick={onClick} className={clsx('table-row last:border-0', className)}>{children}</tr>;
 }
 
-// ── Avatar ────────────────────────────────────────────────────────────────────
 const COLORS = [
   'bg-[#F05A22]/10 text-[#F05A22] border border-[#F05A22]/20',
   'bg-blue-50 text-blue-600 border border-blue-200',
@@ -77,7 +72,6 @@ export function Avatar({ initials, size = 32, className }: { initials: string; s
   );
 }
 
-// ── Button ────────────────────────────────────────────────────────────────────
 interface BtnProps extends React.ButtonHTMLAttributes<HTMLButtonElement> { variant?: 'primary' | 'outline' | 'danger' | 'ghost'; }
 export function Button({ variant = 'outline', className, children, ...props }: BtnProps) {
   return (
@@ -88,43 +82,45 @@ export function Button({ variant = 'outline', className, children, ...props }: B
   );
 }
 
-// ── Input ─────────────────────────────────────────────────────────────────────
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> { label?: string; }
-export function Input({ label, className, ...props }: InputProps) {
+export function Input({ label, className, id, name, ...props }: InputProps) {
+  const autoId = useId();
+  const fieldId = id || autoId;
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <label className="text-xs font-semibold text-slate-700">{label}</label>}
-      <input className={clsx('input-field', className)} {...props} />
+      {label && <label htmlFor={fieldId} className="text-xs font-semibold text-slate-700">{label}</label>}
+      <input id={fieldId} name={name || fieldId} className={clsx('input-field', className)} {...props} />
     </div>
   );
 }
 
-// ── Textarea ──────────────────────────────────────────────────────────────────
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> { label?: string; }
-export function Textarea({ label, className, ...props }: TextareaProps) {
+export function Textarea({ label, className, id, name, ...props }: TextareaProps) {
+  const autoId = useId();
+  const fieldId = id || autoId;
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <label className="text-xs font-semibold text-slate-700">{label}</label>}
-      <textarea className={clsx('input-field resize-none', className)} {...props} />
+      {label && <label htmlFor={fieldId} className="text-xs font-semibold text-slate-700">{label}</label>}
+      <textarea id={fieldId} name={name || fieldId} className={clsx('input-field resize-none', className)} {...props} />
     </div>
   );
 }
 
-// ── Select ────────────────────────────────────────────────────────────────────
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> { label?: string; options: { value: string; label: string }[]; }
-export function Select({ label, options, className, ...props }: SelectProps) {
+export function Select({ label, options, className, id, name, ...props }: SelectProps) {
+  const autoId = useId();
+  const fieldId = id || autoId;
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <label className="text-xs font-semibold text-slate-700">{label}</label>}
-      <select className={clsx('input-field', className)} {...props}>
+      {label && <label htmlFor={fieldId} className="text-xs font-semibold text-slate-700">{label}</label>}
+      <select id={fieldId} name={name || fieldId} className={clsx('input-field', className)} {...props}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </div>
   );
 }
 
-// ── Modal ─────────────────────────────────────────────────────────────────────
-export function Modal({ open, onClose, title, children, size = 'md' }: { open: boolean; onClose: () => void; title: string; children: ReactNode; size?: 'sm'|'md'|'lg'|'xl' }) {
+export function Modal({ open, onClose, title, children, size = 'md', closeOnBackdropClick = true }: { open: boolean; onClose: () => void; title: string; children: ReactNode; size?: 'sm'|'md'|'lg'|'xl'; closeOnBackdropClick?: boolean }) {
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = '';
@@ -133,7 +129,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: { open: b
   if (!open) return null;
   const widths = { sm:'max-w-md', md:'max-w-lg', lg:'max-w-2xl', xl:'max-w-4xl' };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={closeOnBackdropClick ? onClose : undefined}>
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
       <div className={clsx('relative w-full max-w-[calc(100vw-1rem)] bg-white border border-slate-200 rounded-3xl shadow-2xl max-h-[92vh] flex flex-col', widths[size])}
         onClick={e => e.stopPropagation()}>
@@ -149,7 +145,6 @@ export function Modal({ open, onClose, title, children, size = 'md' }: { open: b
   );
 }
 
-// ── Confirm Dialog ────────────────────────────────────────────────────────────
 export function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmLabel = 'Confirm', danger = false }:
   { open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmLabel?: string; danger?: boolean }) {
   if (!open) return null;
@@ -175,18 +170,17 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
   );
 }
 
-// ── Search Bar ────────────────────────────────────────────────────────────────
 export function SearchBar({ value, onChange, placeholder = 'Search...', className }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
+  const searchId = useId();
   return (
     <div className={clsx("relative w-full sm:w-64 min-w-0 flex-shrink", className)}>
       <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-      <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+      <input id={searchId} name="search" aria-label={placeholder} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
         className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-[12px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#F05A22] transition-colors"/>
     </div>
   );
 }
 
-// ── Filter Pill ───────────────────────────────────────────────────────────────
 export function FilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick} className={clsx('text-[11px] font-semibold px-3 py-1.5 rounded-xl border transition-all cursor-pointer',
@@ -196,7 +190,6 @@ export function FilterPill({ label, active, onClick }: { label: string; active: 
   );
 }
 
-// ── Progress Bar ──────────────────────────────────────────────────────────────
 export function ProgressBar({ label, value, pct, color = 'bg-emerald-500' }: { label?: string; value?: string | number; pct?: number; color?: string }) {
   const percent = pct ?? (typeof value === 'number' ? value : parseFloat(String(value || '0')) || 0);
   return (
@@ -214,7 +207,6 @@ export function ProgressBar({ label, value, pct, color = 'bg-emerald-500' }: { l
   );
 }
 
-// ── Stars ─────────────────────────────────────────────────────────────────────
 export function Stars({ rating, max = 5 }: { rating: number; max?: number }) {
   return (
     <div className="flex gap-0.5">
@@ -225,7 +217,6 @@ export function Stars({ rating, max = 5 }: { rating: number; max?: number }) {
   );
 }
 
-// ── Empty State ───────────────────────────────────────────────────────────────
 export function EmptyState({ emoji, icon, text, title }: { emoji?: string; icon?: ReactNode; text?: string; title?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -235,7 +226,6 @@ export function EmptyState({ emoji, icon, text, title }: { emoji?: string; icon?
   );
 }
 
-// ── Section Header ────────────────────────────────────────────────────────────
 export function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 min-w-0">
@@ -245,7 +235,6 @@ export function SectionHeader({ title, action }: { title: string; action?: React
   );
 }
 
-// ── Detail Row (for view modals) ──────────────────────────────────────────────
 export function DetailRow({ label, value, className }: { label: string; value: ReactNode; className?: string }) {
   return (
     <div className={clsx('flex flex-col gap-0.5 min-w-0', className)}>
@@ -254,3 +243,4 @@ export function DetailRow({ label, value, className }: { label: string; value: R
     </div>
   );
 }
+

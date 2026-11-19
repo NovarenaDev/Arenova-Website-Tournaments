@@ -19,7 +19,6 @@ export default function PaymentModal({
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [invoiceDownloadNotice, setInvoiceDownloadNotice] = useState('');
 
-  // Handle immediate post-payment invoice PDF download (Spec Flow 1)
   const handleDownloadInvoicePdf = async () => {
     const invId = invoiceData?._id;
     if (!invId || downloadingInvoice) return;
@@ -48,18 +47,16 @@ export default function PaymentModal({
     }
   };
 
-  // Accurate backend amount resolution (in INR)
   let amountInRupees = 500;
   if (typeof selectedFee === 'number' && selectedFee >= 0) {
     amountInRupees = selectedFee;
   } else if (order?.amount) {
-    // If backend returns order with amount in paise (standard Razorpay convention: 50000 = ₹500)
+
     amountInRupees = order.amount >= 100 ? Math.round(order.amount / 100) : order.amount;
   } else if (typeof tournament?.registrationFee === 'number') {
     amountInRupees = tournament.registrationFee;
   }
 
-  // Exact paise required by Razorpay
   const amountInPaise = order?.amount ? order.amount : Math.round(amountInRupees * 100);
 
   const loadRazorpayScript = () => {
@@ -78,7 +75,6 @@ export default function PaymentModal({
 
   const [pendingVerification, setPendingVerification] = useState(null);
 
-  // Launch official Razorpay Checkout Screen
   const handleLaunchRazorpay = async () => {
     if (!policyConsent) {
       setPaymentError('Please read and agree to the Terms & Conditions, Privacy Policy, and Refund & Cancellation Policy before proceeding.');
@@ -298,7 +294,6 @@ export default function PaymentModal({
               <strong style={{ color: 'var(--ink)' }}>Cancellation Terms:</strong> Eligible for refund as per published Refund & Cancellation Policy prior to tournament registration deadline. Post-deadline fees are non-refundable.
             </div>
 
-            {/* Mandatory Policy Acceptance Checkbox (Unticked by default) */}
             <div style={{ marginBottom: '16px' }}>
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '13px', lineHeight: '1.45', cursor: 'pointer', color: 'var(--ink)' }}>
                 <input
@@ -336,7 +331,7 @@ export default function PaymentModal({
               </div>
             ) : (
               <div style={{ display: 'grid', gap: '12px' }}>
-                {/* Primary Razorpay Checkout or Retry Verification Button */}
+
                 {pendingVerification ? (
                   <button
                     type="button"
@@ -430,7 +425,6 @@ export default function PaymentModal({
               </div>
             </div>
 
-            {/* Spec Flow 1: Immediate Post-Payment Invoice Download Action */}
             {invoiceData?._id && (
               <div style={{ marginBottom: '16px' }}>
                 <button
@@ -485,3 +479,4 @@ export default function PaymentModal({
     </div>
   );
 }
+

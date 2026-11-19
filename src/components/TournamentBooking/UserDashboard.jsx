@@ -12,7 +12,7 @@ export default function UserDashboard({
 }) {
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('registrations'); // 'registrations', 'invoices', or 'profile'
+  const [activeTab, setActiveTab] = useState('registrations');
   const [profileForm, setProfileForm] = useState({
     firstName: authObj?.user?.firstName || (authObj?.user?.name ? authObj.user.name.split(' ')[0] : ''),
     lastName: authObj?.user?.lastName || (authObj?.user?.name ? authObj.user.name.split(' ').slice(1).join(' ') : ''),
@@ -23,7 +23,6 @@ export default function UserDashboard({
 
   const [cancelInfoId, setCancelInfoId] = useState(null);
 
-  // Invoices state
   const [invoices, setInvoices] = useState([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
@@ -70,34 +69,86 @@ export default function UserDashboard({
       const rawList = res?.data || res || [];
       const list = Array.isArray(rawList) ? rawList : [];
 
-      // Fetch tournaments list to enrich any registration that only has an ID
       const tournamentsRes = await api.getTournaments().catch(() => ({ data: [] }));
-      const allTournaments = tournamentsRes?.data || tournamentsRes || [];
+      const rawTournaments =
+        tournamentsRes?.data?.tournaments ||
+        tournamentsRes?.data?.data ||
+        tournamentsRes?.tournaments ||
+        (Array.isArray(tournamentsRes?.data) ? tournamentsRes.data : null) ||
+        (Array.isArray(tournamentsRes) ? tournamentsRes : []);
+      const allTournaments = Array.isArray(rawTournaments) ? rawTournaments : [];
       const tMap = {};
-      if (Array.isArray(allTournaments)) {
-        allTournaments.forEach(t => {
-          if (t._id) tMap[t._id] = t;
-          if (t.id) tMap[t.id] = t;
-        });
-      }
+      allTournaments.forEach(t => {
+        if (t._id) tMap[String(t._id)] = t;
+        if (t.id) tMap[String(t.id)] = t;
+      });
 
       const enriched = list.map(reg => {
-        let t = reg.tournament;
-        if (!t || typeof t === 'string') {
-          const tId = typeof t === 'string' ? t : reg.tournamentId;
-          t = tMap[tId] || {
-            title: reg.tournamentTitle || 'Tournament Pass',
-            sport: reg.sport || 'Sports',
-            venue: reg.venue || 'Arenova Designated Arena'
-          };
-        }
+        const rawTourneyObj = typeof reg.tournament === 'object' && reg.tournament !== null ? reg.tournament : null;
+        const rawTourneyIdObj = typeof reg.tournamentId === 'object' && reg.tournamentId !== null ? reg.tournamentId : null;
+        const tId =
+          rawTourneyObj?._id ||
+          rawTourneyObj?.id ||
+          (typeof reg.tournament === 'string' ? reg.tournament : null) ||
+          rawTourneyIdObj?._id ||
+          rawTourneyIdObj?.id ||
+          (typeof reg.tournamentId === 'string' ? reg.tournamentId : null);
+
+        const mappedTourney = tId ? tMap[String(tId)] : null;
+        const mergedTournament = {
+          ...(mappedTourney || {}),
+          ...(rawTourneyIdObj || {}),
+          ...(rawTourneyObj || {}),
+          title:
+            rawTourneyObj?.title ||
+            rawTourneyIdObj?.title ||
+            mappedTourney?.title ||
+            reg.tournamentTitle ||
+            reg.tournamentName ||
+            'Tournament Pass',
+          sport:
+            rawTourneyObj?.sport ||
+            rawTourneyIdObj?.sport ||
+            mappedTourney?.sport ||
+            reg.sport ||
+            'Sports',
+          venue:
+            rawTourneyObj?.venue ||
+            rawTourneyObj?.location ||
+            rawTourneyIdObj?.venue ||
+            rawTourneyIdObj?.location ||
+            mappedTourney?.venue ||
+            mappedTourney?.location ||
+            reg.venue ||
+            reg.location ||
+            'Arenova Designated Arena',
+          city:
+            rawTourneyObj?.city ||
+            rawTourneyIdObj?.city ||
+            mappedTourney?.city ||
+            reg.city ||
+            '',
+          startDate:
+            rawTourneyObj?.startDate ||
+            rawTourneyIdObj?.startDate ||
+            mappedTourney?.startDate ||
+            reg.startDate ||
+            reg.date ||
+            '',
+          endDate:
+            rawTourneyObj?.endDate ||
+            rawTourneyIdObj?.endDate ||
+            mappedTourney?.endDate ||
+            reg.endDate ||
+            '',
+        };
+
         return {
           ...reg,
-          tournament: t
+          tournament: mergedTournament
         };
       });
 
-      // Strictly deduplicate registrations by unique ID to guarantee no duplicate data
       const seenIds = new Set();
       const uniqueList = [];
       for (const item of enriched) {
@@ -123,7 +174,7 @@ export default function UserDashboard({
     setLoadingInvoices(true);
     setInvoiceError('');
     try {
-      // Fetch all invoices for the user from MongoDB without restricting types
+
       const res = await api.getMyInvoices();
       const rawList = res?.data || res || [];
       setInvoices(Array.isArray(rawList) ? rawList : []);
@@ -255,7 +306,7 @@ export default function UserDashboard({
 
       <section className="section" style={{ paddingTop: '30px' }}>
         <div className="container">
-          {/* Tab Navigation */}
+
           <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--line)', marginBottom: '30px' }}>
             <button
               onClick={() => setActiveTab('registrations')}
@@ -307,7 +358,6 @@ export default function UserDashboard({
             </button>
           </div>
 
-          {/* Registrations Tab */}
           {activeTab === 'registrations' && (
             <div>
               {registrationsError && (
@@ -420,15 +470,19 @@ export default function UserDashboard({
                                 Participant: <strong style={{ color: 'var(--ink)' }}>{athleteName}</strong>
                                 {athletePhone ? ` (${athletePhone})` : ''}
                               </div>
-                              {(tournament.venue || tournament.location) && (
+                              {(tournament.venue || tournament.location || tournament.city) && (
                                 <div>
-                                  Venue: <strong style={{ color: 'var(--ink)' }}>{tournament.venue || tournament.location}</strong>
+                                  Venue: <strong style={{ color: 'var(--ink)' }}>
+                                    {[tournament.venue || tournament.location, tournament.city].filter(Boolean).join(', ')}
+                                  </strong>
                                 </div>
                               )}
                               {(tournament.startDate || tournament.date) && (
                                 <div>
-                                  Schedule: <strong style={{ color: 'var(--ink)' }}>
-                                    {tournament.startDate ? new Date(tournament.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : tournament.date}
+                                  Start Date: <strong style={{ color: 'var(--ink)' }}>
+                                    {tournament.startDate
+                                      ? new Date(tournament.startDate).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                      : tournament.date}
                                   </strong>
                                 </div>
                               )}
@@ -448,7 +502,6 @@ export default function UserDashboard({
                               </strong>
                             </div>
 
-                            {/* Action to complete payment for pending passes */}
                             {!isPaid && onPayPendingRegistration && (
                               <button
                                 type="button"
@@ -473,7 +526,6 @@ export default function UserDashboard({
                               </button>
                             )}
 
-                            {/* Direct Invoice PDF download button if pass has an invoice linked or matching invoice exists */}
                             {(() => {
                               const linkedInv = reg.invoice || invoices.find(inv =>
                                 (inv.registrationId && (inv.registrationId === regId || inv.registrationId === reg._id)) ||
@@ -526,7 +578,6 @@ export default function UserDashboard({
                           </div>
                         </div>
 
-                        {/* Expandable Cancellation & Refund Guidance */}
                         {isCancelOpen && (
                           <div style={{
                             background: '#fef2f2',
@@ -570,7 +621,6 @@ export default function UserDashboard({
             </div>
           )}
 
-          {/* Invoices Tab */}
           {activeTab === 'invoices' && (
             <div>
               {invoiceError && (
@@ -702,7 +752,6 @@ export default function UserDashboard({
             </div>
           )}
 
-          {/* Profile Tab */}
           {activeTab === 'profile' && (
             <div style={{ maxWidth: '600px', background: '#fff', padding: '32px', borderRadius: '16px', border: '1px solid var(--line)' }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', marginBottom: '6px' }}>
@@ -785,3 +834,4 @@ export default function UserDashboard({
     </main>
   );
 }
+

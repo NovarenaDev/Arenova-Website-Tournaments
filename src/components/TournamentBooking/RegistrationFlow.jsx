@@ -50,7 +50,6 @@ export default function RegistrationFlow({
     }
   }, [tournament]);
 
-  // Resolve category object and registration type from backend data
   const matchedCategory = categories.find((c) =>
     (typeof c === 'string' ? c : c.name) === selectedCategory
   );
@@ -74,7 +73,6 @@ export default function RegistrationFlow({
     (tournament.sport || '').toLowerCase() === 'cricket' ||
     (tournament.sport || '').toLowerCase() === 'basketball';
 
-  // Auto-sync team roster and captain details when a team category is active
   useEffect(() => {
     if (isTeamCategory) {
       const minPlayers = typeof matchedCategory?.minimumPlayers === 'number' && matchedCategory.minimumPlayers > 0
@@ -161,7 +159,6 @@ export default function RegistrationFlow({
         errors.teamMembers = `This category requires a minimum of ${minMembers} team members (currently ${validMembers.length}).`;
       }
 
-      // Check that all entered members have valid phone numbers
       for (let i = 0; i < teamMembers.length; i++) {
         const m = teamMembers[i];
         if (m.name.trim()) {
@@ -174,7 +171,6 @@ export default function RegistrationFlow({
       }
     }
 
-    // Check capacity if published
     if (typeof matchedCategory === 'object' && typeof matchedCategory.capacity === 'number' && matchedCategory.capacity > 0) {
       const regCount = matchedCategory.registeredCount || 0;
       if (regCount >= matchedCategory.capacity) {
@@ -194,7 +190,7 @@ export default function RegistrationFlow({
     setIsAlreadyRegistered(false);
 
     try {
-      // 1. Sync primary user profile with backend database
+
       if (resolvedName || (resolvedEmail && resolvedEmail.trim())) {
         const [fName, ...lNameParts] = (resolvedName || '').split(' ');
         try {
@@ -213,7 +209,6 @@ export default function RegistrationFlow({
         }
       }
 
-      // 2. Build registration payload with complete participant details
       const payload = {
         categoryName: selectedCategory || 'Open Category',
         playerName: resolvedName,
@@ -244,7 +239,6 @@ export default function RegistrationFlow({
         }
       }
 
-      // 3. Register on backend database
       const res = await api.registerForTournament(tournament._id || tournament.id, payload);
 
       const reg = res.data?.registration || res.registration || res.data;
@@ -346,7 +340,7 @@ export default function RegistrationFlow({
       )}
 
       <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '24px' }}>
-        {/* Category Selection with Backend Fees */}
+
         <div>
           <label style={{ fontSize: '14px', fontWeight: '700', display: 'block', marginBottom: '10px' }}>
             Choose Category *
@@ -399,7 +393,6 @@ export default function RegistrationFlow({
           )}
         </div>
 
-        {/* Primary Participant Information (Passed to Admin Portal & Match Draw) */}
         <div style={{ background: '#fff', padding: '22px', borderRadius: '14px', border: '1px solid var(--line)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
             <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '16px', margin: 0 }}>
@@ -490,7 +483,6 @@ export default function RegistrationFlow({
           </div>
         </div>
 
-        {/* Pair Details */}
         {isPairCategory && (
           <div style={{ background: 'var(--soft)', padding: '20px', borderRadius: '14px', border: '1px solid var(--line)' }}>
             <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '16px', marginBottom: '14px' }}>
@@ -591,7 +583,6 @@ export default function RegistrationFlow({
           </div>
         )}
 
-        {/* Team Details */}
         {isTeamCategory && (
           <div style={{ background: 'var(--soft)', padding: '20px', borderRadius: '14px', border: '1px solid var(--line)' }}>
             <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '16px', marginBottom: '14px' }}>
@@ -670,7 +661,6 @@ export default function RegistrationFlow({
           </div>
         )}
 
-        {/* Summary & Price */}
         <div style={{
           background: 'var(--soft)',
           padding: '16px 20px',
@@ -702,3 +692,4 @@ export default function RegistrationFlow({
     </div>
   );
 }
+

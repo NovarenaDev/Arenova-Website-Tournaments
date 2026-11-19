@@ -18,7 +18,6 @@ import {
 } from '../../components/ui';
 import { clsx } from 'clsx';
 
-// Human-friendly mapping of resource collection names to dashboard labels
 const RESOURCE_LABELS: Record<string, string> = {
   novaretournaments: 'Tournaments',
   novareenquiries: 'Enquiries',
@@ -35,7 +34,7 @@ const getResourceLabel = (resource: string): string => {
   if (!resource) return '—';
   const clean = resource.toLowerCase().trim();
   if (RESOURCE_LABELS[clean]) return RESOURCE_LABELS[clean];
-  // Fallback: capitalize snake_case or words
+
   return resource
     .replace(/[_-]+/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
@@ -48,7 +47,6 @@ const ACTION_COLORS: Record<string, string> = {
   STATUS_CHANGE: 'bg-purple-500/10 text-purple-400 border border-purple-500/20',
 };
 
-// Safe serializer for snapshot values: handles null, undefined, false, 0, [], objects
 const formatSnapshotValue = (val: any): { text: string; isObject: boolean } => {
   if (val === null) return { text: 'null', isObject: false };
   if (val === undefined) return { text: 'undefined', isObject: false };
@@ -68,10 +66,8 @@ const formatSnapshotValue = (val: any): { text: string; isObject: boolean } => {
 export default function AuditLogsPage() {
   const { admin } = useAuth();
 
-  // Role validation: Super Admin only
   const isSuperAdmin = admin?.role === 'super_admin';
 
-  // Summary Metrics State
   const [summary, setSummary] = useState<AuditLogSummaryData>({
     totalActions: 0,
     CREATE: 0,
@@ -81,7 +77,6 @@ export default function AuditLogsPage() {
   });
   const [loadingSummary, setLoadingSummary] = useState(false);
 
-  // Table Logs & Pagination State
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
   const [pagination, setPagination] = useState<AuditLogPagination>({
     total: 0,
@@ -93,7 +88,6 @@ export default function AuditLogsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isForbidden, setIsForbidden] = useState(false);
 
-  // Filter States
   const [actionFilter, setActionFilter] = useState('');
   const [resourceFilter, setResourceFilter] = useState('');
   const [outcomeFilter, setOutcomeFilter] = useState('');
@@ -104,20 +98,16 @@ export default function AuditLogsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
-  // Details Modal State
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [detailData, setDetailData] = useState<AuditLogItem | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
 
-  // Detect and format user local timezone
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
-  // Request race condition management
   const activeRequestIdRef = useRef(0);
 
-  // ── Load Summary Cards (supports date filters only) ──────────────────────────
   const loadSummary = useCallback(async () => {
     if (!isSuperAdmin) return;
     setLoadingSummary(true);
@@ -145,7 +135,6 @@ export default function AuditLogsPage() {
     }
   }, [isSuperAdmin, startDate, endDate]);
 
-  // ── Load Activity Table ───────────────────────────────────────────────────────
   const loadLogs = useCallback(async () => {
     if (!isSuperAdmin) return;
     setLoadingLogs(true);
@@ -167,7 +156,6 @@ export default function AuditLogsPage() {
 
       const res = await getAuditLogs(params);
 
-      // Discard response if a newer request was dispatched in the meantime
       if (requestId !== activeRequestIdRef.current) return;
 
       if (res) {
@@ -215,7 +203,6 @@ export default function AuditLogsPage() {
     endDate,
   ]);
 
-  // Trigger loads
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
@@ -224,7 +211,6 @@ export default function AuditLogsPage() {
     loadLogs();
   }, [loadLogs]);
 
-  // Open Details Modal and fetch complete record
   const handleOpenDetail = async (recordId: string) => {
     setSelectedRecordId(recordId);
     setDetailData(null);
@@ -273,7 +259,6 @@ export default function AuditLogsPage() {
     setTimeout(() => setCopiedId(false), 1800);
   };
 
-  // ── Access Denied Screen ──────────────────────────────────────────────────────
   if (!isSuperAdmin || isForbidden) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] p-6 text-center">
@@ -297,7 +282,6 @@ export default function AuditLogsPage() {
     );
   }
 
-  // ── Combine Snapshot Keys for Diff Table ──────────────────────────────────────
   const getSnapshotComparisonKeys = () => {
     if (!detailData) return [];
     const beforeObj = detailData.before && typeof detailData.before === 'object' ? detailData.before : {};
@@ -310,7 +294,6 @@ export default function AuditLogsPage() {
       ...Object.keys(afterObj),
     ]);
 
-    // Put changed fields first
     const list = Array.from(keySet);
     return list.sort((a, b) => {
       const aIsChanged = changed.includes(a);
@@ -323,7 +306,7 @@ export default function AuditLogsPage() {
 
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
-      {/* Page Header */}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
         <div>
           <div className="flex items-center gap-2">
@@ -350,7 +333,6 @@ export default function AuditLogsPage() {
         </div>
       </div>
 
-      {/* Summary Cards (supports date filters only) */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between px-1">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5c6370]">
@@ -404,7 +386,6 @@ export default function AuditLogsPage() {
         </div>
       </div>
 
-      {/* Main Table Card */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -426,9 +407,8 @@ export default function AuditLogsPage() {
           </div>
         </CardHeader>
 
-        {/* Filter Controls Bar */}
         <div className="px-4 sm:px-5 py-3 border-y border-[#2e3139] bg-[#111215]/60 flex flex-wrap gap-2.5 items-center">
-          {/* Action Filter */}
+
           <div className="w-full sm:w-36">
             <select
               value={actionFilter}
@@ -443,7 +423,6 @@ export default function AuditLogsPage() {
             </select>
           </div>
 
-          {/* Module / Resource Filter */}
           <div className="w-full sm:w-44">
             <select
               value={resourceFilter}
@@ -463,7 +442,6 @@ export default function AuditLogsPage() {
             </select>
           </div>
 
-          {/* Outcome Filter */}
           <div className="w-full sm:w-32">
             <select
               value={outcomeFilter}
@@ -476,7 +454,6 @@ export default function AuditLogsPage() {
             </select>
           </div>
 
-          {/* Actor Email (exact match per docs) */}
           <div className="relative w-full sm:w-48">
             <input
               type="text"
@@ -487,7 +464,6 @@ export default function AuditLogsPage() {
             />
           </div>
 
-          {/* Start Date */}
           <div className="flex items-center gap-1.5 w-full sm:w-auto">
             <span className="text-[11px] text-[#5c6370]">From:</span>
             <input
@@ -498,7 +474,6 @@ export default function AuditLogsPage() {
             />
           </div>
 
-          {/* End Date */}
           <div className="flex items-center gap-1.5 w-full sm:w-auto">
             <span className="text-[11px] text-[#5c6370]">To:</span>
             <input
@@ -511,7 +486,7 @@ export default function AuditLogsPage() {
         </div>
 
         <CardContent className="pt-3">
-          {/* Error Message */}
+
           {loadError && (
             <div className="mb-4 p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-between text-xs text-red-300">
               <div className="flex items-center gap-2">
@@ -528,7 +503,6 @@ export default function AuditLogsPage() {
             </div>
           )}
 
-          {/* Loading Skeleton */}
           {loadingLogs ? (
             <div className="py-16 flex flex-col items-center justify-center">
               <div className="h-7 w-7 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin mb-3" />
@@ -574,7 +548,7 @@ export default function AuditLogsPage() {
 
                     return (
                       <Tr key={rowKey}>
-                        {/* Timestamp */}
+
                         <Td>
                           <div className="flex flex-col min-w-0">
                             <span className="text-xs font-medium text-white whitespace-nowrap" title={record.timestamp}>
@@ -586,7 +560,6 @@ export default function AuditLogsPage() {
                           </div>
                         </Td>
 
-                        {/* Administrator */}
                         <Td>
                           <div className="flex flex-col min-w-0 max-w-[190px]">
                             <span className="text-xs font-medium text-white truncate" title={record.actorEmail}>
@@ -600,21 +573,18 @@ export default function AuditLogsPage() {
                           </div>
                         </Td>
 
-                        {/* Role */}
                         <Td>
                           <Badge className={record.actorRole === 'super_admin' ? 'badge-purple' : 'badge-blue'}>
                             {record.actorRole || 'admin'}
                           </Badge>
                         </Td>
 
-                        {/* Action */}
                         <Td>
                           <span className={clsx('px-2 py-0.5 text-[11px] font-bold rounded-md whitespace-nowrap', actionBadgeClass)}>
                             {record.action}
                           </span>
                         </Td>
 
-                        {/* Module */}
                         <Td>
                           <div className="flex flex-col min-w-0">
                             <span className="text-xs font-medium text-white whitespace-nowrap">
@@ -626,7 +596,6 @@ export default function AuditLogsPage() {
                           </div>
                         </Td>
 
-                        {/* Affected Record */}
                         <Td>
                           {record.resourceId ? (
                             <div className="flex items-center gap-1.5 max-w-[150px]">
@@ -647,7 +616,6 @@ export default function AuditLogsPage() {
                           )}
                         </Td>
 
-                        {/* Result */}
                         <Td>
                           <div className="flex items-center gap-1.5">
                             {isSuccess ? (
@@ -662,7 +630,6 @@ export default function AuditLogsPage() {
                           </div>
                         </Td>
 
-                        {/* Details Button */}
                         <Td className="text-right">
                           <button
                             type="button"
@@ -679,7 +646,6 @@ export default function AuditLogsPage() {
                 </Tbody>
               </Table>
 
-              {/* Pagination Controls */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-[#2e3139] mt-3">
                 <div className="flex items-center gap-2 text-xs text-[#5c6370]">
                   <span>Rows per page:</span>
@@ -732,7 +698,6 @@ export default function AuditLogsPage() {
         </CardContent>
       </Card>
 
-      {/* Details Read-Only Drawer / Modal */}
       <Modal
         open={!!selectedRecordId}
         onClose={handleCloseDetail}
@@ -752,7 +717,7 @@ export default function AuditLogsPage() {
           </div>
         ) : detailData ? (
           <div className="space-y-5 text-xs text-[#9ba3af]">
-            {/* Top Bar: Action & Status */}
+
             <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-[#141518] border border-[#2e3139] rounded-xl">
               <div className="flex items-center gap-2.5">
                 <span className={clsx('px-2.5 py-1 text-xs font-bold rounded-lg', ACTION_COLORS[detailData.action] || 'badge-gray')}>
@@ -782,7 +747,6 @@ export default function AuditLogsPage() {
               </div>
             </div>
 
-            {/* Truncated Snapshot Notice */}
             {detailData.snapshotTruncated && (
               <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
@@ -792,7 +756,6 @@ export default function AuditLogsPage() {
               </div>
             )}
 
-            {/* Core Metadata Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3.5 bg-[#141518] border border-[#2e3139] rounded-xl">
               <DetailRow
                 label="Administrator"
@@ -848,7 +811,6 @@ export default function AuditLogsPage() {
               />
             </div>
 
-            {/* Changed Fields Tags */}
             {Array.isArray(detailData.changedFields) && detailData.changedFields.length > 0 && (
               <div className="p-3.5 bg-[#141518] border border-[#2e3139] rounded-xl">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5c6370] block mb-2">
@@ -864,7 +826,6 @@ export default function AuditLogsPage() {
               </div>
             )}
 
-            {/* Side-by-Side State Snapshots */}
             <div className="space-y-2">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-white block">
                 State Snapshots (Side-by-Side Verification)
@@ -883,7 +844,7 @@ export default function AuditLogsPage() {
                   </div>
 
                   <div className="divide-y divide-[#22252c] max-h-[360px] overflow-y-auto">
-                    {/* CREATE: before is null */}
+
                     {detailData.action === 'CREATE' && detailData.before === null && (
                       <div className="p-3 bg-emerald-500/5 text-emerald-400 text-xs border-b border-[#2e3139] flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
@@ -891,7 +852,6 @@ export default function AuditLogsPage() {
                       </div>
                     )}
 
-                    {/* DELETE: after is null */}
                     {detailData.action === 'DELETE' && detailData.after === null && (
                       <div className="p-3 bg-red-500/5 text-red-400 text-xs border-b border-[#2e3139] flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -915,7 +875,7 @@ export default function AuditLogsPage() {
                             isFieldChanged && "bg-blue-500/[0.04]"
                           )}
                         >
-                          {/* Field Name */}
+
                           <div className="col-span-3 pr-2 font-mono text-[#9ba3af] break-all">
                             <span className={clsx(isFieldChanged && "text-blue-400 font-bold")}>
                               {key}
@@ -927,7 +887,6 @@ export default function AuditLogsPage() {
                             )}
                           </div>
 
-                          {/* Before Value */}
                           <div className="col-span-4 border-l border-[#22252c] pl-3 pr-2 font-mono break-all text-[#9ba3af]">
                             {beforeFmt.isObject ? (
                               <pre className="p-2 bg-[#0a0a0d] rounded border border-[#2e3139] text-[10px] overflow-x-auto whitespace-pre-wrap max-h-40">
@@ -938,7 +897,6 @@ export default function AuditLogsPage() {
                             )}
                           </div>
 
-                          {/* After Value */}
                           <div className="col-span-5 border-l border-[#22252c] pl-3 font-mono break-all text-white">
                             {afterFmt.isObject ? (
                               <pre className="p-2 bg-[#0a0a0d] rounded border border-[#2e3139] text-[10px] overflow-x-auto whitespace-pre-wrap max-h-40 text-emerald-300">
@@ -964,7 +922,6 @@ export default function AuditLogsPage() {
               )}
             </div>
 
-            {/* Read-only Security Note */}
             <div className="pt-2 text-[10px] text-[#5c6370] text-center border-t border-[#2e3139]">
               Verified audit logs are tamper-evident and permanently read-only. Modification and deletion are disabled by security policy.
             </div>
