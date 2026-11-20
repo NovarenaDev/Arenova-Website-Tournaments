@@ -245,6 +245,10 @@ export const api = {
     return request(`/api/novare/tournaments/${id}`);
   },
 
+  getTournamentOptions: async () => {
+    return request('/api/novare/tournaments/options');
+  },
+
   registerEmail: async ({ firstName, lastName, role, phone, email, password }) => {
     return request('/api/auth/register', {
       method: 'POST',

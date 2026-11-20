@@ -10,11 +10,33 @@ export const adminGetMe = () => get('/auth/admin/me');
 
 export const getDashboard = () => get('/admin/dashboard');
 
+export const withAdminDocToken = (url?: string): string => {
+  if (!url) return '';
+  const trimmed = String(url).trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
+  if (/X-Amz-Signature=|Signature=/i.test(trimmed)) return trimmed;
+
+  const originBase = BASE_URL.replace(/\/api$/, '');
+  const fullUrl = trimmed.startsWith('/') ? `${originBase}${trimmed}` : trimmed;
+  const token = getAdminToken();
+  if (!token) return fullUrl;
+
+  const isApiUrl =
+    fullUrl.startsWith(originBase) ||
+    fullUrl.includes('api.getarenova.com');
+
+  if (!isApiUrl || /[?&]token=/i.test(fullUrl)) return fullUrl;
+  const sep = fullUrl.includes('?') ? '&' : '?';
+  return `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
+};
+
 export const getCustomers = (params: Record<string, any> = {}) => {
   const q = new URLSearchParams(params).toString();
   return get(`/admin/customers${q ? '?' + q : ''}`);
 };
 export const getCustomer = (id: string) => get(`/admin/customers/${id}`);
+export const updateCustomer = (id: string, data: any) => put(`/admin/customers/${id}`, data);
 export const updateCustomerStatus = (id: string, status: string) =>
   put(`/admin/customers/${id}/status`, { status });
 export const deleteCustomer = (id: string) => del(`/admin/customers/${id}`);

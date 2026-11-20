@@ -28,6 +28,58 @@ export default function UserDashboard({
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
   const [invoiceError, setInvoiceError] = useState('');
   const [registrationsError, setRegistrationsError] = useState('');
+  const clearedStorageKey = `arenova_cleared_pending_${authObj?.user?._id || authObj?.user?.id || 'guest'}`;
+  const [clearedPendingIds, setClearedPendingIds] = useState(() => {
+    try {
+      const raw = localStorage.getItem(clearedStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleClearPending = (idsToClear) => {
+    const next = Array.from(new Set([...clearedPendingIds, ...idsToClear.filter(Boolean).map(String)]));
+    setClearedPendingIds(next);
+    try {
+      localStorage.setItem(clearedStorageKey, JSON.stringify(next));
+    } catch {}
+  };
+
+  const isRegistrationPaid = (reg) => {
+    const payStatus = String(reg?.paymentStatus || '').toUpperCase().trim();
+    const regStatus = String(reg?.status || '').toUpperCase().trim();
+    const isPendingPayment = ['PENDING', 'UNPAID', 'FAILED', 'INITIATED', 'CREATED', 'AWAITING_PAYMENT', 'PAYMENT_PENDING'].includes(payStatus);
+    return !isPendingPayment && (
+      ['PAID', 'COMPLETED', 'SUCCESS', 'CAPTURED', 'SETTLED'].includes(payStatus) ||
+      (!payStatus && regStatus === 'CONFIRMED')
+    );
+  };
+
+  const clearedSet = new Set(clearedPendingIds.map(String));
+  const confirmedRegistrations = registrations.filter((reg) => isRegistrationPaid(reg));
+  const allPendingRegistrations = registrations.filter((reg) => !isRegistrationPaid(reg));
+
+  useEffect(() => {
+    if (clearedPendingIds.length === 0 || allPendingRegistrations.length === 0) return;
+    const hasNewPendingAttempt = allPendingRegistrations.some((reg) => {
+      const id = String(reg._id || reg.id || '');
+      return id && !clearedSet.has(id);
+    });
+    if (hasNewPendingAttempt) {
+      setClearedPendingIds([]);
+      try {
+        localStorage.removeItem(clearedStorageKey);
+      } catch {}
+    }
+  }, [allPendingRegistrations.length, clearedPendingIds.length, clearedStorageKey]);
+
+  const pendingRegistrations = allPendingRegistrations.filter((reg) => {
+    const id = String(reg._id || reg.id || '');
+    return !id || !clearedSet.has(id);
+  });
+  const visibleRegistrationsCount = confirmedRegistrations.length + pendingRegistrations.length;
 
   const fetchUserProfile = async () => {
     try {
@@ -296,9 +348,6 @@ export default function UserDashboard({
               >
                 📲 Download App
               </button>
-              <button className="btn btn-danger" onClick={onSignOut} style={{ padding: '10px 18px', fontSize: '13px' }}>
-                Sign Out
-              </button>
             </div>
           </div>
         </div>
@@ -321,7 +370,7 @@ export default function UserDashboard({
                 borderBottom: activeTab === 'registrations' ? '3px solid var(--ink)' : '3px solid transparent'
               }}
             >
-              My Registered Tournaments ({registrations.length})
+              My Registered Tournaments ({visibleRegistrationsCount})
             </button>
             <button
               onClick={() => {
@@ -391,7 +440,7 @@ export default function UserDashboard({
                 </div>
               )}
 
-              {!loading && registrations.length === 0 && (
+              {!loading && visibleRegistrationsCount === 0 && (
                 <div style={{
                   textAlign: 'center',
                   padding: '60px 20px',
@@ -412,210 +461,273 @@ export default function UserDashboard({
                 </div>
               )}
 
-              {!loading && registrations.length > 0 && (
-                <div style={{ display: 'grid', gap: '16px' }}>
-                  {registrations.map((reg) => {
-                    const tournament = reg.tournament || {};
-                    const isPaid = reg.paymentStatus === 'PAID' || reg.paymentStatus === 'COMPLETED' || reg.status === 'CONFIRMED';
-                    const regId = reg._id || reg.id;
-                    const isCancelOpen = cancelInfoId === regId;
-                    const athleteName = reg.playerName || reg.name || `${authObj?.user?.firstName || ''} ${authObj?.user?.lastName || ''}`.trim() || 'Player';
-                    const athletePhone = reg.playerPhone || reg.phone || authObj?.user?.phone || 'Verified Mobile';
-
-                    return (
-                      <div
-                        key={regId}
-                        style={{
-                          background: '#fff',
-                          border: '1px solid var(--line)',
-                          borderRadius: '14px',
-                          padding: '24px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '16px'
-                        }}
-                      >
+              {!loading && visibleRegistrationsCount > 0 && (
+                <div style={{ display: 'grid', gap: '28px' }}>
+                  {[
+                    {
+                      key: 'confirmed',
+                      title: `Confirmed Registrations (${confirmedRegistrations.length})`,
+                      items: confirmedRegistrations,
+                      isPendingGroup: false
+                    },
+                    {
+                      key: 'pending',
+                      title: `Pending Payments (${pendingRegistrations.length})`,
+                      items: pendingRegistrations,
+                      isPendingGroup: true
+                    }
+                  ]
+                    .filter((group) => group.items.length > 0)
+                    .map((group) => (
+                      <div key={group.key} style={{ display: 'grid', gap: '14px' }}>
                         <div style={{
                           display: 'flex',
                           justifyContent: 'space-between',
-                          alignItems: 'flex-start',
+                          alignItems: 'center',
                           flexWrap: 'wrap',
-                          gap: '16px'
+                          gap: '10px'
                         }}>
-                          <div>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-                              <span className="pill dark">{(tournament.sport || 'SPORTS').toUpperCase()}</span>
-                              <span style={{
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                padding: '4px 8px',
-                                borderRadius: '6px',
-                                background: isPaid ? '#edf7d9' : '#fff8df',
-                                color: isPaid ? '#4b6e15' : '#854d0e'
-                              }}>
-                                {isPaid ? '✓ CONFIRMED' : 'PENDING PAYMENT'}
-                              </span>
-                            </div>
-
-                            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', marginBottom: '6px' }}>
-                              {tournament.title || 'Tournament Entry'}
-                            </h3>
-                            <div style={{ fontSize: '13px', color: 'var(--muted)', display: 'grid', gap: '4px' }}>
-                              <div>
-                                Category: <strong style={{ color: 'var(--ink)' }}>{reg.categoryName || 'Open'}</strong>
-                                {reg.teamName ? ` • Team: ${reg.teamName}` : ''}
-                                {reg.partnerName ? ` • Partner: ${reg.partnerName}` : ''}
-                              </div>
-                              <div>
-                                Participant: <strong style={{ color: 'var(--ink)' }}>{athleteName}</strong>
-                                {athletePhone ? ` (${athletePhone})` : ''}
-                              </div>
-                              {(tournament.venue || tournament.location || tournament.city) && (
-                                <div>
-                                  Venue: <strong style={{ color: 'var(--ink)' }}>
-                                    {[tournament.venue || tournament.location, tournament.city].filter(Boolean).join(', ')}
-                                  </strong>
-                                </div>
-                              )}
-                              {(tournament.startDate || tournament.date) && (
-                                <div>
-                                  Start Date: <strong style={{ color: 'var(--ink)' }}>
-                                    {tournament.startDate
-                                      ? new Date(tournament.startDate).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                                      : tournament.date}
-                                  </strong>
-                                </div>
-                              )}
-                              {reg.amount ? (
-                                <div>
-                                  Amount Paid: <strong style={{ color: 'var(--ink)' }}>₹{reg.amount}</strong>
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-
-                          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                            <div>
-                              <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block' }}>Pass ID</span>
-                              <strong style={{ fontSize: '14px', fontFamily: 'monospace' }}>
-                                {regId?.slice(-8) || 'ACTIVE'}
-                              </strong>
-                            </div>
-
-                            {!isPaid && onPayPendingRegistration && (
-                              <button
-                                type="button"
-                                className="btn btn-primary"
-                                onClick={() => onPayPendingRegistration(reg)}
-                                style={{
-                                  padding: '7px 14px',
-                                  fontSize: '12px',
-                                  fontWeight: '700',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  background: 'var(--accent)',
-                                  color: 'var(--ink)',
-                                  borderRadius: '6px',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  boxShadow: '0 4px 12px rgba(184, 255, 61, 0.3)'
-                                }}
-                              >
-                                💳 Complete Slot Payment →
-                              </button>
-                            )}
-
-                            {(() => {
-                              const linkedInv = reg.invoice || invoices.find(inv =>
-                                (inv.registrationId && (inv.registrationId === regId || inv.registrationId === reg._id)) ||
-                                (inv.registration && (inv.registration === regId || inv.registration === reg._id)) ||
-                                (inv.metadata?.registrationId && inv.metadata.registrationId === regId) ||
-                                (reg.invoiceId && inv._id === reg.invoiceId)
-                              );
-                              const targetInvoiceId = linkedInv?._id || reg.invoiceId;
-                              if (!targetInvoiceId) return null;
-                              return (
-                                <button
-                                  type="button"
-                                  className="btn btn-secondary"
-                                  disabled={downloadingInvoiceId === targetInvoiceId}
-                                  onClick={() => handleDownloadInvoice(targetInvoiceId)}
-                                  style={{
-                                    padding: '4px 10px',
-                                    fontSize: '11px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    background: '#f8fdf2',
-                                    borderColor: '#a3e635',
-                                    color: '#275204',
-                                    fontWeight: '600',
-                                    borderRadius: '6px'
-                                  }}
-                                >
-                                  {downloadingInvoiceId === targetInvoiceId ? '⏳ Fetching...' : '📄 Tax Invoice (PDF)'}
-                                </button>
-                              );
-                            })()}
-
+                          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', margin: 0, color: 'var(--ink)' }}>
+                            {group.title}
+                          </h3>
+                          {group.isPendingGroup && group.items.length > 1 && (
                             <button
                               type="button"
-                              onClick={() => setCancelInfoId(isCancelOpen ? null : regId)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: '#b91c1c',
-                                fontSize: '12px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                textDecoration: 'underline',
-                                padding: 0
-                              }}
+                              className="btn btn-secondary"
+                              onClick={() => handleClearPending(group.items.map((r) => r._id || r.id))}
+                              style={{ padding: '6px 12px', fontSize: '12px', color: '#6b7280' }}
                             >
-                              {isCancelOpen ? 'Hide Cancellation Info' : 'Need to Cancel or Refund?'}
+                              Clear All Pending
                             </button>
-                          </div>
+                          )}
                         </div>
 
-                        {isCancelOpen && (
-                          <div style={{
-                            background: '#fef2f2',
-                            border: '1px solid #fecaca',
-                            borderRadius: '10px',
-                            padding: '16px 18px',
-                            fontSize: '13px',
-                            color: '#991b1b'
-                          }}>
-                            <div style={{ fontWeight: '700', marginBottom: '6px', fontSize: '14px' }}>
-                              Tournament Cancellation & Refund Procedure
-                            </div>
-                            <p style={{ margin: '0 0 10px', lineHeight: '1.5' }}>
-                              Per the Arenova Refund & Cancellation Policy, cancellations and refunds are approved by the tournament organizers / Admin Portal before brackets are published.
-                            </p>
-                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                              <a
-                                href={`mailto:support@novarena.in?subject=Cancellation Request: Pass ${regId}&body=Hi Arenova Support,%0D%0A%0D%0AI would like to request cancellation for my tournament registration.%0D%0A%0D%0ATournament: ${tournament.title || ''}%0D%0APass ID: ${regId}%0D%0ACategory: ${reg.categoryName || ''}%0D%0AParticipant: ${athleteName}%0D%0APhone: ${athletePhone}%0D%0A%0D%0AReason for cancellation:%0D%0A`}
-                                className="btn btn-primary"
+                        <div style={{ display: 'grid', gap: '16px' }}>
+                          {group.items.map((reg) => {
+                            const tournament = reg.tournament || {};
+                            const isPaid = !group.isPendingGroup;
+                            const regId = reg._id || reg.id;
+                            const isCancelOpen = cancelInfoId === regId;
+                            const athleteName = reg.playerName || reg.name || `${authObj?.user?.firstName || ''} ${authObj?.user?.lastName || ''}`.trim() || 'Player';
+                            const athletePhone = reg.playerPhone || reg.phone || authObj?.user?.phone || 'Verified Mobile';
+
+                            return (
+                              <div
+                                key={regId}
                                 style={{
-                                  background: '#b91c1c',
-                                  borderColor: '#b91c1c',
-                                  color: '#fff',
-                                  padding: '8px 14px',
-                                  fontSize: '12px'
+                                  background: '#fff',
+                                  border: '1px solid var(--line)',
+                                  borderRadius: '14px',
+                                  padding: '24px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '16px'
                                 }}
                               >
-                                Email Support to Cancel →
-                              </a>
-                              <span style={{ fontSize: '12px', color: '#7f1d1d' }}>
-                                Or contact the tournament director directly.
-                              </span>
-                            </div>
-                          </div>
-                        )}
+                                <div style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'flex-start',
+                                  flexWrap: 'wrap',
+                                  gap: '16px'
+                                }}>
+                                  <div>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                                      <span className="pill dark">{(tournament.sport || 'SPORTS').toUpperCase()}</span>
+                                      <span style={{
+                                        fontSize: '11px',
+                                        fontWeight: '700',
+                                        padding: '4px 8px',
+                                        borderRadius: '6px',
+                                        background: isPaid ? '#edf7d9' : '#fff8df',
+                                        color: isPaid ? '#4b6e15' : '#854d0e'
+                                      }}>
+                                        {isPaid ? '✓ CONFIRMED' : 'PENDING PAYMENT'}
+                                      </span>
+                                    </div>
+
+                                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', marginBottom: '6px' }}>
+                                      {tournament.title || 'Tournament Entry'}
+                                    </h3>
+                                    <div style={{ fontSize: '13px', color: 'var(--muted)', display: 'grid', gap: '4px' }}>
+                                      <div>
+                                        Category: <strong style={{ color: 'var(--ink)' }}>{reg.categoryName || 'Open'}</strong>
+                                        {reg.teamName ? ` • Team: ${reg.teamName}` : ''}
+                                        {reg.partnerName ? ` • Partner: ${reg.partnerName}` : ''}
+                                      </div>
+                                      <div>
+                                        Participant: <strong style={{ color: 'var(--ink)' }}>{athleteName}</strong>
+                                        {athletePhone ? ` (${athletePhone})` : ''}
+                                      </div>
+                                      {(tournament.venue || tournament.location || tournament.city) && (
+                                        <div>
+                                          Venue: <strong style={{ color: 'var(--ink)' }}>
+                                            {[tournament.venue || tournament.location, tournament.city].filter(Boolean).join(', ')}
+                                          </strong>
+                                        </div>
+                                      )}
+                                      {(tournament.startDate || tournament.date) && (
+                                        <div>
+                                          Start Date: <strong style={{ color: 'var(--ink)' }}>
+                                            {tournament.startDate
+                                              ? new Date(tournament.startDate).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                              : tournament.date}
+                                          </strong>
+                                        </div>
+                                      )}
+                                      {reg.amount ? (
+                                        <div>
+                                          {isPaid ? 'Amount Paid:' : 'Amount Due:'} <strong style={{ color: 'var(--ink)' }}>₹{reg.amount}</strong>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </div>
+
+                                  <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                                    <div>
+                                      <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block' }}>Pass ID</span>
+                                      <strong style={{ fontSize: '14px', fontFamily: 'monospace' }}>
+                                        {regId?.slice(-8) || 'ACTIVE'}
+                                      </strong>
+                                    </div>
+
+                                    {!isPaid && (
+                                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                        {onPayPendingRegistration && (
+                                          <button
+                                            type="button"
+                                            className="btn btn-primary"
+                                            onClick={() => onPayPendingRegistration(reg)}
+                                            style={{
+                                              padding: '7px 14px',
+                                              fontSize: '12px',
+                                              fontWeight: '700',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '6px',
+                                              background: 'var(--accent)',
+                                              color: 'var(--ink)',
+                                              borderRadius: '6px',
+                                              border: 'none',
+                                              cursor: 'pointer',
+                                              boxShadow: '0 4px 12px rgba(184, 255, 61, 0.3)'
+                                            }}
+                                          >
+                                            💳 Complete Slot Payment →
+                                          </button>
+                                        )}
+                                        <button
+                                          type="button"
+                                          className="btn btn-secondary"
+                                          onClick={() => handleClearPending([regId])}
+                                          style={{
+                                            padding: '7px 12px',
+                                            fontSize: '12px',
+                                            fontWeight: '600',
+                                            borderRadius: '6px',
+                                            color: '#6b7280'
+                                          }}
+                                        >
+                                          Clear
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {(() => {
+                                      const linkedInv = reg.invoice || invoices.find(inv =>
+                                        (inv.registrationId && (inv.registrationId === regId || inv.registrationId === reg._id)) ||
+                                        (inv.registration && (inv.registration === regId || inv.registration === reg._id)) ||
+                                        (inv.metadata?.registrationId && inv.metadata.registrationId === regId) ||
+                                        (reg.invoiceId && inv._id === reg.invoiceId)
+                                      );
+                                      const targetInvoiceId = linkedInv?._id || reg.invoiceId;
+                                      if (!targetInvoiceId) return null;
+                                      return (
+                                        <button
+                                          type="button"
+                                          className="btn btn-secondary"
+                                          disabled={downloadingInvoiceId === targetInvoiceId}
+                                          onClick={() => handleDownloadInvoice(targetInvoiceId)}
+                                          style={{
+                                            padding: '4px 10px',
+                                            fontSize: '11px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            background: '#f8fdf2',
+                                            borderColor: '#a3e635',
+                                            color: '#275204',
+                                            fontWeight: '600',
+                                            borderRadius: '6px'
+                                          }}
+                                        >
+                                          {downloadingInvoiceId === targetInvoiceId ? '⏳ Fetching...' : '📄 Tax Invoice (PDF)'}
+                                        </button>
+                                      );
+                                    })()}
+
+                                    {isPaid && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setCancelInfoId(isCancelOpen ? null : regId)}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          color: '#b91c1c',
+                                          fontSize: '12px',
+                                          fontWeight: '600',
+                                          cursor: 'pointer',
+                                          textDecoration: 'underline',
+                                          padding: 0
+                                        }}
+                                      >
+                                        {isCancelOpen ? 'Hide Cancellation Info' : 'Need to Cancel or Refund?'}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {isPaid && isCancelOpen && (
+                                  <div style={{
+                                    background: '#fef2f2',
+                                    border: '1px solid #fecaca',
+                                    borderRadius: '10px',
+                                    padding: '16px 18px',
+                                    fontSize: '13px',
+                                    color: '#991b1b'
+                                  }}>
+                                    <div style={{ fontWeight: '700', marginBottom: '6px', fontSize: '14px' }}>
+                                      Tournament Cancellation & Refund Procedure
+                                    </div>
+                                    <p style={{ margin: '0 0 10px', lineHeight: '1.5' }}>
+                                      Per the Arenova Refund & Cancellation Policy, cancellations and refunds are approved by the tournament organizers / Admin Portal before brackets are published.
+                                    </p>
+                                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                      <a
+                                        href={`mailto:support@novarena.in?subject=Cancellation Request: Pass ${regId}&body=Hi Arenova Support,%0D%0A%0D%0AI would like to request cancellation for my tournament registration.%0D%0A%0D%0ATournament: ${tournament.title || ''}%0D%0APass ID: ${regId}%0D%0ACategory: ${reg.categoryName || ''}%0D%0AParticipant: ${athleteName}%0D%0APhone: ${athletePhone}%0D%0A%0D%0AReason for cancellation:%0D%0A`}
+                                        className="btn btn-primary"
+                                        style={{
+                                          background: '#b91c1c',
+                                          borderColor: '#b91c1c',
+                                          color: '#fff',
+                                          padding: '8px 14px',
+                                          fontSize: '12px'
+                                        }}
+                                      >
+                                        Email Support to Cancel →
+                                      </a>
+                                      <span style={{ fontSize: '12px', color: '#7f1d1d' }}>
+                                        Or contact the tournament director directly.
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    );
-                  })}
+                    ))}
                 </div>
               )}
             </div>

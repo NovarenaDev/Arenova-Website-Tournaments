@@ -52,176 +52,134 @@ export default function TournamentDetails({
     : null;
 
   return (
-    <div className="details-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <button className="btn btn-secondary" onClick={onBack} style={{ padding: '8px 16px', fontSize: '13px' }}>
-          ← Back to Live Tournaments
+    <div className="details-view td-shell">
+      <div className="td-topbar">
+        <button className="btn btn-secondary" onClick={onBack} style={{ padding: '8px 14px', fontSize: '13px' }}>
+          ← Back to Tournaments
         </button>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span className="pill dark" style={{ padding: '6px 14px', fontSize: '11px' }}>
-            {(tournament.sport || 'SPORT').toUpperCase()}
-          </span>
-          {tournament.status && (
-            <span style={{
-              background: '#edf7d9',
-              color: '#4b6e15',
-              padding: '6px 10px',
-              borderRadius: '6px',
-              fontSize: '11px',
-              fontWeight: '700'
-            }}>
-              {tournament.status.toUpperCase()}
-            </span>
-          )}
+      </div>
+
+      <div className="td-hero">
+        <img
+          src={bannerUrl}
+          alt={tournament.title}
+          className="td-banner"
+          loading="lazy"
+          onError={(e) => {
+            if (e.target.src.includes('/api/media/') && !e.target.dataset.triedFallback) {
+              e.target.dataset.triedFallback = 'true';
+              const path = e.target.src.substring(e.target.src.indexOf('/api/media/'));
+              e.target.src = `https://api.getarenova.com${path}`;
+              return;
+            }
+            e.target.src = SPORT_FALLBACKS[sportKey] || badmintonImg;
+          }}
+        />
+        <div className="td-hero-overlay">
+          <div className="td-badges">
+            <span className="td-sport-pill">{(tournament.sport || 'SPORT').toUpperCase()}</span>
+            {tournament.status && (
+              <span className="td-status-badge">{tournament.status.toUpperCase()}</span>
+            )}
+          </div>
+          <h1 className="td-hero-title">{tournament.title}</h1>
         </div>
       </div>
 
-      <img
-        src={bannerUrl}
-        alt={tournament.title}
-        className="details-banner"
-        style={{ width: '100%', maxHeight: '380px', objectFit: 'cover', borderRadius: '16px' }}
-        loading="lazy"
-        onError={(e) => {
-          if (e.target.src.includes('/api/media/') && !e.target.dataset.triedFallback) {
-            e.target.dataset.triedFallback = 'true';
-            const path = e.target.src.substring(e.target.src.indexOf('/api/media/'));
-            e.target.src = `https://api.getarenova.com${path}`;
-            return;
-          }
-          e.target.src = SPORT_FALLBACKS[sportKey] || badmintonImg;
-        }}
-      />
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.6fr', gap: '40px', alignItems: 'start', marginTop: '20px' }}>
-        <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '36px', marginBottom: '14px' }}>
-            {tournament.title}
-          </h1>
-
-          <p style={{ color: 'var(--muted)', fontSize: '16px', lineHeight: '1.7', marginBottom: '30px', whiteSpace: 'pre-line' }}>
+      <div className="td-grid">
+        <div className="td-intro">
+          <p className="td-desc">
             {tournament.description ||
               'Join players and teams competing in this tournament hosted on the Arenova platform. Verified scores, digital draw management, and direct payments.'}
           </p>
-
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', marginBottom: '16px' }}>
-            Tournament Categories & Registration Fees
-          </h3>
-
-          <div style={{ display: 'grid', gap: '12px', marginBottom: '32px' }}>
-            {(tournament.categories || []).length > 0 ? (
-              tournament.categories.map((cat, idx) => {
-                const catName = typeof cat === 'string' ? cat : (cat.name || `Category ${idx + 1}`);
-                const fee = typeof cat === 'object' && typeof cat.fee === 'number' ? cat.fee : (tournament.registrationFee || 500);
-                const regType = typeof cat === 'object' && cat.registrationType ? cat.registrationType : 'INDIVIDUAL';
-                const capacity = typeof cat === 'object' ? cat.capacity : null;
-                const availability = typeof cat === 'object' ? (cat.availability ?? (capacity ? capacity - (cat.registeredCount || 0) : null)) : null;
-
-                return (
-                  <div
-                    key={cat._id || idx}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '18px 22px',
-                      background: 'var(--soft)',
-                      borderRadius: '14px',
-                      border: '1px solid var(--line)'
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <strong style={{ fontSize: '17px' }}>{catName}</strong>
-                        <span style={{ fontSize: '10px', fontWeight: '700', background: '#e1e3e8', padding: '2px 7px', borderRadius: '4px' }}>
-                          {regType}
-                        </span>
-                      </div>
-                      <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                        {availability !== null ? `${availability} slots open` : 'Slots available'} {capacity ? ` (Total Capacity: ${capacity})` : ''}
-                      </span>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block' }}>Entry Fee</span>
-                      <strong style={{ fontSize: '20px', color: 'var(--ink)' }}>₹{fee}</strong>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div style={{ padding: '16px', background: 'var(--soft)', borderRadius: '12px' }}>
-                Open Championship Category • ₹{tournament.registrationFee || 500}
-              </div>
-            )}
-          </div>
-
-          {tournament.rules && String(tournament.rules).trim() !== '' && String(tournament.rules).trim().toLowerCase() !== 'string' && (
-            <div>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', marginBottom: '10px' }}>
-                Tournament Rules
-              </h3>
-              <p style={{ color: 'var(--muted)', fontSize: '14px', whiteSpace: 'pre-line', lineHeight: '1.7' }}>
-                {tournament.rules}
-              </p>
-            </div>
-          )}
         </div>
 
-        <div style={{
-          background: 'var(--soft)',
-          border: '1px solid var(--line)',
-          borderRadius: '16px',
-          padding: '28px',
-          display: 'grid',
-          gap: '20px'
-        }}>
-          <div>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>
-              Tournament Dates
-            </span>
-            <div style={{ fontWeight: '700', fontSize: '16px', marginTop: '4px' }}>
-              {startDate} {endDate !== startDate ? ` - ${endDate}` : ''}
+        <aside className="td-sidebar">
+          <div className="td-info-row">
+            <span className="td-info-label">Tournament Dates</span>
+            <div className="td-info-value">
+              {startDate} {endDate !== startDate ? ` – ${endDate}` : ''}
             </div>
           </div>
 
           {regDeadline && (
-            <div>
-              <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#b45309', fontWeight: '700' }}>
-                Registration Deadline
-              </span>
-              <div style={{ fontWeight: '700', fontSize: '15px', color: '#b45309', marginTop: '4px' }}>
+            <div className="td-info-row">
+              <span className="td-info-label td-deadline-label">Registration Deadline</span>
+              <div className="td-info-value td-deadline-value">
                 {regDeadline}
               </div>
             </div>
           )}
 
-          <div>
-            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>
-              Venue Location
-            </span>
-            <div style={{ fontWeight: '700', fontSize: '16px', marginTop: '4px' }}>
+          <div className="td-info-row">
+            <span className="td-info-label">Venue Location</span>
+            <div className="td-info-value">
               {tournament.venue || 'Premium Complex'}, {tournament.city || 'India'}
             </div>
           </div>
 
           {tournament.prizePool && (
-            <div>
-              <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>
-                Total Prize Pool
-              </span>
-              <div style={{ fontWeight: '800', fontSize: '22px', color: '#387c14', marginTop: '4px' }}>
+            <div className="td-info-row">
+              <span className="td-info-label">Total Prize Pool</span>
+              <div className="td-prize-value">
                 ₹{tournament.prizePool.toLocaleString()}
               </div>
             </div>
           )}
 
-          <button
-            className="btn btn-primary"
-            style={{ width: '100%', padding: '16px', fontSize: '15px', marginTop: '8px' }}
-            onClick={onProceedRegistration}
-          >
+          <button className="td-cta" onClick={onProceedRegistration}>
             Register for This Event →
           </button>
+        </aside>
+
+        <div className="td-sections">
+          <div>
+            <h3 className="td-section-title">Categories & Entry Fees</h3>
+            <div className="td-cat-list">
+              {(tournament.categories || []).length > 0 ? (
+                tournament.categories.map((cat, idx) => {
+                  const catName = typeof cat === 'string' ? cat : (cat.name || `Category ${idx + 1}`);
+                  const fee = typeof cat === 'object' && typeof cat.fee === 'number' ? cat.fee : (tournament.registrationFee || 500);
+                  const regType = typeof cat === 'object' && cat.registrationType ? cat.registrationType : 'INDIVIDUAL';
+                  const capacity = typeof cat === 'object' ? cat.capacity : null;
+                  const availability = typeof cat === 'object' ? (cat.availability ?? (capacity ? capacity - (cat.registeredCount || 0) : null)) : null;
+
+                  return (
+                    <div key={cat._id || idx} className="td-cat-card">
+                      <div>
+                        <div className="td-cat-meta">
+                          <span className="td-cat-name">{catName}</span>
+                          <span className="td-cat-type">{regType}</span>
+                        </div>
+                        <span className="td-cat-slots">
+                          {availability !== null ? `${availability} slots open` : 'Slots available'}
+                          {capacity ? ` • ${capacity} total` : ''}
+                        </span>
+                      </div>
+                      <div className="td-cat-fee">
+                        <span className="td-cat-fee-label">Entry Fee</span>
+                        <span className="td-cat-fee-val">{fee === 0 ? 'Free' : `₹${fee}`}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="td-cat-card">
+                  <span className="td-cat-name">Open Championship Category</span>
+                  <span className="td-cat-fee-val">₹{tournament.registrationFee || 500}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {tournament.rules && String(tournament.rules).trim() !== '' && String(tournament.rules).trim().toLowerCase() !== 'string' && (
+            <div className="td-rules-box">
+              <h3 className="td-section-title" style={{ marginBottom: '8px', fontSize: '16px' }}>Tournament Rules</h3>
+              <p className="td-desc" style={{ fontSize: '14px' }}>
+                {tournament.rules}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

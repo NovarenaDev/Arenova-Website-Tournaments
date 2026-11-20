@@ -22,14 +22,23 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [successMsg, setSuccessMsg] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
 
+  const resetFormState = () => {
+    setAuthStep('credentials');
+    setRole('player');
+    setFirstName('');
+    setLastName('');
+    setPhone('');
+    setEmail('');
+    setPassword('');
+    setOtp('');
+    setErrorMsg('');
+    setSuccessMsg('');
+    setResendTimer(0);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    if (isOpen) {
-      setAuthStep('credentials');
-      setErrorMsg('');
-      setSuccessMsg('');
-      setOtp('');
-      setLoading(false);
-    }
+    resetFormState();
   }, [isOpen]);
 
   useEffect(() => {
@@ -43,18 +52,20 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
   if (!isOpen) return null;
 
-  const formatPhoneNumber = (raw) => {
-    if (!raw) return '';
-    const digits = raw.trim().replace(/\D/g, '');
-    if (digits.length === 10) return digits;
+  const isValidEmail = (val) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(val || '').trim());
+
+  const extractPhoneDigits = (raw) => {
+    const digits = String(raw || '').trim().replace(/\D/g, '');
     if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
-    if (raw.startsWith('+')) return raw.trim();
-    return digits.length > 10 ? digits.slice(-10) : digits;
+    return digits;
   };
+
+  const formatPhoneNumber = (raw) => extractPhoneDigits(raw);
 
   const handleModeSwitch = (newMode) => {
     setAuthMode(newMode);
     setAuthStep('credentials');
+    setPassword('');
     setErrorMsg('');
     setSuccessMsg('');
     setOtp('');
@@ -63,6 +74,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const handleMethodSwitch = (newMethod) => {
     setAuthMethod(newMethod);
     setAuthStep('credentials');
+    setPassword('');
     setErrorMsg('');
     setSuccessMsg('');
     setOtp('');
@@ -80,7 +92,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       }
 
       if (authMethod === 'email') {
-        if (!email.trim() || !email.includes('@')) {
+        if (!isValidEmail(email)) {
           setErrorMsg('Please enter a valid email address.');
           return;
         }
@@ -88,8 +100,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           setErrorMsg('Password must be at least 6 characters.');
           return;
         }
-        const cleanPhone = phone.trim().replace(/\D/g, '');
-        if (cleanPhone.length < 10) {
+        const cleanPhone = extractPhoneDigits(phone);
+        if (!/^\d{10}$/.test(cleanPhone)) {
           setErrorMsg('Please enter a valid 10-digit mobile number.');
           return;
         }
@@ -119,8 +131,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         }
       } else {
 
-        const cleanPhone = phone.trim().replace(/\D/g, '');
-        if (cleanPhone.length < 10) {
+        const cleanPhone = extractPhoneDigits(phone);
+        if (!/^\d{10}$/.test(cleanPhone)) {
           setErrorMsg('Please enter a valid 10-digit mobile number.');
           return;
         }
@@ -150,7 +162,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
     if (authMode === 'login') {
       if (authMethod === 'email') {
-        if (!email.trim() || !email.includes('@')) {
+        if (!isValidEmail(email)) {
           setErrorMsg('Please enter a valid email address.');
           return;
         }
@@ -163,6 +175,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         try {
           await api.loginEmail(email.trim(), password);
           const authData = getStoredAuth();
+          resetFormState();
           onAuthSuccess(authData);
           onClose();
         } catch (err) {
@@ -172,8 +185,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         }
       } else {
 
-        const cleanPhone = phone.trim().replace(/\D/g, '');
-        if (cleanPhone.length < 10) {
+        const cleanPhone = extractPhoneDigits(phone);
+        if (!/^\d{10}$/.test(cleanPhone)) {
           setErrorMsg('Please enter a valid 10-digit mobile number.');
           return;
         }
@@ -241,6 +254,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       }
 
       const authData = getStoredAuth();
+      resetFormState();
       onAuthSuccess(authData);
       onClose();
     } catch (err) {
@@ -381,7 +395,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             )}
           </div>
         )}
-        {successMsg && (
+        {authStep === 'otp' && successMsg && (
           <div
             style={{
               background: '#eef2e7',
@@ -503,7 +517,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               </button>
             </div>
 
-            <form onSubmit={handleSubmitInitial} style={{ display: 'grid', gap: '14px' }}>
+            <form onSubmit={handleSubmitInitial} noValidate autoComplete="off" style={{ display: 'grid', gap: '14px' }}>
 
               {authMode === 'register' && (
                 <>
@@ -765,7 +779,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 maxLength={6}
                 placeholder="123456"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => {
+                  setOtp(e.target.value);
+                  if (successMsg) setSuccessMsg('');
+                }}
                 style={{
                   width: '100%',
                   padding: '14px',
@@ -799,7 +816,12 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
               <button
                 type="button"
-                onClick={() => setAuthStep('credentials')}
+                onClick={() => {
+                  setAuthStep('credentials');
+                  setErrorMsg('');
+                  setSuccessMsg('');
+                  setOtp('');
+                }}
                 style={{
                   background: 'transparent',
                   border: 'none',

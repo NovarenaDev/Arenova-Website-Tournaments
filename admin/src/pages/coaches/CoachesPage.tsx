@@ -12,8 +12,9 @@ import {
 import {
   getAdminCoaches, getAdminCoach, approveKyc, updateCoachPricing,
   rejectKyc, banCoach, deleteAdminCoach, uploadImage, updateAdminCoach,
-  getMediaSignedUrl, extractDataList
+  getMediaSignedUrl, withAdminDocToken, extractDataList
 } from '../../api';
+import { getAdminToken } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Coach } from '../../types';
 
@@ -343,22 +344,139 @@ const getCoachKycDocuments = (c: any): Array<{ label: string; url: string; isIma
 
 const openKycDocument = async (urlOrKey: string) => {
   if (!urlOrKey) return;
-  if (urlOrKey.startsWith('http://') || urlOrKey.startsWith('https://') || urlOrKey.startsWith('data:') || urlOrKey.startsWith('blob:')) {
-    window.open(urlOrKey, '_blank', 'noopener,noreferrer');
+  let targetUrl = urlOrKey;
+  const isDirect =
+    urlOrKey.startsWith('http://') ||
+    urlOrKey.startsWith('https://') ||
+    urlOrKey.startsWith('data:') ||
+    urlOrKey.startsWith('blob:') ||
+    urlOrKey.startsWith('/');
+
+  if (!isDirect) {
+    try {
+      const res = await getMediaSignedUrl(urlOrKey);
+      const signedUrl = res?.url || res?.data?.url || res?.signedUrl;
+      if (!signedUrl) {
+        alert('Could not resolve a viewable URL for this file.');
+        return;
+      }
+      targetUrl = signedUrl;
+    } catch (err: any) {
+      alert(err?.message || 'Failed to open protected document.');
+      return;
+    }
+  }
+
+  if (targetUrl.startsWith('data:') || targetUrl.startsWith('blob:')) {
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
     return;
   }
-  try {
-    const res = await getMediaSignedUrl(urlOrKey);
-    const signedUrl = res?.url || res?.data?.url || res?.signedUrl;
-    if (signedUrl) {
-      window.open(signedUrl, '_blank', 'noopener,noreferrer');
-    } else {
-      alert('Could not resolve a viewable URL for this file.');
-    }
-  } catch (err: any) {
-    alert(err?.message || 'Failed to open protected document.');
+
+  const authedUrl = withAdminDocToken(targetUrl);
+  const token = getAdminToken();
+  const isApiHosted =
+    authedUrl.includes('api.getarenova.com') ||
+    targetUrl.startsWith('/');
+
+  if (isApiHosted && token && !/X-Amz-Signature=|Signature=/i.test(authedUrl)) {
+    try {
+      const res = await fetch(authedUrl, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const json = await res.json().catch(() => null);
+          const resolved = json?.url || json?.data?.url || json?.signedUrl;
+          if (resolved) {
+            window.open(withAdminDocToken(resolved), '_blank', 'noopener,noreferrer');
+            return;
+          }
+        } else {
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank', 'noopener,noreferrer');
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+          return;
+        }
+      }
+    } catch {}
   }
+
+  window.open(authedUrl, '_blank', 'noopener,noreferrer');
 };
+
+function KycThumb({ url, label, isImage, variant = 'small' }: { url: string; label: string; isImage: boolean; variant?: 'small' | 'card' }) {
+  const [resolvedUrl, setResolvedUrl] = useState<string>('');
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setFailed(false);
+    if (!url || !isImage) {
+      setResolvedUrl('');
+      return;
+    }
+    const isDirect =
+      url.startsWith('http://') ||
+      url.startsWith('https://') ||
+      url.startsWith('data:') ||
+      url.startsWith('blob:') ||
+      url.startsWith('/');
+
+    if (isDirect) {
+      setResolvedUrl(withAdminDocToken(url));
+    } else {
+      getMediaSignedUrl(url)
+        .then(res => {
+          if (!active) return;
+          const signed = res?.url || res?.data?.url || res?.signedUrl;
+          setResolvedUrl(signed ? withAdminDocToken(signed) : '');
+        })
+        .catch(() => {
+          if (active) setFailed(true);
+        });
+    }
+    return () => { active = false; };
+  }, [url, isImage]);
+
+  if (variant === 'card') {
+    if (!isImage || failed || !resolvedUrl) {
+      return (
+        <div className="aspect-video w-full rounded-xl bg-white border border-slate-200 flex flex-col items-center justify-center text-slate-400">
+          <FileText className="h-8 w-8 text-[#F05A22] mb-1" />
+          <span className="text-[11px] font-medium text-slate-500">Document File</span>
+        </div>
+      );
+    }
+    return (
+      <div className="aspect-video w-full rounded-xl overflow-hidden bg-white border border-slate-200">
+        <img
+          src={resolvedUrl}
+          alt={label}
+          onError={() => setFailed(true)}
+          className="w-full h-full object-cover"
+        />
+      </div>
+    );
+  }
+
+  if (!isImage || failed || !resolvedUrl) {
+    return (
+      <div className="h-8 w-8 rounded bg-orange-50 text-[#F05A22] flex items-center justify-center flex-shrink-0">
+        <FileText className="h-4 w-4" />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={resolvedUrl}
+      alt={label}
+      onError={() => setFailed(true)}
+      className="h-8 w-8 rounded object-cover border border-slate-200 flex-shrink-0"
+    />
+  );
+}
 
 export default function CoachesPage() {
   const { can } = useAuth();
@@ -664,22 +782,11 @@ export default function CoachesPage() {
 
   const handleApproveConfirm = async () => {
     if (!approveModal) return;
-    const { id, individualPrice, groupPricePerPerson } = approveModal;
-
-    const indCheck = validateRate(individualPrice, 'Individual session rate');
-    const grpCheck = validateRate(groupPricePerPerson, 'Group session rate');
-
-    if (!indCheck.valid || !grpCheck.valid) {
-      setApproveErrors({
-        individualPrice: indCheck.error,
-        groupPricePerPerson: grpCheck.error,
-      });
-      return;
-    }
+    const { id } = approveModal;
+    const indPrice = Number(approveModal.requestedIndividualPrice || 0);
+    const grpPrice = Number(approveModal.requestedGroupPricePerPerson || 0);
 
     setApproveErrors({});
-    const indPrice = indCheck.value;
-    const grpPrice = grpCheck.value;
 
     try {
       setApproving(true);
@@ -862,6 +969,7 @@ export default function CoachesPage() {
       const res = await uploadImage(file);
       const uploadedUrl = res?.url || res?.data?.url || res?.imageUrl || '';
       if (uploadedUrl) {
+        await updateAdminCoach(avatarUpload.coachId, { avatar: uploadedUrl }).catch(() => {});
         setCoaches(prev => prev.map(c =>
           (c.id || (c as any)._id) === avatarUpload.coachId ? { ...c, avatar: uploadedUrl } : c
         ));
@@ -885,13 +993,6 @@ export default function CoachesPage() {
     pending:       coaches.filter(c => c.kyc === 'under_review' || c.kyc === 'pending').length,
     rejected:      coaches.filter(c => c.kyc === 'rejected').length,
   };
-
-  const currentIndPrice = approveModal?.individualPrice ? parseFloat(approveModal.individualPrice) : (approveModal?.requestedIndividualPrice ?? 0);
-  const currentGrpPrice = approveModal?.groupPricePerPerson ? parseFloat(approveModal.groupPricePerPerson) : (approveModal?.requestedGroupPricePerPerson ?? 0);
-  const isPricesMatchingProposed =
-    approveModal &&
-    currentIndPrice === approveModal.requestedIndividualPrice &&
-    currentGrpPrice === approveModal.requestedGroupPricePerPerson;
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 p-3 sm:p-5 lg:p-6 min-w-0 max-w-full">
@@ -1088,7 +1189,7 @@ export default function CoachesPage() {
                         </Td>
                         <Td>
                           <div className="flex items-center gap-3 min-w-0">
-                            <Avatar initials={getInitials(c.name)} size={36} className="flex-shrink-0" />
+                            <Avatar initials={getInitials(c.name)} src={withAdminDocToken((c as any).avatar || (c as any).profileImage || (c as any).photo)} size={36} className="flex-shrink-0" />
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-gray-900 truncate max-w-[160px] sm:max-w-[200px]" title={c.name || 'Unknown Coach'}>{c.name || 'Unknown Coach'}</p>
                               <div className="flex flex-col gap-0.5 mt-0.5 min-w-0">
@@ -1351,20 +1452,6 @@ export default function CoachesPage() {
               <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
                 <Coins className="h-4 w-4 text-[#F05A22]" /> Coach's Proposed Session Rates
               </span>
-              <button
-                type="button"
-                className="text-xs text-[#F05A22] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
-                onClick={() => {
-                  if (!approveModal) return;
-                  setApproveModal(prev => prev ? {
-                    ...prev,
-                    individualPrice: String(prev.requestedIndividualPrice || 0),
-                    groupPricePerPerson: String(prev.requestedGroupPricePerPerson || 0)
-                  } : null);
-                }}
-              >
-                <RotateCcw className="h-3 w-3" /> Reset to Proposed
-              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-1">
@@ -1381,9 +1468,7 @@ export default function CoachesPage() {
             </div>
 
             <p className="text-[11px] text-slate-600 leading-relaxed pt-0.5">
-              {isPricesMatchingProposed
-                ? 'The rates below match the coach’s proposal. Click "Accept Proposed & Verify" to confirm.'
-                : 'You have customized the rates below. Click "Verify with Custom Prices" to approve with adjusted pricing.'}
+              Pricing can be adjusted anytime from Actions → Update Session Pricing.
             </p>
           </div>
 
@@ -1414,13 +1499,7 @@ export default function CoachesPage() {
                     className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
                   >
                     <div className="flex items-center gap-2 min-w-0 pr-2">
-                      {doc.isImage ? (
-                        <img src={doc.url} alt={doc.label} className="h-8 w-8 rounded object-cover border border-slate-200 flex-shrink-0" />
-                      ) : (
-                        <div className="h-8 w-8 rounded bg-orange-50 text-[#F05A22] flex items-center justify-center flex-shrink-0">
-                          <FileText className="h-4 w-4" />
-                        </div>
-                      )}
+                      <KycThumb url={doc.url} label={doc.label} isImage={doc.isImage} variant="small" />
                       <span className="text-xs font-semibold text-slate-800 truncate">{doc.label}</span>
                     </div>
                     <span className="text-[11px] font-bold text-[#F05A22] flex items-center gap-1 flex-shrink-0">
@@ -1432,41 +1511,6 @@ export default function CoachesPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <Input
-                label="Approved Individual Price (₹) *"
-                type="number"
-                min={1}
-                placeholder="e.g. 500"
-                value={approveModal?.individualPrice || ''}
-                onChange={e => {
-                  setApproveErrors(prev => ({ ...prev, individualPrice: undefined }));
-                  setApproveModal(prev => prev ? { ...prev, individualPrice: e.target.value } : null);
-                }}
-              />
-              {approveErrors.individualPrice && (
-                <p className="text-[11px] text-rose-600 font-medium mt-1">{approveErrors.individualPrice}</p>
-              )}
-            </div>
-            <div>
-              <Input
-                label="Approved Group Price / Person (₹) *"
-                type="number"
-                min={1}
-                placeholder="e.g. 200"
-                value={approveModal?.groupPricePerPerson || ''}
-                onChange={e => {
-                  setApproveErrors(prev => ({ ...prev, groupPricePerPerson: undefined }));
-                  setApproveModal(prev => prev ? { ...prev, groupPricePerPerson: e.target.value } : null);
-                }}
-              />
-              {approveErrors.groupPricePerPerson && (
-                <p className="text-[11px] text-rose-600 font-medium mt-1">{approveErrors.groupPricePerPerson}</p>
-              )}
-            </div>
-          </div>
-
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
             <Button variant="outline" onClick={() => setApproveModal(null)}>Cancel</Button>
             <Button
@@ -1476,9 +1520,7 @@ export default function CoachesPage() {
               onClick={handleApproveConfirm}
             >
               <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-              {approving ? 'Verifying...' : isPricesMatchingProposed
-                ? `Accept Proposed & Verify (${fmt(currentIndPrice)} / ${fmt(currentGrpPrice)})`
-                : `Verify with Custom Prices (${fmt(currentIndPrice)} / ${fmt(currentGrpPrice)})`}
+              {approving ? 'Verifying...' : 'Approve & Verify KYC'}
             </Button>
           </div>
         </div>
@@ -1585,16 +1627,7 @@ export default function CoachesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {docsModal.documents.map((doc, idx) => (
                 <div key={idx} className="border border-slate-200 rounded-2xl p-3 bg-slate-50/70 flex flex-col gap-2">
-                  {doc.isImage ? (
-                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-white border border-slate-200">
-                      <img src={doc.url} alt={doc.label} className="w-full h-full object-cover" />
-                    </div>
-                  ) : (
-                    <div className="aspect-video w-full rounded-xl bg-white border border-slate-200 flex flex-col items-center justify-center text-slate-400">
-                      <FileText className="h-8 w-8 text-[#F05A22] mb-1" />
-                      <span className="text-[11px] font-medium text-slate-500">Document File</span>
-                    </div>
-                  )}
+                  <KycThumb url={doc.url} label={doc.label} isImage={doc.isImage} variant="card" />
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-slate-800 truncate">{doc.label}</span>
                     <Button
@@ -1665,7 +1698,7 @@ export default function CoachesPage() {
           <div className="space-y-4">
 
             <div className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
-              <Avatar initials={actionCoach.name ? actionCoach.name.slice(0, 2) : 'CO'} size={44} />
+              <Avatar initials={actionCoach.name ? actionCoach.name.slice(0, 2) : 'CO'} src={withAdminDocToken((actionCoach as any).avatar || (actionCoach as any).profileImage || (actionCoach as any).photo)} size={44} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-slate-900 text-sm truncate">

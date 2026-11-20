@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useId } from 'react';
+import React, { ReactNode, useEffect, useId, useState } from 'react';
 import { clsx } from 'clsx';
 import { X, AlertTriangle } from 'lucide-react';
 
@@ -62,8 +62,21 @@ const COLORS = [
   'bg-purple-50 text-purple-600 border border-purple-200',
   'bg-teal-50 text-teal-600 border border-teal-200',
 ];
-export function Avatar({ initials, size = 32, className }: { initials: string; size?: number; className?: string }) {
+export function Avatar({ initials, src, size = 32, className }: { initials: string; src?: string; size?: number; className?: string }) {
+  const [imgError, setImgError] = useState(false);
+  useEffect(() => { setImgError(false); }, [src]);
   const idx = (initials.charCodeAt(0) || 0) % COLORS.length;
+  if (src && !imgError) {
+    return (
+      <img
+        src={src}
+        alt={initials}
+        onError={() => setImgError(true)}
+        className={clsx('rounded-full object-cover flex-shrink-0 border border-slate-200', className)}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   return (
     <div className={clsx('flex items-center justify-center rounded-full font-bold flex-shrink-0', COLORS[idx], className)}
       style={{ width: size, height: size, fontSize: size * 0.36 }}>

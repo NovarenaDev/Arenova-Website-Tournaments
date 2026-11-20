@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import TournamentList from '../components/TournamentBooking/TournamentList';
+import TournamentList, { isTournamentClosed } from '../components/TournamentBooking/TournamentList';
 import TournamentDetails from '../components/TournamentBooking/TournamentDetails';
 import RegistrationFlow from '../components/TournamentBooking/RegistrationFlow';
 import PaymentModal from '../components/TournamentBooking/PaymentModal';
@@ -109,7 +109,10 @@ export default function TournamentsPage({
                 ← Back to Overview
               </button>
               <span className="pill dark" style={{ padding: '6px 12px', fontSize: '11px' }}>
-                ● {tournaments.length} LIVE EVENTS
+                {(() => {
+                  const liveCount = (tournaments || []).filter((t) => !isTournamentClosed(t)).length;
+                  return `● ${liveCount} LIVE ${liveCount === 1 ? 'EVENT' : 'EVENTS'}`;
+                })()}
               </span>
             </div>
 

@@ -9,7 +9,7 @@ import {
   SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr,
   EmptyState, Modal, ConfirmDialog, Input, Select, DetailRow
 } from '../../components/ui';
-import { getCustomers, updateCustomerStatus, deleteCustomer, uploadImage, extractDataList } from '../../api';
+import { getCustomers, updateCustomerStatus, updateCustomer, deleteCustomer, uploadImage, withAdminDocToken, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Customer } from '../../types';
 import { clsx } from 'clsx';
@@ -208,6 +208,7 @@ export default function CustomersPage() {
       const res = await uploadImage(file);
       const uploadedUrl = res?.url || res?.data?.url || res?.imageUrl || '';
       if (uploadedUrl) {
+        await updateCustomer(avatarUpload.customerId, { avatar: uploadedUrl }).catch(() => {});
         setCustomers(prev => prev.map(c =>
           (c.id || (c as any)._id) === avatarUpload.customerId ? { ...c, avatar: uploadedUrl } : c
         ));
@@ -303,7 +304,7 @@ export default function CustomersPage() {
                         </Td>
                         <Td>
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <Avatar initials={initials} size={32} />
+                            <Avatar initials={initials} src={withAdminDocToken((c as any).avatar || (c as any).profileImage || (c as any).photo)} size={32} />
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-slate-900 truncate max-w-[160px] sm:max-w-[200px]" title={(c.firstName || '') + ' ' + (c.lastName || '')}>
                                 {(c.firstName || '') + ' ' + (c.lastName || '') || 'Unknown'}
@@ -524,7 +525,7 @@ export default function CustomersPage() {
           >
             <div className="space-y-4">
               <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                <Avatar initials={`${selected.firstName?.[0] || ''}${selected.lastName?.[0] || ''}`} size={48} />
+                <Avatar initials={`${selected.firstName?.[0] || ''}${selected.lastName?.[0] || ''}`} src={withAdminDocToken(sAny.avatar || sAny.profileImage || sAny.photo)} size={48} />
                 <div>
                   <p className="text-base font-bold text-slate-900">{selected.firstName} {selected.lastName}</p>
                   <p className="text-xs text-slate-500">{selected.email}</p>
@@ -551,7 +552,7 @@ export default function CustomersPage() {
                     {docs.map((d, i) => (
                       <a
                         key={i}
-                        href={d.url}
+                        href={withAdminDocToken(d.url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-xs"

@@ -58,6 +58,7 @@ export default function App() {
   const [legalDocType, setLegalDocType] = useState(initialRoute.legalType || 'terms');
   const [authObj, setAuthObj] = useState(getStoredAuth());
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authSource, setAuthSource] = useState('navbar');
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [tournaments, setTournaments] = useState([]);
   const [loadingTournaments, setLoadingTournaments] = useState(false);
@@ -220,6 +221,9 @@ export default function App() {
 
   const handleAuthSuccess = (newAuth) => {
     setAuthObj(newAuth);
+    if (authSource !== 'tournaments') {
+      navigateTo('dashboard');
+    }
   };
 
   return (
@@ -229,7 +233,10 @@ export default function App() {
         activePage={activePage}
         setActivePage={navigateTo}
         authObj={authObj}
-        onOpenAuth={() => setShowAuthModal(true)}
+        onOpenAuth={() => {
+          setAuthSource('navbar');
+          setShowAuthModal(true);
+        }}
         onOpenDashboard={handleOpenDashboard}
         onSignOut={handleSignOut}
         onOpenDownloadModal={() => setShowDownloadModal(true)}
@@ -255,7 +262,10 @@ export default function App() {
             tournamentsError={tournamentsError}
             onRetryTournaments={fetchTournaments}
             authObj={authObj}
-            onRequireAuth={() => setShowAuthModal(true)}
+            onRequireAuth={() => {
+              setAuthSource('tournaments');
+              setShowAuthModal(true);
+            }}
             onViewDashboard={handleOpenDashboard}
           />
         )}

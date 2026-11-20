@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../../utils/api';
 import badmintonImg from '../../assets/stadium_badminton_pro.jpg';
 import basketballImg from '../../assets/stadium_basketball_pro.jpg';
 import cricketImg from '../../assets/stadium_cricket_pro.jpg';
@@ -11,7 +12,7 @@ const SPORT_IMAGES = {
   tennis: badmintonImg
 };
 
-const isTournamentClosed = (t) => {
+export const isTournamentClosed = (t) => {
   if (t?.isRegistrationOpen === false || t?.registrationOpen === false) {
     return true;
   }
@@ -46,8 +47,55 @@ export default function TournamentList({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('open');
+  const [backendSports, setBackendSports] = useState([]);
+  const [showMoreSports, setShowMoreSports] = useState(false);
 
-  const sports = ['All', 'Badminton', 'Pickleball', 'Cricket', 'Basketball'];
+  useEffect(() => {
+    let active = true;
+    api.getTournamentOptions()
+      .then((res) => {
+        if (!active) return;
+        const list = res?.data?.sports || res?.sports || [];
+        if (Array.isArray(list)) {
+          setBackendSports(list.map((s) => (typeof s === 'string' ? s : s?.name || s?.label || '')).filter(Boolean));
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  const tournamentSportMap = new Map(
+    (tournaments || [])
+      .map((t) => String(t?.sport || '').trim())
+      .filter(Boolean)
+      .map((s) => [s.toLowerCase(), s])
+  );
+
+  const allSportsMap = new Map(tournamentSportMap);
+  backendSports.forEach((s) => {
+    const clean = String(s || '').trim();
+    if (clean && !allSportsMap.has(clean.toLowerCase())) {
+      allSportsMap.set(clean.toLowerCase(), clean);
+    }
+  });
+
+  const activeSports = Array.from(tournamentSportMap.values());
+  const remainingSports = Array.from(allSportsMap.values()).filter(
+    (s) => !tournamentSportMap.has(s.toLowerCase())
+  );
+  const primaryExtra = remainingSports.slice(0, 1);
+  const moreSports = remainingSports.slice(1);
+  const selectedOutsidePrimary =
+    selectedSport &&
+    selectedSport !== 'All' &&
+    moreSports.some((s) => s.toLowerCase() === selectedSport.toLowerCase());
+
+  const visibleSports = [
+    'All',
+    ...activeSports,
+    ...primaryExtra,
+    ...(showMoreSports || selectedOutsidePrimary ? moreSports : [])
+  ];
 
   const baseFiltered = (tournaments || []).filter((t) => {
     const matchesSearch =
@@ -103,9 +151,10 @@ export default function TournamentList({
         </div>
 
         <div className="filter-pills">
-          {sports.map((sport) => (
+          {visibleSports.map((sport) => (
             <button
               key={sport}
+              type="button"
               className={`filter-btn ${
                 (selectedSport === sport || (!selectedSport && sport === 'All')) ? 'active' : ''
               }`}
@@ -114,6 +163,16 @@ export default function TournamentList({
               {sport}
             </button>
           ))}
+          {moreSports.length > 0 && (
+            <button
+              type="button"
+              className="filter-btn"
+              onClick={() => setShowMoreSports((prev) => !prev)}
+              style={{ borderStyle: 'dashed' }}
+            >
+              {showMoreSports || selectedOutsidePrimary ? 'Less −' : `+${moreSports.length} More`}
+            </button>
+          )}
         </div>
       </div>
 
