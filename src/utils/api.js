@@ -163,7 +163,9 @@ const request = async (endpoint, options = {}) => {
     let errorData = null;
     try {
       errorData = await response.json();
-      console.error(`[ARENOVA API ERROR] ${response.status} ${requestUrl}:`, errorData);
+      if (import.meta.env.DEV) {
+        console.error(`[ARENOVA API ERROR] ${response.status} ${requestUrl}:`, errorData);
+      }
       const rawText = typeof errorData === 'string' ? errorData : JSON.stringify(errorData);
 
       if (
@@ -193,6 +195,10 @@ const request = async (endpoint, options = {}) => {
     const err = new Error(errorMessage);
     err.status = response.status;
     err.data = errorData;
+    const retryHeader = Number(response.headers.get('Retry-After'));
+    const retryBody = Number(errorData?.retryAfter || errorData?.retryAfterSeconds || errorData?.waitSeconds);
+    if (Number.isFinite(retryHeader) && retryHeader > 0) err.retryAfter = retryHeader;
+    else if (Number.isFinite(retryBody) && retryBody > 0) err.retryAfter = retryBody;
     throw err;
   }
 

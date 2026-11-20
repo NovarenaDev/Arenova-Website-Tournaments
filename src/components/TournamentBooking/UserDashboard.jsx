@@ -59,23 +59,8 @@ export default function UserDashboard({
 
   const clearedSet = new Set(clearedPendingIds.map(String));
   const confirmedRegistrations = registrations.filter((reg) => isRegistrationPaid(reg));
-  const allPendingRegistrations = registrations.filter((reg) => !isRegistrationPaid(reg));
-
-  useEffect(() => {
-    if (clearedPendingIds.length === 0 || allPendingRegistrations.length === 0) return;
-    const hasNewPendingAttempt = allPendingRegistrations.some((reg) => {
-      const id = String(reg._id || reg.id || '');
-      return id && !clearedSet.has(id);
-    });
-    if (hasNewPendingAttempt) {
-      setClearedPendingIds([]);
-      try {
-        localStorage.removeItem(clearedStorageKey);
-      } catch {}
-    }
-  }, [allPendingRegistrations.length, clearedPendingIds.length, clearedStorageKey]);
-
-  const pendingRegistrations = allPendingRegistrations.filter((reg) => {
+  const pendingRegistrations = registrations.filter((reg) => {
+    if (isRegistrationPaid(reg)) return false;
     const id = String(reg._id || reg.id || '');
     return !id || !clearedSet.has(id);
   });

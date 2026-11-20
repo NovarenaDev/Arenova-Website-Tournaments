@@ -22,6 +22,26 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [successMsg, setSuccessMsg] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
 
+  const OTP_COOLDOWN_KEY = 'arenova_otp_cooldown_until';
+
+  const getRemainingCooldown = () => {
+    try {
+      const until = Number(sessionStorage.getItem(OTP_COOLDOWN_KEY) || '0');
+      const diff = Math.ceil((until - Date.now()) / 1000);
+      return diff > 0 ? diff : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const startResendCooldown = (seconds = 60) => {
+    const secs = Math.max(1, Number(seconds) || 60);
+    setResendTimer(secs);
+    try {
+      sessionStorage.setItem(OTP_COOLDOWN_KEY, String(Date.now() + secs * 1000));
+    } catch {}
+  };
+
   const resetFormState = () => {
     setAuthStep('credentials');
     setRole('player');
@@ -33,7 +53,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     setOtp('');
     setErrorMsg('');
     setSuccessMsg('');
-    setResendTimer(0);
+    setResendTimer(getRemainingCooldown());
     setLoading(false);
   };
 
@@ -119,7 +139,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           });
           setSuccessMsg(res?.message || 'Verification code sent to your email.');
           setAuthStep('otp');
-          setResendTimer(30);
+          startResendCooldown(60);
         } catch (err) {
           if (err.message?.includes('emailService') || err.message?.includes('sendEmail')) {
             setErrorMsg('Server notice: Email sending is currently disabled on the server. Please switch to "Mobile OTP" to register and create your account instantly.');
@@ -147,13 +167,18 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           if (res && res.success !== false) {
             setSuccessMsg(res?.message || 'Verification code sent via SMS.');
             setAuthStep('otp');
-            setResendTimer(30);
+            startResendCooldown(60);
           } else {
             setErrorMsg(res?.message || 'Failed to send OTP.');
           }
         } catch (err) {
-
-          setErrorMsg(err.message || 'Failed to send OTP. This number may already be registered.');
+          if (err?.status === 429) {
+            const wait = err.retryAfter || 60;
+            startResendCooldown(wait);
+            setErrorMsg(err.message || `Too many OTP requests. Please wait ${wait} seconds before trying again.`);
+          } else {
+            setErrorMsg(err.message || 'Failed to send OTP. This number may already be registered.');
+          }
         } finally {
           setLoading(false);
         }
@@ -201,13 +226,18 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           if (res && res.success !== false) {
             setSuccessMsg(res?.message || 'Verification code sent via SMS.');
             setAuthStep('otp');
-            setResendTimer(30);
+            startResendCooldown(60);
           } else {
             setErrorMsg(res?.message || 'Failed to send OTP.');
           }
         } catch (err) {
-
-          setErrorMsg(err.message || 'Account not found. Please register or check your mobile number.');
+          if (err?.status === 429) {
+            const wait = err.retryAfter || 60;
+            startResendCooldown(wait);
+            setErrorMsg(err.message || `Too many OTP requests. Please wait ${wait} seconds before trying again.`);
+          } else {
+            setErrorMsg(err.message || 'Account not found. Please register or check your mobile number.');
+          }
         } finally {
           setLoading(false);
         }
@@ -291,9 +321,15 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         });
         setSuccessMsg(res?.message || 'A new verification code has been sent to your phone.');
       }
-      setResendTimer(30);
+      startResendCooldown(60);
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to resend code. Please try again.');
+      if (err?.status === 429) {
+        const wait = err.retryAfter || 60;
+        startResendCooldown(wait);
+        setErrorMsg(err.message || `Too many OTP requests. Please wait ${wait} seconds before trying again.`);
+      } else {
+        setErrorMsg(err.message || 'Failed to resend code. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
