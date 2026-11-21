@@ -9,7 +9,7 @@ import {
   SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr,
   EmptyState, Modal, ConfirmDialog, Input, Select, DetailRow
 } from '../../components/ui';
-import { getCustomers, updateCustomerStatus, updateCustomer, deleteCustomer, uploadImage, withAdminDocToken, extractDataList } from '../../api';
+import { getCustomers, updateCustomerStatus, updateCustomer, deleteCustomer, uploadImage, getMediaSignedUrl, withAdminDocToken, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Customer } from '../../types';
 import { clsx } from 'clsx';
@@ -499,14 +499,19 @@ export default function CustomersPage() {
 
       {selected && (() => {
         const sAny = selected as any;
-        const docs: Array<{ label: string; url: string }> = [];
+        const docs: Array<{ label: string; url: string; publicId?: string }> = [];
         const addDoc = (label: string, val: any) => {
           if (!val) return;
-          if (typeof val === 'string' && val.trim()) docs.push({ label, url: val.trim() });
-          else if (Array.isArray(val)) val.forEach((v, i) => addDoc(`${label} #${i + 1}`, v));
+          if (typeof val === 'string' && val.trim()) {
+            const trimmed = val.trim();
+            const isRawKey = !trimmed.startsWith('http://') && !trimmed.startsWith('https://') && !trimmed.startsWith('/') && !trimmed.startsWith('data:') && !trimmed.startsWith('blob:');
+            docs.push({ label, url: trimmed, ...(isRawKey ? { publicId: trimmed } : {}) });
+          } else if (Array.isArray(val)) val.forEach((v, i) => addDoc(`${label} #${i + 1}`, v));
           else if (typeof val === 'object') {
-            if (val.url || val.fileUrl || val.documentUrl || val.uri) {
-              docs.push({ label: val.label || val.name || val.type || label, url: val.url || val.fileUrl || val.documentUrl || val.uri });
+            const pid = val.publicId || val.s3Key || val.key;
+            const u = val.url || val.fileUrl || val.documentUrl || val.uri || pid;
+            if (u || pid) {
+              docs.push({ label: val.label || val.name || val.type || label, url: String(u || pid), ...(pid ? { publicId: String(pid) } : {}) });
             } else {
               Object.entries(val).forEach(([k, v]) => addDoc(`${label}: ${k}`, v));
             }
@@ -550,18 +555,41 @@ export default function CustomersPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {docs.map((d, i) => (
-                      <a
+                      <button
                         key={i}
-                        href={withAdminDocToken(d.url)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-xs"
+                        type="button"
+                        onClick={async () => {
+                          let key = d.publicId;
+                          if (!key && d.url) {
+                            try {
+                              const parsed = new URL(d.url, 'https://api.getarenova.com');
+                              key = parsed.searchParams.get('key') || (parsed.pathname.includes('/api/media/') && !parsed.pathname.endsWith('/signed-url')
+                                ? decodeURIComponent(parsed.pathname.replace(/^.*\/api\/media\//, ''))
+                                : undefined);
+                            } catch {}
+                          }
+                          if (key) {
+                            try {
+                              const res = await getMediaSignedUrl(key);
+                              const signedUrl = res?.url || res?.data?.url || res?.signedUrl;
+                              if (signedUrl) {
+                                window.open(signedUrl, '_blank', 'noopener,noreferrer');
+                                return;
+                              }
+                            } catch (err: any) {
+                              alert(err?.message || 'Failed to open protected document.');
+                              return;
+                            }
+                          }
+                          window.open(withAdminDocToken(d.url), '_blank', 'noopener,noreferrer');
+                        }}
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-xs text-left cursor-pointer"
                       >
                         <span className="font-semibold text-slate-800 truncate pr-2">{d.label}</span>
                         <span className="text-[#F05A22] font-bold flex items-center gap-1 flex-shrink-0">
                           View <ExternalLink className="h-3 w-3" />
                         </span>
-                      </a>
+                      </button>
                     ))}
                   </div>
                 )}

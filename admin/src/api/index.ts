@@ -15,20 +15,8 @@ export const withAdminDocToken = (url?: string): string => {
   const trimmed = String(url).trim();
   if (!trimmed) return '';
   if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
-  if (/X-Amz-Signature=|Signature=/i.test(trimmed)) return trimmed;
-
   const originBase = BASE_URL.replace(/\/api$/, '');
-  const fullUrl = trimmed.startsWith('/') ? `${originBase}${trimmed}` : trimmed;
-  const token = getAdminToken();
-  if (!token) return fullUrl;
-
-  const isApiUrl =
-    fullUrl.startsWith(originBase) ||
-    fullUrl.includes('api.getarenova.com');
-
-  if (!isApiUrl || /[?&]token=/i.test(fullUrl)) return fullUrl;
-  const sep = fullUrl.includes('?') ? '&' : '?';
-  return `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
+  return trimmed.startsWith('/') ? `${originBase}${trimmed}` : trimmed;
 };
 
 export const getCustomers = (params: Record<string, any> = {}) => {

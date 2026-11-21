@@ -14,7 +14,6 @@ import {
   rejectKyc, banCoach, deleteAdminCoach, uploadImage, updateAdminCoach,
   getMediaSignedUrl, withAdminDocToken, extractDataList
 } from '../../api';
-import { getAdminToken } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Coach } from '../../types';
 
@@ -287,10 +286,10 @@ const getCoachRequestedGrpPrice = (c: any): number => {
   return 0;
 };
 
-const getCoachKycDocuments = (c: any): Array<{ label: string; url: string; isImage: boolean }> => {
+const getCoachKycDocuments = (c: any): Array<{ label: string; url: string; publicId?: string; isImage: boolean }> => {
   if (!c) return [];
-  const results: Array<{ label: string; url: string; isImage: boolean }> = [];
-  const seenUrls = new Set<string>();
+  const results: Array<{ label: string; url: string; publicId?: string; isImage: boolean }> = [];
+  const seenKeys = new Set<string>();
 
   const checkIsImage = (url: string, label: string) => {
     if (/\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url)) return true;
@@ -302,13 +301,14 @@ const getCoachKycDocuments = (c: any): Array<{ label: string; url: string; isIma
     if (!val) return;
     if (typeof val === 'string') {
       const trimmed = val.trim();
-      if (!trimmed || seenUrls.has(trimmed)) return;
+      if (!trimmed || seenKeys.has(trimmed)) return;
 
       if (trimmed.includes('@') && !trimmed.includes('/')) return;
       if (/^[\d\s+\-()]+$/.test(trimmed)) return;
       if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/') || trimmed.includes('/')) {
-        seenUrls.add(trimmed);
-        results.push({ label, url: trimmed, isImage: checkIsImage(trimmed, label) });
+        seenKeys.add(trimmed);
+        const isRawKey = !trimmed.startsWith('http://') && !trimmed.startsWith('https://') && !trimmed.startsWith('/') && !trimmed.startsWith('data:') && !trimmed.startsWith('blob:');
+        results.push({ label, url: trimmed, ...(isRawKey ? { publicId: trimmed } : {}), isImage: checkIsImage(trimmed, label) });
       }
       return;
     }
@@ -317,10 +317,17 @@ const getCoachKycDocuments = (c: any): Array<{ label: string; url: string; isIma
       return;
     }
     if (typeof val === 'object') {
-      const urlCandidate = val.url || val.fileUrl || val.documentUrl || val.docUrl || val.s3Key || val.key || val.uri || val.path;
-      if (typeof urlCandidate === 'string' && urlCandidate.trim()) {
+      const publicId = val.publicId || val.s3Key || val.key;
+      const urlCandidate = val.url || val.fileUrl || val.documentUrl || val.docUrl || val.uri || val.path || publicId;
+      if ((typeof urlCandidate === 'string' && urlCandidate.trim()) || (typeof publicId === 'string' && publicId.trim())) {
         const niceLabel = val.label || val.name || val.title || val.documentType || val.type || label;
-        addItem(niceLabel, urlCandidate);
+        const cleanUrl = typeof urlCandidate === 'string' ? urlCandidate.trim() : String(publicId).trim();
+        const cleanPid = typeof publicId === 'string' && publicId.trim() ? publicId.trim() : undefined;
+        const dedupeKey = cleanPid || cleanUrl;
+        if (!seenKeys.has(dedupeKey)) {
+          seenKeys.add(dedupeKey);
+          results.push({ label: niceLabel, url: cleanUrl, publicId: cleanPid, isImage: checkIsImage(cleanUrl, niceLabel) });
+        }
       } else {
         Object.entries(val).forEach(([k, v]) => {
           if (['email', 'emailId', 'mailId', 'phone', 'phoneNumber', 'status', 'kycStatus', 'note', 'reason'].includes(k)) return;
@@ -342,103 +349,75 @@ const getCoachKycDocuments = (c: any): Array<{ label: string; url: string; isIma
   return results;
 };
 
-const openKycDocument = async (urlOrKey: string) => {
-  if (!urlOrKey) return;
-  let targetUrl = urlOrKey;
-  const isDirect =
-    urlOrKey.startsWith('http://') ||
-    urlOrKey.startsWith('https://') ||
-    urlOrKey.startsWith('data:') ||
-    urlOrKey.startsWith('blob:') ||
-    urlOrKey.startsWith('/');
+const extractMediaKey = (doc: { url: string; publicId?: string }): string | null => {
+  if (doc.publicId) return doc.publicId;
+  const u = doc.url || '';
+  if (!u) return null;
+  if (!u.startsWith('http://') && !u.startsWith('https://') && !u.startsWith('/') && !u.startsWith('data:') && !u.startsWith('blob:')) {
+    return u;
+  }
+  try {
+    const parsed = new URL(u, 'https://api.getarenova.com');
+    const qKey = parsed.searchParams.get('key');
+    if (qKey) return qKey;
+    if (parsed.pathname.includes('/api/media/') && !parsed.pathname.endsWith('/signed-url')) {
+      return decodeURIComponent(parsed.pathname.replace(/^.*\/api\/media\//, ''));
+    }
+  } catch {}
+  return null;
+};
 
-  if (!isDirect) {
+const openKycDocument = async (docOrUrl: { url: string; publicId?: string } | string) => {
+  const doc = typeof docOrUrl === 'string' ? { url: docOrUrl } : docOrUrl;
+  if (!doc?.url && !doc?.publicId) return;
+
+  const mediaKey = extractMediaKey(doc);
+  if (mediaKey) {
     try {
-      const res = await getMediaSignedUrl(urlOrKey);
+      const res = await getMediaSignedUrl(mediaKey);
       const signedUrl = res?.url || res?.data?.url || res?.signedUrl;
-      if (!signedUrl) {
+      if (signedUrl) {
+        window.open(signedUrl, '_blank', 'noopener,noreferrer');
+      } else {
         alert('Could not resolve a viewable URL for this file.');
-        return;
       }
-      targetUrl = signedUrl;
     } catch (err: any) {
       alert(err?.message || 'Failed to open protected document.');
-      return;
     }
-  }
-
-  if (targetUrl.startsWith('data:') || targetUrl.startsWith('blob:')) {
-    window.open(targetUrl, '_blank', 'noopener,noreferrer');
     return;
   }
 
-  const authedUrl = withAdminDocToken(targetUrl);
-  const token = getAdminToken();
-  const isApiHosted =
-    authedUrl.includes('api.getarenova.com') ||
-    targetUrl.startsWith('/');
-
-  if (isApiHosted && token && !/X-Amz-Signature=|Signature=/i.test(authedUrl)) {
-    try {
-      const res = await fetch(authedUrl, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const json = await res.json().catch(() => null);
-          const resolved = json?.url || json?.data?.url || json?.signedUrl;
-          if (resolved) {
-            window.open(withAdminDocToken(resolved), '_blank', 'noopener,noreferrer');
-            return;
-          }
-        } else {
-          const blob = await res.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          window.open(blobUrl, '_blank', 'noopener,noreferrer');
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-          return;
-        }
-      }
-    } catch {}
-  }
-
-  window.open(authedUrl, '_blank', 'noopener,noreferrer');
+  window.open(withAdminDocToken(doc.url), '_blank', 'noopener,noreferrer');
 };
 
-function KycThumb({ url, label, isImage, variant = 'small' }: { url: string; label: string; isImage: boolean; variant?: 'small' | 'card' }) {
+function KycThumb({ url, publicId, label, isImage, variant = 'small' }: { url: string; publicId?: string; label: string; isImage: boolean; variant?: 'small' | 'card' }) {
   const [resolvedUrl, setResolvedUrl] = useState<string>('');
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
     setFailed(false);
-    if (!url || !isImage) {
+    if ((!url && !publicId) || !isImage) {
       setResolvedUrl('');
       return;
     }
-    const isDirect =
-      url.startsWith('http://') ||
-      url.startsWith('https://') ||
-      url.startsWith('data:') ||
-      url.startsWith('blob:') ||
-      url.startsWith('/');
 
-    if (isDirect) {
-      setResolvedUrl(withAdminDocToken(url));
-    } else {
-      getMediaSignedUrl(url)
+    const mediaKey = extractMediaKey({ url, publicId });
+    if (mediaKey) {
+      getMediaSignedUrl(mediaKey)
         .then(res => {
           if (!active) return;
           const signed = res?.url || res?.data?.url || res?.signedUrl;
-          setResolvedUrl(signed ? withAdminDocToken(signed) : '');
+          setResolvedUrl(signed || '');
         })
         .catch(() => {
           if (active) setFailed(true);
         });
+    } else {
+      setResolvedUrl(withAdminDocToken(url));
     }
     return () => { active = false; };
-  }, [url, isImage]);
+  }, [url, publicId, isImage]);
 
   if (variant === 'card') {
     if (!isImage || failed || !resolvedUrl) {
@@ -498,7 +477,7 @@ export default function CoachesPage() {
     groupPricePerPerson: string;
     requestedIndividualPrice: number;
     requestedGroupPricePerPerson: number;
-    documents: Array<{ label: string; url: string; isImage: boolean }>;
+    documents: Array<{ label: string; url: string; publicId?: string; isImage: boolean }>;
   } | null>(null);
   const [approveErrors, setApproveErrors] = useState<{ individualPrice?: string; groupPricePerPerson?: string }>({});
   const [approving, setApproving] = useState(false);
@@ -514,7 +493,7 @@ export default function CoachesPage() {
   const [pricingErrors, setPricingErrors] = useState<{ individualPrice?: string; groupPricePerPerson?: string }>({});
   const [savingPricing, setSavingPricing] = useState(false);
 
-  const [docsModal, setDocsModal] = useState<{ name: string; documents: Array<{ label: string; url: string; isImage: boolean }> } | null>(null);
+  const [docsModal, setDocsModal] = useState<{ name: string; documents: Array<{ label: string; url: string; publicId?: string; isImage: boolean }> } | null>(null);
 
   const [rejectModal, setRejectModal] = useState<{ id: string; name: string; reason: string } | null>(null);
   const [banModal, setBanModal]       = useState<{ id: string; name: string; reason: string } | null>(null);
@@ -1495,11 +1474,11 @@ export default function CoachesPage() {
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => openKycDocument(doc.url)}
+                    onClick={() => openKycDocument(doc)}
                     className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left cursor-pointer"
                   >
                     <div className="flex items-center gap-2 min-w-0 pr-2">
-                      <KycThumb url={doc.url} label={doc.label} isImage={doc.isImage} variant="small" />
+                      <KycThumb url={doc.url} publicId={doc.publicId} label={doc.label} isImage={doc.isImage} variant="small" />
                       <span className="text-xs font-semibold text-slate-800 truncate">{doc.label}</span>
                     </div>
                     <span className="text-[11px] font-bold text-[#F05A22] flex items-center gap-1 flex-shrink-0">
@@ -1627,13 +1606,13 @@ export default function CoachesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {docsModal.documents.map((doc, idx) => (
                 <div key={idx} className="border border-slate-200 rounded-2xl p-3 bg-slate-50/70 flex flex-col gap-2">
-                  <KycThumb url={doc.url} label={doc.label} isImage={doc.isImage} variant="card" />
+                  <KycThumb url={doc.url} publicId={doc.publicId} label={doc.label} isImage={doc.isImage} variant="card" />
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-slate-800 truncate">{doc.label}</span>
                     <Button
                       variant="outline"
                       className="h-7 text-[11px] px-2.5 flex-shrink-0"
-                      onClick={() => openKycDocument(doc.url)}
+                      onClick={() => openKycDocument(doc)}
                     >
                       Open <ExternalLink className="h-3 w-3 ml-1" />
                     </Button>
