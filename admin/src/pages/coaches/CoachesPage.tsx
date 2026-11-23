@@ -493,7 +493,7 @@ export default function CoachesPage() {
   const [pricingErrors, setPricingErrors] = useState<{ individualPrice?: string; groupPricePerPerson?: string }>({});
   const [savingPricing, setSavingPricing] = useState(false);
 
-  const [docsModal, setDocsModal] = useState<{ name: string; documents: Array<{ label: string; url: string; publicId?: string; isImage: boolean }> } | null>(null);
+  const [docsModal, setDocsModal] = useState<{ id?: string; name: string; documents: Array<{ label: string; url: string; publicId?: string; isImage: boolean }> } | null>(null);
 
   const [rejectModal, setRejectModal] = useState<{ id: string; name: string; reason: string } | null>(null);
   const [banModal, setBanModal]       = useState<{ id: string; name: string; reason: string } | null>(null);
@@ -569,17 +569,23 @@ export default function CoachesPage() {
     }
   };
 
+  const reopenManageCoach = (coachId?: string) => {
+    if (!coachId) return;
+    const target = coaches.find(c => (c.id || (c as any)._id) === coachId);
+    if (target) setActionCoach(target);
+  };
+
   const openDocsModal = async (coach: any) => {
     const coachId = coach.id || coach._id;
     const initialDocs = getCoachKycDocuments(coach);
-    setDocsModal({ name: coach.name || 'Coach', documents: initialDocs });
+    setDocsModal({ id: coachId, name: coach.name || 'Coach', documents: initialDocs });
     try {
       const res = await getAdminCoach(coachId);
       const detail = res?.data || res?.coach || res;
       if (detail) {
         const freshDocs = getCoachKycDocuments(detail);
         if (freshDocs.length > 0) {
-          setDocsModal({ name: coach.name || detail.name || 'Coach', documents: freshDocs });
+          setDocsModal({ id: coachId, name: coach.name || detail.name || 'Coach', documents: freshDocs });
         }
       }
     } catch {
@@ -1372,7 +1378,18 @@ export default function CoachesPage() {
               </p>
             )}
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const id = avatarUpload?.coachId;
+                setAvatarUpload(null);
+                setAvatarError('');
+                reopenManageCoach(id);
+              }}
+            >
+              ← Back
+            </Button>
             <Button variant="outline" onClick={() => { setAvatarUpload(null); setAvatarError(''); }}>Cancel</Button>
           </div>
         </div>
@@ -1490,17 +1507,29 @@ export default function CoachesPage() {
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
-            <Button variant="outline" onClick={() => setApproveModal(null)}>Cancel</Button>
+          <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-100">
             <Button
-              variant="primary"
-              disabled={approving}
-              className="font-bold px-4 text-xs h-9 shadow-xs"
-              onClick={handleApproveConfirm}
+              variant="outline"
+              onClick={() => {
+                const id = approveModal?.id;
+                setApproveModal(null);
+                reopenManageCoach(id);
+              }}
             >
-              <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-              {approving ? 'Verifying...' : 'Approve & Verify KYC'}
+              ← Back
             </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setApproveModal(null)}>Cancel</Button>
+              <Button
+                variant="primary"
+                disabled={approving}
+                className="font-bold px-4 text-xs h-9 shadow-xs"
+                onClick={handleApproveConfirm}
+              >
+                <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                {approving ? 'Verifying...' : 'Approve & Verify KYC'}
+              </Button>
+            </div>
           </div>
         </div>
       </Modal>
@@ -1580,6 +1609,17 @@ export default function CoachesPage() {
               <RotateCcw className="h-3 w-3" /> Use Proposed Rates
             </button>
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const id = pricingModal?.id;
+                  setPricingModal(null);
+                  setPricingErrors({});
+                  reopenManageCoach(id);
+                }}
+              >
+                ← Back
+              </Button>
               <Button variant="outline" onClick={() => { setPricingModal(null); setPricingErrors({}); }}>Cancel</Button>
               <Button variant="primary" disabled={savingPricing} onClick={handlePricingSave}>
                 {savingPricing ? 'Saving...' : 'Save Pricing'}
@@ -1621,7 +1661,17 @@ export default function CoachesPage() {
               ))}
             </div>
           )}
-          <div className="flex justify-end pt-2">
+          <div className="flex items-center justify-between pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const id = docsModal?.id;
+                setDocsModal(null);
+                reopenManageCoach(id);
+              }}
+            >
+              ← Back
+            </Button>
             <Button variant="outline" onClick={() => setDocsModal(null)}>Close</Button>
           </div>
         </div>

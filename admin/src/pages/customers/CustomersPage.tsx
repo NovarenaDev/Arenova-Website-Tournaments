@@ -19,16 +19,19 @@ const ROLE_MAP:   Record<string, string> = { parent: 'badge-purple', individual:
 const FILTERS      = ['All', 'Active', 'Flagged', 'Suspended'];
 const ROLE_FILTERS = ['All Users', 'Parents', 'Individual'];
 
-function inactiveDays(lastActive?: string): number {
-  if (!lastActive) return 999;
+function inactiveDays(lastActive?: string): number | null {
+  if (!lastActive) return null;
   const now = new Date();
   try {
     const d = new Date(lastActive);
-    return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-  } catch { return 999; }
+    if (isNaN(d.getTime())) return null;
+    return Math.max(0, Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)));
+  } catch { return null; }
 }
 
-function inactiveBadge(days: number) {
+function inactiveBadge(days: number | null) {
+  if (days === null) return <span className="text-xs text-slate-400">—</span>;
+  if (days === 0) return <Badge className="badge-green">Today</Badge>;
   if (days <= 3)  return <Badge className="badge-green">{days}d ago</Badge>;
   if (days <= 14) return <Badge className="badge-amber">{days}d ago</Badge>;
   return <Badge className="badge-red">{days}d ago</Badge>;
@@ -86,6 +89,7 @@ export default function CustomersPage() {
           children: childrenCount,
           bookings: raw.bookings ?? raw.totalBookings ?? 0,
           walletCredits: raw.walletCredits ?? 0,
+          lastActive: raw.lastActive || raw.lastLoginAt || raw.lastSeenAt || raw.lastActivity || raw.updatedAt || '',
           joined: raw.joined || (raw.createdAt ? new Date(raw.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''),
         });
       }
@@ -542,7 +546,14 @@ export default function CustomersPage() {
                 <DetailRow label="Status" value={<Badge className={STATUS_MAP[selected.status] || 'badge-gray'}>{selected.status}</Badge>} />
                 <DetailRow label="Total Bookings" value={<span className="font-semibold text-slate-900">{selected.bookings || 0}</span>} />
                 <DetailRow label="Wallet Credits" value={<span className="font-bold text-emerald-600">₹{selected.walletCredits || 0}</span>} />
-                <DetailRow label="Last Active" value={selected.lastActive || '—'} />
+                <DetailRow
+                  label="Last Active"
+                  value={
+                    selected.lastActive && !isNaN(new Date(selected.lastActive).getTime())
+                      ? new Date(selected.lastActive).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : (selected.lastActive || '—')
+                  }
+                />
                 <DetailRow label="Member Since" value={selected.joined || '—'} />
               </div>
 
@@ -594,6 +605,19 @@ export default function CustomersPage() {
                   </div>
                 )}
               </div>
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const target = selected;
+                    setDetailOpen(false);
+                    if (target) setActionCustomer(target);
+                  }}
+                >
+                  ← Back
+                </Button>
+                <Button variant="outline" onClick={() => setDetailOpen(false)}>Close</Button>
+              </div>
             </div>
           </Modal>
         );
@@ -626,7 +650,19 @@ export default function CustomersPage() {
               </p>
             )}
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const cid = avatarUpload?.customerId;
+                setAvatarUpload(null);
+                setAvatarError('');
+                const match = customerList.find(c => (c.id || (c as any)._id) === cid);
+                if (match) setActionCustomer(match);
+              }}
+            >
+              ← Back
+            </Button>
             <Button variant="outline" onClick={() => { setAvatarUpload(null); setAvatarError(''); }}>Cancel</Button>
           </div>
         </div>
