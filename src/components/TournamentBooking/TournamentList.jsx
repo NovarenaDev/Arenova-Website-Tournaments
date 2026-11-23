@@ -319,7 +319,7 @@ export default function TournamentList({
                 <div className="tournament-card-body">
                   <div className="tournament-card-header">
                     <span className="pill dark">{(tournament.sport || 'SPORT').toUpperCase()}</span>
-                    <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>
+                    <span className="tournament-card-location" title={`${tournament.venue ? `${tournament.venue}, ` : ''}${tournament.city || 'India'}`}>
                       📍 {tournament.venue ? `${tournament.venue}, ` : ''}{tournament.city || 'India'}
                     </span>
                   </div>

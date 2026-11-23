@@ -343,7 +343,7 @@ const inferRegistrationType = (categoryName: string, availableTypes: string[]): 
   return types[0] || 'INDIVIDUAL';
 };
 
-function TournamentFormModal({ t, open, onClose, onSave, options, saving }: { t: Tournament | null; open: boolean; onClose: () => void; onSave: (x: FormData) => void; options: { sports: string[]; categories: string[]; registrationTypes: string[] }; saving: boolean }) {
+function TournamentFormModal({ t, open, onClose, onSave, options, saving }: { t: Tournament | null; open: boolean; onClose: () => void; onSave: (x: FormData, nextStatus?: string) => void; options: { sports: string[]; categories: string[]; registrationTypes: string[] }; saving: boolean }) {
   const isEdit = !!t;
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
@@ -441,7 +441,7 @@ function TournamentFormModal({ t, open, onClose, onSave, options, saving }: { t:
           registrationType: c.registrationType || inferRegistrationType(c.name || '', options.registrationTypes),
           fee: Number(c.fee || 0)
         })),
-        status: t.status || 'DRAFT',
+        status: String(t.status || 'DRAFT').toUpperCase(),
         banner: t.banner || t.image || ''
       });
       setPreviewUrl(t.banner || t.image || '');
@@ -702,7 +702,9 @@ function TournamentFormModal({ t, open, onClose, onSave, options, saving }: { t:
       }
     }
 
-    onSave(formData);
+    const originalStatus = isEdit ? String(t.status || 'DRAFT').toUpperCase() : '';
+    const nextStatus = isEdit && form.status && form.status !== originalStatus ? form.status : undefined;
+    onSave(formData, nextStatus);
   };
 
   return (
@@ -777,6 +779,34 @@ function TournamentFormModal({ t, open, onClose, onSave, options, saving }: { t:
               <Select label="Sport *" value={form.sport} onChange={set('sport') as any} options={(options.sports.length ? options.sports : SPORTS).map(s => ({ value: s, label: `${SPORT_ICONS[s] || '🏆'} ${s}` }))} />
               {errors.sport && <p className="text-[11px] text-rose-600 font-medium mt-1">{errors.sport}</p>}
             </div>
+            {isEdit && (() => {
+              const curStatus = String(t?.status || 'DRAFT').toUpperCase();
+              const statusOptions = curStatus === 'DRAFT'
+                ? [
+                    { value: 'DRAFT', label: 'Draft' },
+                    { value: 'PUBLISHED', label: 'Published' },
+                    { value: 'CANCELLED', label: 'Cancelled' }
+                  ]
+                : curStatus === 'PUBLISHED'
+                ? [
+                    { value: 'PUBLISHED', label: 'Published' },
+                    { value: 'CANCELLED', label: 'Cancelled' }
+                  ]
+                : [
+                    { value: curStatus, label: curStatus.charAt(0) + curStatus.slice(1).toLowerCase() }
+                  ];
+              return (
+                <div>
+                  <Select
+                    label="Status"
+                    value={form.status}
+                    disabled={statusOptions.length <= 1}
+                    onChange={set('status') as any}
+                    options={statusOptions}
+                  />
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -995,17 +1025,6 @@ function TournamentFormModal({ t, open, onClose, onSave, options, saving }: { t:
             )}
           </div>
         </div>
-
-        {isEdit && (
-          <div className="border-t border-slate-200 pt-4">
-            <Select label="Status" value={form.status} onChange={set('status') as any} options={[
-              { value: 'DRAFT', label: 'Draft' },
-              { value: 'PUBLISHED', label: 'Published' },
-              { value: 'COMPLETED', label: 'Completed' },
-              { value: 'CANCELLED', label: 'Cancelled' }
-            ]} />
-          </div>
-        )}
 
         <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
           <Button variant="ghost" onClick={handleExplicitCancel} disabled={saving}>Cancel</Button>
@@ -1259,13 +1278,18 @@ export default function TournamentsPage() {
     };
   }, [exportTournamentsCsv]);
 
-  const handleSave = async (formData: FormData) => {
+  const handleSave = async (formData: FormData, nextStatus?: string) => {
     if (saving) return;
     setSaving(true);
     try {
       if (editT) {
         const id = editT._id || editT.id;
-        await updateTournament(id, formData);
+        if (Array.from(formData.keys()).length > 0) {
+          await updateTournament(id, formData);
+        }
+        if (nextStatus) {
+          await updateTournamentStatus(id, nextStatus);
+        }
       } else {
         await createTournament(formData);
         try { localStorage.removeItem(TOURNAMENT_DRAFT_KEY); } catch {}
