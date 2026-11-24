@@ -621,7 +621,9 @@ function TournamentFormModal({ t, open, onClose, onSave, options, saving }: { t:
     if (!form.registrationEndDate || isNaN(regEndMs)) {
       nextErrors.registrationEndDate = 'Registration close date & time is required.';
     } else {
-      if (!isNaN(regStartMs) && regEndMs < regStartMs) {
+      if (!isEdit && regEndMs <= Date.now()) {
+        nextErrors.registrationEndDate = 'Registration close date & time cannot be in the past.';
+      } else if (!isNaN(regStartMs) && regEndMs < regStartMs) {
         nextErrors.registrationEndDate = 'Registration close date cannot be before registration open date.';
       } else if (!isNaN(startMs) && regEndMs > startMs) {
         nextErrors.registrationEndDate = 'Registration must close on or before match start date.';
@@ -780,20 +782,21 @@ function TournamentFormModal({ t, open, onClose, onSave, options, saving }: { t:
               {errors.sport && <p className="text-[11px] text-rose-600 font-medium mt-1">{errors.sport}</p>}
             </div>
             {isEdit && (() => {
-              const curStatus = String(t?.status || 'DRAFT').toUpperCase();
-              const statusOptions = curStatus === 'DRAFT'
+              const curStatus = String(t?.status || 'DRAFT').toUpperCase().trim();
+              const isTerminal = ['COMPLETED', 'CANCELLED', 'CANCELED', 'FINISHED', 'ENDED', 'PAST'].includes(curStatus);
+              const isDraft = ['DRAFT', 'PENDING'].includes(curStatus);
+              const curLabel = curStatus.charAt(0) + curStatus.slice(1).toLowerCase().replace(/_/g, ' ');
+              const statusOptions = isDraft
                 ? [
                     { value: 'DRAFT', label: 'Draft' },
                     { value: 'PUBLISHED', label: 'Published' },
                     { value: 'CANCELLED', label: 'Cancelled' }
                   ]
-                : curStatus === 'PUBLISHED'
-                ? [
-                    { value: 'PUBLISHED', label: 'Published' },
-                    { value: 'CANCELLED', label: 'Cancelled' }
-                  ]
+                : isTerminal
+                ? [{ value: curStatus, label: curLabel }]
                 : [
-                    { value: curStatus, label: curStatus.charAt(0) + curStatus.slice(1).toLowerCase() }
+                    { value: curStatus, label: curStatus === 'PUBLISHED' ? 'Published' : curLabel },
+                    { value: 'CANCELLED', label: 'Cancelled' }
                   ];
               return (
                 <div>

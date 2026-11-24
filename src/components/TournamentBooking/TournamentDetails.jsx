@@ -2,13 +2,24 @@ import React, { useEffect } from 'react';
 import badmintonImg from '../../assets/stadium_badminton_pro.jpg';
 import basketballImg from '../../assets/stadium_basketball_pro.jpg';
 import cricketImg from '../../assets/stadium_cricket_pro.jpg';
+import kabaddiImg from '../../assets/stadium_kabaddi_pro.jpg';
+import swimmingImg from '../../assets/stadium_swimming_pro.jpg';
+import footballImg from '../../assets/stadium_football_pro.jpg';
+import tennisImg from '../../assets/stadium_tennis_pro.jpg';
 
 const SPORT_FALLBACKS = {
   badminton: badmintonImg,
   basketball: basketballImg,
   cricket: cricketImg,
-  pickleball: badmintonImg,
-  tennis: badmintonImg
+  kabaddi: kabaddiImg,
+  swimming: swimmingImg,
+  football: footballImg,
+  soccer: footballImg,
+  futsal: footballImg,
+  pickleball: tennisImg,
+  tennis: tennisImg,
+  'table tennis': badmintonImg,
+  volleyball: basketballImg,
 };
 
 export default function TournamentDetails({
