@@ -7,6 +7,11 @@ import kabaddiImg from '../../assets/stadium_kabaddi_pro.jpg';
 import swimmingImg from '../../assets/stadium_swimming_pro.jpg';
 import footballImg from '../../assets/stadium_football_pro.jpg';
 import tennisImg from '../../assets/stadium_tennis_pro.jpg';
+import volleyballImg from '../../assets/stadium_volleyball_pro.jpg';
+import chessImg from '../../assets/stadium_chess_pro.jpg';
+import hockeyImg from '../../assets/stadium_hockey_pro.jpg';
+import athleticsImg from '../../assets/stadium_athletics_pro.jpg';
+import tableTennisImg from '../../assets/stadium_table_tennis_pro.jpg';
 
 const SPORT_IMAGES = {
   badminton: badmintonImg,
@@ -14,13 +19,24 @@ const SPORT_IMAGES = {
   cricket: cricketImg,
   kabaddi: kabaddiImg,
   swimming: swimmingImg,
+  aquatics: swimmingImg,
   football: footballImg,
   soccer: footballImg,
   futsal: footballImg,
   pickleball: tennisImg,
   tennis: tennisImg,
-  'table tennis': badmintonImg,
-  volleyball: basketballImg,
+  'table tennis': tableTennisImg,
+  'table-tennis': tableTennisImg,
+  tabletennis: tableTennisImg,
+  volleyball: volleyballImg,
+  'beach volleyball': volleyballImg,
+  chess: chessImg,
+  hockey: hockeyImg,
+  'field hockey': hockeyImg,
+  athletics: athleticsImg,
+  'track & field': athleticsImg,
+  running: athleticsImg,
+  marathon: athleticsImg,
 };
 
 export const isTournamentClosed = (t) => {

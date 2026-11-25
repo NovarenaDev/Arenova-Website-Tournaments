@@ -1219,8 +1219,20 @@ export default function TournamentsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const matchesTournamentStatus = (rawStatus: string | undefined, targetFilter: string) => {
-    const s = String(rawStatus || 'DRAFT').toUpperCase().trim();
+  const getEffectiveTournamentStatus = (t: Tournament): string => {
+    const s = String(t?.status || 'DRAFT').toUpperCase().trim();
+    if (['DRAFT', 'PENDING', 'CANCELLED', 'CANCELED', 'COMPLETED', 'FINISHED', 'ENDED', 'PAST'].includes(s)) {
+      return s;
+    }
+    const endTs = t?.endDate ? new Date(t.endDate).getTime() : NaN;
+    if (!isNaN(endTs) && endTs < Date.now()) {
+      return 'COMPLETED';
+    }
+    return s;
+  };
+
+  const matchesTournamentStatus = (t: Tournament, targetFilter: string) => {
+    const s = getEffectiveTournamentStatus(t);
     const f = targetFilter.toUpperCase().trim();
     if (f === 'ALL') return true;
     if (f === 'DRAFT') return s === 'DRAFT' || s === 'PENDING';
@@ -1232,7 +1244,7 @@ export default function TournamentsPage() {
 
   const filtered = tournaments.filter(t => {
     const ms = search === '' || `${t.title} ${t.sport} ${t.city || ''} ${t.venue || ''}`.toLowerCase().includes(search.toLowerCase());
-    const mf = matchesTournamentStatus(t.status, filter);
+    const mf = matchesTournamentStatus(t, filter);
     let matchToday = true;
     if (todayOnly) {
       const targetDate = t.startDate || (t as any).createdAt;
@@ -1318,9 +1330,9 @@ export default function TournamentsPage() {
 
   const stats = {
     total: tournaments.length,
-    draft: tournaments.filter(t => matchesTournamentStatus(t.status, 'Draft')).length,
-    published: tournaments.filter(t => matchesTournamentStatus(t.status, 'Published')).length,
-    completed: tournaments.filter(t => matchesTournamentStatus(t.status, 'Completed')).length
+    draft: tournaments.filter(t => matchesTournamentStatus(t, 'Draft')).length,
+    published: tournaments.filter(t => matchesTournamentStatus(t, 'Published')).length,
+    completed: tournaments.filter(t => matchesTournamentStatus(t, 'Completed')).length
   };
 
   return (
@@ -1351,22 +1363,23 @@ export default function TournamentsPage() {
                   {filtered.map(t => {
                     const startDateStr = formatDateTime(t.startDate);
                     const regEndStr = formatDateTime(t.registrationEndDate);
+                    const displayStatus = getEffectiveTournamentStatus(t);
                     return (
                       <Tr key={t._id || t.id}>
-                        <Td><div className="flex items-center gap-2 min-w-0"><span className="flex-shrink-0">{SPORT_ICONS[t.sport] || '🏆'}</span><span className="text-sm font-medium text-white truncate max-w-[170px]" title={t.title}>{t.title}</span></div></Td>
+                        <Td><div className="flex items-center gap-2 min-w-0"><span className="flex-shrink-0">{SPORT_ICONS[t.sport] || '🏆'}</span><span className="text-sm font-medium text-slate-900 truncate max-w-[170px]" title={t.title}>{t.title}</span></div></Td>
                         <Td><Badge className="badge-blue">{t.sport}</Badge></Td>
-                        <Td className="capitalize text-xs text-[#9ba3af]">{t.categories && t.categories.length ? Array.from(new Set(t.categories.map(c => c.registrationType))).join(', ') : '—'}</Td>
-                        <Td className="text-xs text-[#9ba3af] whitespace-nowrap">{startDateStr}</Td>
-                        <Td className="text-xs text-[#9ba3af] whitespace-nowrap">Ends: {regEndStr}</Td>
-                        <Td><Badge className={STATUS_MAP[t.status] || 'badge-gray'}>{t.status}</Badge></Td>
+                        <Td className="capitalize text-xs text-slate-500">{t.categories && t.categories.length ? Array.from(new Set(t.categories.map(c => c.registrationType))).join(', ') : '—'}</Td>
+                        <Td className="text-xs text-slate-500 whitespace-nowrap">{startDateStr}</Td>
+                        <Td className="text-xs text-slate-500 whitespace-nowrap">Ends: {regEndStr}</Td>
+                        <Td><Badge className={STATUS_MAP[displayStatus] || 'badge-gray'}>{displayStatus}</Badge></Td>
                         <Td>
                           <div className="flex items-center gap-1.5 whitespace-nowrap">
-                            <button onClick={() => setViewT(t)} title="View Details" className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a]"><Eye className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => setRegsT(t)} title="View Registrations" className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a]"><Users className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => setViewT(t)} title="View Details" className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"><Eye className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => setRegsT(t)} title="View Registrations" className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"><Users className="h-3.5 w-3.5" /></button>
                             {can('sports_write') && (
                               <>
-                                <button onClick={() => { setEditT(t); setFormOpen(true); }} title="Edit" className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a]"><Pencil className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => setDeleteT(t)} title="Delete" className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-red-400 hover:bg-red-400/10"><Trash2 className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => { setEditT(t); setFormOpen(true); }} title="Edit" className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"><Pencil className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => setDeleteT(t)} title="Delete" className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button>
                               </>
                             )}
                             {can('sports_write') && t.status?.toUpperCase() === 'DRAFT' && (
