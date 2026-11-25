@@ -15,8 +15,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const TOKEN_KEY = 'kridext_admin_token';
-const USER_KEY  = 'kridext_admin';
+const TOKEN_KEY   = 'kridext_admin_token';
+const REFRESH_KEY = 'kridext_admin_refresh_token';
+const USER_KEY    = 'kridext_admin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [admin, setAdmin] = useState<AdminUser | null>(() => {
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.warn('Session check warning:', err?.message || err);
           if (err?.status === 401) {
             localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(REFRESH_KEY);
             localStorage.removeItem(USER_KEY);
             setAdmin(null);
             setAdminToken(null);
@@ -64,10 +66,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const res = await adminLogin(email, password);
     const token = res.token;
+    const refreshToken = res.refreshToken || res.data?.refreshToken;
     const adminData = res.data;
     setAdminToken(token);
     setAdmin(adminData);
     localStorage.setItem(TOKEN_KEY, token);
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_KEY, refreshToken);
+    }
     localStorage.setItem(USER_KEY, JSON.stringify(adminData));
   };
 
@@ -75,11 +81,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAdmin(null);
     setAdminToken(null);
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USER_KEY);
   };
 
   const hasPermission = (p: Permission): boolean => {
     if (!admin) return false;
+    if (admin.role === 'super_admin') return true;
+    if (Array.isArray(admin.permissions) && admin.permissions.length > 0) {
+      return admin.permissions.includes(p);
+    }
     return ROLE_PERMISSIONS[admin.role]?.includes(p) ?? false;
   };
 

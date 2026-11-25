@@ -295,11 +295,11 @@ export default function SettlementsPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 border-b border-slate-200">
+      <div className="flex items-center gap-1 sm:gap-2 border-b border-slate-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('disputes')}
           className={clsx(
-            "flex items-center gap-2 pb-3 pt-1 px-4 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer",
+            "flex items-center gap-2 pb-3 pt-1 px-3 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap flex-shrink-0",
             activeTab === 'disputes'
               ? "border-[#F05A22] text-[#F05A22]"
               : "border-transparent text-slate-500 hover:text-slate-800"
@@ -317,7 +317,7 @@ export default function SettlementsPage() {
         <button
           onClick={() => setActiveTab('withdrawals')}
           className={clsx(
-            "flex items-center gap-2 pb-3 pt-1 px-4 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer",
+            "flex items-center gap-2 pb-3 pt-1 px-3 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap flex-shrink-0",
             activeTab === 'withdrawals'
               ? "border-[#F05A22] text-[#F05A22]"
               : "border-transparent text-slate-500 hover:text-slate-800"
@@ -335,7 +335,7 @@ export default function SettlementsPage() {
         <button
           onClick={() => setActiveTab('refunds')}
           className={clsx(
-            "flex items-center gap-2 pb-3 pt-1 px-4 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer",
+            "flex items-center gap-2 pb-3 pt-1 px-3 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap flex-shrink-0",
             activeTab === 'refunds'
               ? "border-[#F05A22] text-[#F05A22]"
               : "border-transparent text-slate-500 hover:text-slate-800"
@@ -382,7 +382,7 @@ export default function SettlementsPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setDisputeHoldFilter('all')}
                 className={clsx(
@@ -556,7 +556,7 @@ export default function SettlementsPage() {
           </div>
 
           <div className="flex items-center justify-between bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {['pending', 'approved', 'rejected', 'all'].map(st => (
                 <button
                   key={st}
@@ -644,7 +644,7 @@ export default function SettlementsPage() {
                         </Td>
                         <Td className="text-right">
                           {isPending ? (
-                            <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
                               <Button
                                 variant="primary"
                                 className="text-xs py-1 px-2.5 h-7 bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white"
@@ -717,7 +717,7 @@ export default function SettlementsPage() {
           </div>
 
           <div className="flex items-center justify-between bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {['all', 'pending', 'approved', 'reconciled', 'rejected'].map(st => (
                 <button
                   key={st}
@@ -805,7 +805,7 @@ export default function SettlementsPage() {
                           </Badge>
                         </Td>
                         <Td className="text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-end gap-1.5 flex-wrap">
                             {isPending && (
                               <>
                                 <Button

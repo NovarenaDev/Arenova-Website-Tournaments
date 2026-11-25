@@ -71,7 +71,9 @@ export default function App() {
               <Route path="/admins" element={<AdminsPage />} />
             </Route>
 
-            <Route path="/audit-logs" element={<AuditLogsPage />} />
+            <Route element={<ProtectedRoute superAdminOnly />}>
+              <Route path="/audit-logs" element={<AuditLogsPage />} />
+            </Route>
 
             <Route path="/settings" element={<SettingsPage />} />
 

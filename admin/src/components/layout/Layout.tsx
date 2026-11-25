@@ -50,9 +50,12 @@ export function Layout() {
   );
 }
 
-export function ProtectedRoute({ permission }: { permission: Permission }) {
-  const { hasPermission } = useAuth();
-  if (!hasPermission(permission)) {
+export function ProtectedRoute({ permission, superAdminOnly }: { permission?: Permission; superAdminOnly?: boolean }) {
+  const { admin, hasPermission } = useAuth();
+  const allowed = superAdminOnly
+    ? admin?.role === 'super_admin'
+    : (permission ? hasPermission(permission) : true);
+  if (!allowed) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-20 bg-slate-50">
         <span style={{fontSize:48}} className="mb-4">🔒</span>

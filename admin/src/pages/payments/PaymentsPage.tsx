@@ -262,7 +262,7 @@ export default function PaymentsPage() {
           <CardContent className="px-0 pb-0">
             <div className="overflow-x-auto">
               <Table>
-                <Thead><Tr className="hover:bg-transparent"><Th>Coach</Th><Th className="text-right">Amount</Th><Th>Method</Th><Th>Account / UPI</Th><Th>Status</Th><Th>Date</Th>{can('payments_write') && <Th className="text-right">Actions</Th>}</Tr></Thead>
+                <Thead><Tr className="hover:bg-transparent"><Th>Coach</Th><Th className="text-right">Amount</Th><Th>Method</Th><Th>Account / UPI</Th><Th>Status</Th><Th>Date</Th>{(can('withdrawals_write') || can('payments_write')) && <Th className="text-right">Actions</Th>}</Tr></Thead>
                 <Tbody>
                   {loading ? (
                     <tr><td colSpan={7} className="text-center py-6"><div className="h-5 w-5 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin inline-block" /></td></tr>
@@ -281,7 +281,7 @@ export default function PaymentsPage() {
                       <Td className="font-mono text-xs text-slate-600 truncate max-w-[130px]" title={p.account}>{p.account}</Td>
                       <Td><Badge className={PAYOUT_MAP[p.status] || 'badge-gray'}>{p.status}</Badge></Td>
                       <Td className="text-slate-500 whitespace-nowrap text-xs">{p.date}</Td>
-                      {can('payments_write') && (
+                      {(can('withdrawals_write') || can('payments_write')) && (
                         <Td className="text-right pr-4">
                           {p.status === 'pending' && (
                             <div className="flex justify-end gap-1.5 whitespace-nowrap">

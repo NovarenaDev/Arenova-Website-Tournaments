@@ -275,9 +275,9 @@ export default function DashboardPage() {
               { icon: <Wallet className="h-4 w-4 text-emerald-400" />, bg: 'bg-emerald-400/10', label: 'Pending Payouts',  count: pendingPayoutsCount,  color: 'text-emerald-400' },
               { icon: <Star className="h-4 w-4 text-blue-400" />,   bg: 'bg-blue-400/10',  label: 'Unverified Ratings',   count: reviewCount,  color: 'text-blue-400' },
             ].map(item => (
-              <div key={item.label} className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 bg-[#141518] rounded-xl border border-[#2e3139] min-w-0">
+              <div key={item.label} className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200/80 min-w-0">
                 <div className={`w-8 h-8 rounded-lg ${item.bg} flex items-center justify-center flex-shrink-0`}>{item.icon}</div>
-                <span className="text-sm text-[#9ba3af] flex-1 truncate">{item.label}</span>
+                <span className="text-sm text-slate-600 flex-1 truncate">{item.label}</span>
                 <span className={`text-sm font-bold ${item.color} flex-shrink-0`}>{item.count}</span>
               </div>
             ))}
@@ -291,15 +291,15 @@ export default function DashboardPage() {
           <CardContent>
             <div className="space-y-3">
               {recentBookings.slice(0, 5).map((b: any) => (
-                <div key={b._id || b.id} className="flex items-center gap-3 p-3 bg-[#141518] rounded-xl border border-[#2e3139] min-w-0">
+                <div key={b._id || b.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80 min-w-0">
                   <Avatar initials={b.user?.firstName?.[0] || 'U'} size={34} className="flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-white font-medium truncate">
+                    <p className="text-xs text-slate-900 font-medium truncate">
                       {b.user ? `${b.user.firstName} ${b.user.lastName}` : 'User'}
                       {' → '}
                       {b.coach?.name || 'Coach'}
                     </p>
-                    <p className="text-[10px] text-[#5c6370] truncate">{b.sport} · {b.date}</p>
+                    <p className="text-[10px] text-slate-500 truncate">{b.sport} · {b.date}</p>
                   </div>
                   <Badge className={`${statusMap[b.status] || 'badge-gray'} flex-shrink-0`}>{b.status}</Badge>
                 </div>

@@ -265,8 +265,8 @@ export default function AuditLogsPage() {
         <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4 text-red-400">
           <ShieldAlert className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">Access Denied: Super Admin Only</h2>
-        <p className="text-sm text-[#9ba3af] max-w-md mb-6 leading-relaxed">
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Access Denied: Super Admin Only</h2>
+        <p className="text-sm text-slate-500 max-w-md mb-6 leading-relaxed">
           The Admin Activity & Audit Logs section contains sensitive compliance records and is restricted strictly to accounts with the <strong className="text-purple-400 font-semibold">Super Admin</strong> role.
         </p>
         <div className="flex gap-3">

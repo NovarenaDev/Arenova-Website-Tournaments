@@ -184,19 +184,19 @@ export default function VenuesPage() {
                 <Tbody>
                   {filtered.map(v => (
                     <Tr key={v._id || v.id}>
-                      <Td><span className="text-sm font-medium text-white truncate max-w-[160px] block" title={v.name}>{v.name}</span></Td>
-                      <Td><span className="text-xs text-[#9ba3af] truncate max-w-[120px] block" title={v.city || v.location}>{v.city || v.location}</span></Td>
+                      <Td><span className="text-sm font-medium text-slate-900 truncate max-w-[160px] block" title={v.name}>{v.name}</span></Td>
+                      <Td><span className="text-xs text-slate-500 truncate max-w-[120px] block" title={v.city || v.location}>{v.city || v.location}</span></Td>
                       <Td><div className="flex gap-1 flex-wrap">{(v.sports || []).slice(0, 2).map(s => <Badge key={s} className="badge-blue">{s}</Badge>)}{v.sports?.length > 2 && <Badge className="badge-gray">+{v.sports.length - 2}</Badge>}</div></Td>
-                      <Td><div className="flex items-center gap-1"><Star className="h-3 w-3 fill-amber-400 text-amber-400" /><span className="text-sm text-white">{v.rating}</span></div></Td>
+                      <Td><div className="flex items-center gap-1"><Star className="h-3 w-3 fill-amber-400 text-amber-400" /><span className="text-sm text-slate-900">{v.rating}</span></div></Td>
                       <Td><span className="text-sm text-[#F05A22] font-medium whitespace-nowrap">{v.pricePerHour ? `₹${v.pricePerHour}` : v.pricePerHr || '—'}</span></Td>
                       <Td><Badge className={STATUS_MAP[v.status] || 'badge-gray'}>{v.status}</Badge></Td>
-                      <Td>{v.verified ? <CheckCircle className="h-4 w-4 text-emerald-400" /> : <span className="text-xs text-[#5c6370]">—</span>}</Td>
+                      <Td>{v.verified ? <CheckCircle className="h-4 w-4 text-emerald-500" /> : <span className="text-xs text-slate-400">—</span>}</Td>
                       {can('sports_write') && (
                         <Td>
                           <div className="flex gap-1.5 whitespace-nowrap">
-                            <button onClick={() => openViewVenue(v)} className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a]"><Eye className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => { setEditV(v); setFormOpen(true); }} className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a]"><Pencil className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => setDeleteV(v)} className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-red-400 hover:bg-red-400/10"><Trash2 className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => openViewVenue(v)} className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"><Eye className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => { setEditV(v); setFormOpen(true); }} className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"><Pencil className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => setDeleteV(v)} className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button>
                           </div>
                         </Td>
                       )}
@@ -212,8 +212,8 @@ export default function VenuesPage() {
         <Modal open={!!viewV} onClose={() => setViewV(null)} title="Venue Details" size="md">
           <div className="space-y-4">
             <div className="flex items-start gap-3">
-              <div className="h-12 w-12 rounded-xl bg-[#1B2B6B]/30 flex items-center justify-center flex-shrink-0"><Building2 className="h-6 w-6 text-blue-400" /></div>
-              <div><h2 className="text-lg font-bold text-white">{viewV.name}</h2><p className="text-sm text-[#9ba3af] mt-0.5">{viewV.desc || viewV.description}</p></div>
+              <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0"><Building2 className="h-6 w-6 text-blue-600" /></div>
+              <div><h2 className="text-lg font-bold text-slate-900">{viewV.name}</h2><p className="text-sm text-slate-500 mt-0.5">{viewV.desc || viewV.description}</p></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <DetailRow label="City"       value={viewV.city || viewV.location || '—'} />

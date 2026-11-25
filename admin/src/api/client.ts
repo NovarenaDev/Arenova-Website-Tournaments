@@ -471,23 +471,66 @@ export async function apiRequest<T = any>(
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('api:ratelimit', { detail: { url: requestUrl } }));
     }
-    const err: any = new Error('Server rate limit reached (HTTP 429). The remote server is temporarily throttling requests. Please wait a moment.');
+    const retryAfterHeader = Number(res.headers.get('Retry-After'));
+    let serverMsg = '';
+    try {
+      const errData = await res.json();
+      if (errData?.message) serverMsg = errData.message;
+    } catch {}
+    const err: any = new Error(serverMsg || 'Server rate limit reached (HTTP 429). Please wait before retrying.');
     err.status = 429;
     err.isRateLimit = true;
+    if (Number.isFinite(retryAfterHeader) && retryAfterHeader > 0) {
+      err.retryAfter = retryAfterHeader;
+    }
     throw err;
   }
 
   if (res.status === 401) {
+    const isAuthEndpoint = cleanEndpoint === '/auth/admin/login' || cleanEndpoint === '/auth/refresh-token';
+    const isAlreadyRetried = Boolean((options as any)._retried);
+    const storedRefresh = typeof window !== 'undefined' ? localStorage.getItem('kridext_admin_refresh_token') : null;
+
+    if (!isAuthEndpoint && !isAlreadyRetried && storedRefresh) {
+      try {
+        const refreshRes = await fetch(`${BASE_URL}/auth/refresh-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: storedRefresh }),
+        });
+        if (refreshRes.ok) {
+          const refreshJson = await refreshRes.json().catch(() => ({}));
+          const nextToken = refreshJson?.token || refreshJson?.data?.token;
+          const nextRefresh = refreshJson?.refreshToken || refreshJson?.data?.refreshToken;
+          if (nextToken) {
+            setAdminToken(nextToken);
+            if (nextRefresh && typeof window !== 'undefined') {
+              localStorage.setItem('kridext_admin_refresh_token', nextRefresh);
+            }
+            return apiRequest<T>(endpoint, { ...options, _retried: true } as any);
+          }
+        }
+      } catch {}
+    }
+
     const isAdminRoute = cleanEndpoint.startsWith('/admin') || cleanEndpoint.startsWith('/auth/admin');
-    if (isAdminRoute) {
+    if (isAdminRoute && cleanEndpoint !== '/auth/admin/login') {
       localStorage.removeItem('kridext_admin_token');
+      localStorage.removeItem('kridext_admin_refresh_token');
       localStorage.removeItem('kridext_admin');
       setAdminToken(null);
       if (!window.location.pathname.endsWith('/admin/login') && !window.location.pathname.endsWith('/login')) {
         window.location.href = '/admin/login';
       }
     }
-    throw new Error('Unauthorized');
+    let msg = 'Unauthorized';
+    try {
+      const errData = await res.json();
+      if (errData?.message) msg = errData.message;
+    } catch {}
+    const err: any = new Error(msg);
+    err.status = 401;
+    throw err;
   }
 
   if (res.status === 403) {

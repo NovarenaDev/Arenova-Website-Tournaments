@@ -297,11 +297,15 @@ export const getSalaryPayouts = (params: Record<string, any> = {}) => {
   return get(`/admin/salary-payouts${q ? '?' + q : ''}`);
 };
 
-export const getAdmins         = () => get('/admin/admins');
-export const createAdmin       = (data: any) => post('/admin/admins', data);
-export const updateAdmin       = (id: string, data: any) => put(`/admin/admins/${id}`, data);
-export const deleteAdmin       = (id: string) => del(`/admin/admins/${id}`);
-export const resetAdminPassword = (id: string, newPassword: string) =>
+export const getAdmins              = () => get('/admin/admins');
+export const createAdmin            = (data: { firstName: string; lastName: string; email: string }) => post('/admin/admins', data);
+export const updateAdmin            = (id: string, data: { firstName: string; lastName: string }) => put(`/admin/admins/${id}`, data);
+export const resendAdminInvitation  = (id: string) => post(`/admin/admins/${id}/resend-invitation`, {});
+export const deactivateAdmin        = (id: string) => post(`/admin/admins/${id}/deactivate`, {});
+export const reactivateAdmin        = (id: string) => post(`/admin/admins/${id}/reactivate`, {});
+export const sendAdminPasswordReset = (id: string) => post(`/admin/admins/${id}/send-password-reset`, {});
+export const deleteAdmin            = (id: string) => del(`/admin/admins/${id}`);
+export const resetAdminPassword     = (id: string, newPassword: string) =>
   put(`/admin/admins/${id}/reset-password`, { newPassword });
 
 export const uploadImage = async (file: File) => {

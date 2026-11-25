@@ -138,18 +138,18 @@ export default function SportsPage() {
                     <Td>
                       <div className="flex items-center gap-2">
                         <span className="text-xl">{s.emoji}</span>
-                        <span className="text-sm font-medium text-white">{s.name}</span>
+                        <span className="text-sm font-medium text-slate-900">{s.name}</span>
                       </div>
                     </Td>
-                    <Td><span className="text-sm text-white">{s.coaches}</span></Td>
-                    <Td><span className="text-sm text-white">{s.bookings}</span></Td>
-                    <Td><span className="text-sm text-emerald-400 font-medium">₹{(s.revenue / 1000).toFixed(0)}K</span></Td>
+                    <Td><span className="text-sm text-slate-900">{s.coaches}</span></Td>
+                    <Td><span className="text-sm text-slate-900">{s.bookings}</span></Td>
+                    <Td><span className="text-sm text-emerald-600 font-medium">₹{(s.revenue / 1000).toFixed(0)}K</span></Td>
                     <Td>
                       <div className="flex items-center gap-1">
                         {s.trendUp
-                          ? <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
-                          : <TrendingDown className="h-3.5 w-3.5 text-red-400" />}
-                        <span className={`text-xs ${s.trendUp ? 'text-emerald-400' : 'text-red-400'}`}>{s.trend}</span>
+                          ? <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                          : <TrendingDown className="h-3.5 w-3.5 text-rose-600" />}
+                        <span className={`text-xs ${s.trendUp ? 'text-emerald-600' : 'text-rose-600'}`}>{s.trend}</span>
                       </div>
                     </Td>
                     <Td>
@@ -158,10 +158,10 @@ export default function SportsPage() {
                     {can('sports_write') && (
                       <Td>
                         <div className="flex items-center gap-1.5">
-                          <button onClick={() => openEdit(s)} className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a]">
+                          <button onClick={() => openEdit(s)} className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button onClick={() => setToDelete(s)} className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-red-400 hover:bg-red-400/10">
+                          <button onClick={() => setToDelete(s)} className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>

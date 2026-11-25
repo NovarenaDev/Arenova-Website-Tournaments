@@ -1,5 +1,6 @@
 export type AdminRole =
   | 'super_admin'
+  | 'admin'
   | 'customer_manager'
   | 'coach_manager'
   | 'payment_manager'
@@ -9,16 +10,20 @@ export type AdminRole =
 
 export type Permission =
   | 'dashboard'
-  | 'customers'   | 'customers_write'
-  | 'coaches'     | 'coaches_write'
-  | 'bookings'    | 'bookings_write'
-  | 'payments'    | 'payments_write'
-  | 'ratings'     | 'ratings_write'
-  | 'sports'      | 'sports_write'
-  | 'admins'      | 'admins_write';
+  | 'customers'     | 'customers_write'
+  | 'coaches'       | 'coaches_write'
+  | 'bookings'      | 'bookings_write'
+  | 'payments'      | 'payments_write'
+  | 'withdrawals'   | 'withdrawals_write'
+  | 'ratings'       | 'ratings_write'
+  | 'sports'        | 'sports_write'
+  | 'banners'       | 'banners_write'
+  | 'notifications' | 'notifications_write'
+  | 'admins'        | 'admins_write';
 
 export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
-  super_admin:      ['dashboard','customers','customers_write','coaches','coaches_write','bookings','bookings_write','payments','payments_write','ratings','ratings_write','sports','sports_write','admins','admins_write'],
+  super_admin:      ['dashboard','customers','customers_write','coaches','coaches_write','bookings','bookings_write','payments','payments_write','withdrawals','withdrawals_write','ratings','ratings_write','sports','sports_write','banners','banners_write','notifications','notifications_write','admins','admins_write'],
+  admin:            ['dashboard','customers','customers_write','coaches','coaches_write','bookings','bookings_write','payments','payments_write','withdrawals','withdrawals_write','ratings','ratings_write','sports','sports_write','banners','banners_write','notifications','notifications_write'],
   customer_manager: ['dashboard','customers','customers_write'],
   coach_manager:    ['dashboard','coaches','coaches_write'],
   payment_manager:  ['dashboard','payments','payments_write','bookings'],
@@ -29,6 +34,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
 
 export const ROLE_LABELS: Record<AdminRole, string> = {
   super_admin:      'Super Admin',
+  admin:            'Admin',
   customer_manager: 'Customer Manager',
   coach_manager:    'Coach Manager',
   payment_manager:  'Payment Manager',
@@ -39,6 +45,7 @@ export const ROLE_LABELS: Record<AdminRole, string> = {
 
 export const ROLE_COLORS: Record<AdminRole, string> = {
   super_admin:      'badge-purple',
+  admin:            'badge-blue',
   customer_manager: 'badge-blue',
   coach_manager:    'badge-green',
   payment_manager:  'badge-amber',
@@ -55,8 +62,12 @@ export interface AdminUser {
   lastName:  string;
   email:     string;
   role:      AdminRole;
+  permissions?: Permission[];
   avatar?:   string;
   isActive:  boolean;
+  accountStatus?: 'PENDING_INVITATION' | 'ACTIVE' | 'INACTIVE' | string;
+  setupDelivery?: 'SUBMITTED' | 'FAILED' | 'PENDING' | string;
+  setupExpiresAt?: string;
   lastLogin?: string;
   createdAt: string;
   createdBy?: string;

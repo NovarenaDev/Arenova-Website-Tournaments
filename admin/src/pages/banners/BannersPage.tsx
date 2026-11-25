@@ -307,7 +307,7 @@ export default function BannersPage() {
             <span className="hidden sm:inline">Refresh</span>
           </Button>
 
-          {can('sports_write') && (
+          {(can('banners_write') || can('sports_write')) && (
             <Button
               variant="primary"
               className="text-xs h-9 font-semibold shadow-sm"
@@ -512,7 +512,7 @@ export default function BannersPage() {
                 : "No banners published yet. Click 'Create Banner' to upload your first banner!"
             }
           />
-          {can('sports_write') && (
+          {(can('banners_write') || can('sports_write')) && (
             <Button variant="primary" className="mt-4 text-xs mx-auto" onClick={openCreateModal}>
               <Plus className="h-3.5 w-3.5 mr-1" /> Create First Banner
             </Button>
@@ -630,7 +630,7 @@ export default function BannersPage() {
                     </button>
                   </div>
 
-                  {can('sports_write') && (
+                  {(can('banners_write') || can('sports_write')) && (
                     <div className="flex items-center gap-1.5">
                       <Button
                         variant="outline"
@@ -667,7 +667,7 @@ export default function BannersPage() {
                 <Th>Destination Link</Th>
                 <Th>Status</Th>
                 <Th>Reorder</Th>
-                {can('sports_write') && <Th className="text-right">Actions</Th>}
+                {(can('banners_write') || can('sports_write')) && <Th className="text-right">Actions</Th>}
               </Tr>
             </Thead>
             <Tbody>
@@ -739,7 +739,7 @@ export default function BannersPage() {
                         </button>
                       </div>
                     </Td>
-                    {can('sports_write') && (
+                    {(can('banners_write') || can('sports_write')) && (
                       <Td className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Button
