@@ -35,7 +35,7 @@ export function Layout() {
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden bg-gradient-to-br from-[#eef2f7] via-[#f6f8fc] to-[#e7edf6]">
 
         <Header onMenuClick={() => setSidebarOpen(prev => !prev)} />
         {rateLimited && (
@@ -44,7 +44,7 @@ export function Layout() {
             <button onClick={() => setRateLimited(false)} className="text-amber-700 font-bold ml-2 hover:text-amber-900">✕</button>
           </div>
         )}
-        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-slate-50/60"><Outlet /></main>
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden"><Outlet /></main>
       </div>
     </div>
   );

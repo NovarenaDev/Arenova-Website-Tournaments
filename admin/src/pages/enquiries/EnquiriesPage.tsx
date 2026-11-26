@@ -113,21 +113,21 @@ function EnquiryDetailModal({
             </Badge>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-y border-[#2e3139] py-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-y border-slate-200 py-4">
             <DetailRow label="Name" value={enquiry.name} />
             <DetailRow label="Email" value={enquiry.email} />
             <DetailRow label="Phone" value={enquiry.phone || '—'} />
           </div>
 
-          <div className="border border-[#2e3139] bg-[#1a1c20] rounded-lg p-4 text-sm text-[#d1d5db] leading-relaxed">
-            <span className="block font-semibold text-white mb-2 uppercase tracking-wider text-[10px]">
+          <div className="border border-slate-200 bg-slate-50 rounded-xl p-4 text-sm text-slate-700 leading-relaxed">
+            <span className="block font-bold text-slate-800 mb-2 uppercase tracking-wider text-[10px]">
               Customer Message
             </span>
             {enquiry.message}
           </div>
 
-          <div className="border-t border-[#2e3139] pt-4 space-y-4">
-            <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
+          <div className="border-t border-slate-200 pt-4 space-y-4">
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
               Admin Actions
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -156,7 +156,7 @@ function EnquiryDetailModal({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-[#2e3139]">
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
             <Button variant="ghost" onClick={onClose} disabled={updating}>
               Cancel
             </Button>
@@ -247,32 +247,47 @@ export default function EnquiriesPage() {
         <StatCard
           label="Total Enquiries"
           value={String(stats.total)}
-          icon={<ClipboardList className="h-4 w-4 text-[#F05A22]" />}
-          iconBg="bg-[#F05A22]/10"
+          icon={<ClipboardList className="h-4 w-4 text-orange-600" />}
+          iconBg="bg-orange-100/80"
+          tone="orange"
+          onClick={() => setFilter('All')}
+          active={filter === 'All'}
         />
         <StatCard
           label="New"
           value={String(stats.new)}
-          icon={<MessageSquare className="h-4 w-4 text-blue-400" />}
-          iconBg="bg-blue-400/10"
+          icon={<MessageSquare className="h-4 w-4 text-blue-600" />}
+          iconBg="bg-blue-100/80"
+          tone="blue"
+          onClick={() => setFilter('New')}
+          active={filter === 'New'}
         />
         <StatCard
           label="In Progress"
           value={String(stats.in_progress)}
-          icon={<Calendar className="h-4 w-4 text-amber-400" />}
-          iconBg="bg-amber-400/10"
+          icon={<Calendar className="h-4 w-4 text-amber-600" />}
+          iconBg="bg-amber-100/80"
+          tone="amber"
+          onClick={() => setFilter('In Progress')}
+          active={filter === 'In Progress'}
         />
         <StatCard
           label="Responded"
           value={String(stats.responded)}
-          icon={<User className="h-4 w-4 text-emerald-400" />}
-          iconBg="bg-emerald-400/10"
+          icon={<User className="h-4 w-4 text-emerald-600" />}
+          iconBg="bg-emerald-100/80"
+          tone="emerald"
+          onClick={() => setFilter('Responded')}
+          active={filter === 'Responded'}
         />
         <StatCard
           label="Closed"
           value={String(stats.closed)}
-          icon={<Trash2 className="h-4 w-4 text-gray-400" />}
-          iconBg="bg-gray-400/10"
+          icon={<Trash2 className="h-4 w-4 text-purple-600" />}
+          iconBg="bg-purple-100/80"
+          tone="purple"
+          onClick={() => setFilter('Closed')}
+          active={filter === 'Closed'}
         />
       </div>
 
@@ -344,7 +359,7 @@ export default function EnquiriesPage() {
                           <button
                             onClick={() => setSelectedId(id)}
                             title="View Enquiry"
-                            className="h-7 w-7 flex items-center justify-center rounded-lg text-[#5c6370] hover:text-white hover:bg-[#21242a]"
+                            className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100"
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </button>

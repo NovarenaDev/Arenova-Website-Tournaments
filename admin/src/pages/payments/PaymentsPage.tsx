@@ -188,10 +188,10 @@ export default function PaymentsPage() {
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard label="Gross Revenue"       value={fmt(totalRevenue)}                                     sub="Total processed"   icon={<TrendingUp       className="h-4 w-4 text-emerald-500" />} iconBg="bg-emerald-50" subColor="text-emerald-600" />
-        <StatCard label="Platform Commission" value={fmt(Math.round(totalRevenue * 0.2))}                  sub="20% avg"           icon={<Wallet           className="h-4 w-4 text-[#F05A22]" />}    iconBg="bg-[#F05A22]/10" subColor="text-slate-600" />
-        <StatCard label="Pending Payouts"     value={fmt(totalPending)}                                    sub={`${payouts.filter(p => p.status === 'pending').length} requests`} icon={<ArrowDownToLine className="h-4 w-4 text-amber-500" />} iconBg="bg-amber-50" subColor="text-amber-600" />
-        <StatCard label="Failed Transactions" value={String(failedCount)}                                  sub="Needs follow-up"   icon={<AlertTriangle    className="h-4 w-4 text-rose-500" />}     iconBg="bg-rose-50"    subColor="text-rose-600" />
+        <StatCard label="Gross Revenue"       value={fmt(totalRevenue)}                                     sub="Total processed"   icon={<TrendingUp       className="h-4 w-4 text-emerald-600" />} iconBg="bg-emerald-100/80" tone="emerald" subColor="text-emerald-600" onClick={() => setTab('transactions')} active={tab === 'transactions'} />
+        <StatCard label="Platform Commission" value={fmt(Math.round(totalRevenue * 0.2))}                  sub="20% avg"           icon={<Wallet           className="h-4 w-4 text-blue-600" />}    iconBg="bg-blue-100/80"    tone="blue"    subColor="text-slate-600" onClick={() => setTab('transactions')} />
+        <StatCard label="Pending Payouts"     value={fmt(totalPending)}                                    sub={`${payouts.filter(p => p.status === 'pending').length} requests`} icon={<ArrowDownToLine className="h-4 w-4 text-amber-600" />} iconBg="bg-amber-100/80" tone="amber" subColor="text-amber-600" onClick={() => setTab('payouts')} active={tab === 'payouts'} />
+        <StatCard label="Failed Transactions" value={String(failedCount)}                                  sub="Needs follow-up"   icon={<AlertTriangle    className="h-4 w-4 text-rose-600" />}  iconBg="bg-rose-100/80"    tone="rose"    subColor="text-rose-600" onClick={() => setTab('transactions')} />
       </div>
 
       <div className="flex gap-2 flex-wrap">

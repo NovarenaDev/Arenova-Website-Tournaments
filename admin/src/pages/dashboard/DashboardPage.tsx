@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { TrendingUp, Users, UserCheck, CalendarDays, Wallet, Star, Medal, CheckCircle, Clock, AlertTriangle, MessageSquare } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { StatCard, Card, CardHeader, CardTitle, CardContent, ProgressBar, Badge, Button, Avatar } from '../../components/ui';
 import { getDashboard, getAdminReviews, getAdminWithdrawals, getAdminBookings, getEnquiryStats, extractDataList } from '../../api';
 
@@ -15,8 +15,8 @@ const statusMap: Record<string, string> = {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1a1c20] border border-[#2e3139] rounded-lg px-3 py-2 text-xs">
-      <p className="text-[#9ba3af] mb-1">{label}</p>
+    <div className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs shadow-lg">
+      <p className="text-slate-500 font-medium mb-1">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} style={{ color: p.color }}>
           {p.name === 'revenue' ? `₹${p.value.toLocaleString()}` : `${p.value} bookings`}
@@ -187,39 +187,55 @@ export default function DashboardPage() {
           label="Total Bookings"
           value={totalBookings.toLocaleString()}
           sub="↑ 14% vs last month"
-          icon={<CalendarDays className="h-4 w-4 text-[#F05A22]" />}
-          iconBg="bg-[#F05A22]/10"
-          subColor="text-emerald-400"
+          icon={<CalendarDays className="h-4 w-4 text-blue-600" />}
+          iconBg="bg-blue-100/80"
+          subColor="text-emerald-600"
+          tone="blue"
+          sparklineData={revenueData.map(d => d.bookings)}
         />
         <StatCard
           label="Active Players"
           value={totalCustomers.toLocaleString()}
           sub="↑ 8% vs last month"
-          icon={<Users className="h-4 w-4 text-emerald-400" />}
-          iconBg="bg-emerald-500/10"
-          subColor="text-emerald-400"
+          icon={<Users className="h-4 w-4 text-emerald-600" />}
+          iconBg="bg-emerald-100/80"
+          subColor="text-emerald-600"
+          tone="emerald"
         />
         <StatCard
           label="Active Coaches"
           value={totalCoaches.toLocaleString()}
           sub="↑ 5% vs last month"
-          icon={<UserCheck className="h-4 w-4 text-blue-400" />}
-          iconBg="bg-blue-500/10"
-          subColor="text-[#5c6370]"
+          icon={<UserCheck className="h-4 w-4 text-amber-600" />}
+          iconBg="bg-amber-100/80"
+          subColor="text-emerald-600"
+          tone="amber"
         />
         <StatCard
           label="Gross Revenue"
           value={`₹${totalRevenue.toLocaleString()}`}
           sub="↑ 21% vs last month"
-          icon={<Wallet className="h-4 w-4 text-amber-400" />}
-          iconBg="bg-amber-500/10"
-          subColor="text-emerald-400"
+          icon={<Wallet className="h-4 w-4 text-purple-600" />}
+          iconBg="bg-purple-100/80"
+          subColor="text-emerald-600"
+          tone="purple"
+          sparklineData={revenueData.map(d => d.revenue)}
         />
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Revenue & Bookings Trend</CardTitle>
+          <div className="flex items-center gap-4 text-xs font-medium text-slate-600">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#F05A22]" />
+              Revenue (₹)
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#2563eb]" />
+              Bookings
+            </span>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-72 w-full">
@@ -227,15 +243,20 @@ export default function DashboardPage() {
               <AreaChart data={revenueData}>
                 <defs>
                   <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#F05A22" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#F05A22" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#F05A22" stopOpacity={0.28}/>
+                    <stop offset="95%" stopColor="#F05A22" stopOpacity={0.02}/>
+                  </linearGradient>
+                  <linearGradient id="colorBook" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.22}/>
+                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0.02}/>
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="month" stroke="#5c6370" fontSize={11} tickLine={false} />
-                <YAxis stroke="#5c6370" fontSize={11} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="month" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" name="revenue" dataKey="revenue" stroke="#F05A22" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" />
-                <Area type="monotone" name="bookings" dataKey="bookings" stroke="#2563eb" strokeWidth={1} fill="none" />
+                <Area type="monotone" name="revenue" dataKey="revenue" stroke="#F05A22" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRev)" dot={{ r: 3.5, strokeWidth: 2, fill: '#fff', stroke: '#F05A22' }} />
+                <Area type="monotone" name="bookings" dataKey="bookings" stroke="#2563eb" strokeWidth={2.5} fillOpacity={1} fill="url(#colorBook)" dot={{ r: 3.5, strokeWidth: 2, fill: '#fff', stroke: '#2563eb' }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

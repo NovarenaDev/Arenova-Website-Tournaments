@@ -57,32 +57,35 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
   };
 
   return (
-    <aside className={clsx(
-      "fixed inset-y-0 left-0 z-50 flex h-screen w-[220px] flex-shrink-0 flex-col border-r border-[#e5e7eb] bg-white transition-transform duration-200 md:static md:translate-x-0",
-      isOpen ? "translate-x-0" : "-translate-x-full"
-    )}>
+    <aside
+      style={{ background: 'linear-gradient(180deg, #0b1c3d 0%, #07142e 55%, #050d1f 100%)' }}
+      className={clsx(
+        "fixed inset-y-0 left-0 z-50 flex h-screen w-[224px] flex-shrink-0 flex-col border-r border-slate-800/60 text-white transition-transform duration-200 md:static md:translate-x-0 shadow-xl",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}
+    >
 
-      <div className="flex items-center gap-3 border-b border-[#e5e7eb] px-4 py-[18px]">
-        <img src={logo} alt="Arenova Logo" className="h-8 w-auto object-contain flex-shrink-0" />
-        <div>
-          <p className="text-[10px] text-[#9ba3af]">Admin Panel</p>
+      <div className="flex flex-col items-center justify-center gap-1.5 border-b border-white/10 px-4 py-3.5">
+        <div className="rounded-xl bg-white/95 px-3 py-1.5 shadow-sm ring-1 ring-white/25">
+          <img src={logo} alt="Arenova Logo" className="h-6 w-auto object-contain" />
         </div>
+        <p className="text-[10px] text-slate-300/90 font-semibold tracking-wider uppercase">Admin Panel</p>
       </div>
 
       {admin && (
-        <div className="px-4 py-2.5 border-b border-[#e5e7eb]">
-          <Badge className={ROLE_COLORS[admin.role]}>{ROLE_LABELS[admin.role]}</Badge>
+        <div className="px-4 py-2.5 border-b border-white/10">
+          <Badge className="bg-white/10 text-amber-300 border-white/15">{ROLE_LABELS[admin.role] || admin.role}</Badge>
         </div>
       )}
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
+      <nav className="flex-1 overflow-y-auto px-2.5 py-3">
         {groups.map(group => {
           const items = visibleNav.filter(n => (n.group || '') === group);
           if (items.length === 0) return null;
           return (
-            <div key={group} className="mb-2">
+            <div key={group} className="mb-2.5">
               {group && (
-                <p className="px-3 pt-2 pb-1 text-[9px] font-semibold tracking-wider text-[#5c6370] uppercase">{groupLabels[group]}</p>
+                <p className="px-3 pt-2 pb-1 text-[9px] font-semibold tracking-wider text-slate-400/80 uppercase">{groupLabels[group]}</p>
               )}
               {items.map(item => {
                 const Icon = item.icon;
@@ -94,7 +97,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
                     onClick={onClose}
                     className={clsx('sidebar-item mb-0.5', active ? 'sidebar-item-active' : 'sidebar-item-inactive')}
                   >
-                    <Icon className={clsx('h-3.5 w-3.5 flex-shrink-0', active ? 'opacity-100' : 'opacity-60')} />
+                    <Icon className={clsx('h-3.5 w-3.5 flex-shrink-0', active ? 'text-white opacity-100' : 'text-slate-300/75')} />
                     <span className="flex-1 leading-none">{item.label}</span>
                   </Link>
                 );
@@ -104,7 +107,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
         })}
       </nav>
 
-      <div className="border-t border-[#e5e7eb] px-2 py-3 space-y-0.5">
+      <div className="border-t border-white/10 px-2.5 py-3 space-y-0.5">
         {hasPermission('customers') && (
           <Link
             to="/enquiries"
@@ -114,7 +117,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
               location.pathname.startsWith('/enquiries') ? 'sidebar-item-active' : 'sidebar-item-inactive'
             )}
           >
-            <Mail className={clsx('h-3.5 w-3.5 flex-shrink-0', location.pathname.startsWith('/enquiries') ? 'opacity-100' : 'opacity-60')} />
+            <Mail className={clsx('h-3.5 w-3.5 flex-shrink-0', location.pathname.startsWith('/enquiries') ? 'text-white opacity-100' : 'text-slate-300/75')} />
             <span className="flex-1 leading-none">Customer Enquiries</span>
           </Link>
         )}
@@ -126,18 +129,18 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
             location.pathname.startsWith('/settings') ? 'sidebar-item-active' : 'sidebar-item-inactive'
           )}
         >
-          <Settings className={clsx('h-3.5 w-3.5 flex-shrink-0', location.pathname.startsWith('/settings') ? 'opacity-100' : 'opacity-60')} />
+          <Settings className={clsx('h-3.5 w-3.5 flex-shrink-0', location.pathname.startsWith('/settings') ? 'text-white opacity-100' : 'text-slate-300/75')} />
           <span className="flex-1 leading-none">Settings</span>
         </Link>
-        <div className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 mt-1 bg-slate-50 border border-slate-100">
-          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#F05A22]/15 text-[10px] font-bold text-[#F05A22] ring-1 ring-[#F05A22]/30">
+        <div className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 mt-1.5 bg-white/5 border border-white/10">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-500/25 text-[10px] font-bold text-blue-200 ring-1 ring-blue-400/40">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[12px] font-semibold text-slate-900">{admin?.firstName} {admin?.lastName}</p>
-            <p className="truncate text-[10px] text-slate-500">{admin?.email}</p>
+            <p className="truncate text-[12px] font-semibold text-white">{admin?.firstName} {admin?.lastName}</p>
+            <p className="truncate text-[10px] text-slate-300/75">{admin?.email}</p>
           </div>
-          <button onClick={logout} title="Logout" className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-red-50 cursor-pointer">
+          <button onClick={logout} title="Logout" className="text-slate-300/75 hover:text-rose-400 transition-colors p-1 rounded-lg hover:bg-white/10 cursor-pointer">
             <LogOut className="h-3.5 w-3.5" />
           </button>
         </div>

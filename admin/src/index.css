@@ -12,7 +12,7 @@
   }
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f8fafc;
+    background: linear-gradient(135deg, #eef2f7 0%, #f5f7fb 48%, #e8eef6 100%);
     color: #0f172a;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -38,21 +38,21 @@
     @apply flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150 cursor-pointer;
   }
   .sidebar-item-active {
-    @apply bg-[#F05A22]/10 text-[#F05A22] font-semibold;
+    @apply bg-gradient-to-r from-[#1d63ff] to-[#2563eb] text-white font-semibold shadow-[0_6px_16px_rgba(37,99,235,0.35)];
   }
   .sidebar-item-inactive {
-    @apply text-slate-600 hover:bg-slate-100 hover:text-slate-900;
+    @apply text-slate-300/85 hover:bg-white/10 hover:text-white;
   }
 
   .card {
-    @apply bg-white border border-slate-200/90 rounded-2xl shadow-[0_1px_3px_rgba(15,23,42,0.04)] text-slate-900 transition-all;
+    @apply bg-[#fafbfd]/95 backdrop-blur-sm border border-slate-200/80 rounded-2xl shadow-[0_6px_24px_rgba(15,23,42,0.04)] text-slate-900 transition-all;
   }
   .stat-card {
-    @apply bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-[0_1px_3px_rgba(15,23,42,0.04)] text-slate-900;
+    @apply bg-gradient-to-br from-[#ffffff] via-[#f8fafd] to-[#f1f5fa] border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-[0_6px_20px_rgba(15,23,42,0.04)] text-slate-900;
   }
 
   .table-row {
-    @apply border-b border-slate-100 hover:bg-slate-50/80 transition-colors text-slate-900;
+    @apply border-b border-slate-100/90 hover:bg-slate-100/60 transition-colors text-slate-900;
   }
 
   .badge {
@@ -78,17 +78,17 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 bg-[#F05A22] hover:bg-[#e04f18] text-white font-medium rounded-xl px-4 py-2 text-sm shadow-sm transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap;
+    @apply inline-flex items-center justify-center gap-2 border border-[#fdba74]/80 bg-gradient-to-r from-[#fff4ec] via-[#ffe7d6] to-[#ffd9bf] hover:from-[#ffece0] hover:to-[#ffcaa6] text-[#c2410c] font-semibold rounded-xl px-4 py-2 text-sm shadow-sm transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap;
   }
   .btn-outline {
-    @apply inline-flex items-center justify-center gap-2 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-medium rounded-xl px-4 py-2 text-sm transition-all shadow-sm active:scale-[0.98] disabled:opacity-50 whitespace-nowrap;
+    @apply inline-flex items-center justify-center gap-2 border border-slate-200/90 bg-white/95 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 font-medium rounded-xl px-4 py-2 text-sm transition-all shadow-sm active:scale-[0.98] disabled:opacity-50 whitespace-nowrap;
   }
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 font-medium rounded-xl px-4 py-2 text-sm transition-colors active:scale-[0.98] disabled:opacity-50 whitespace-nowrap;
+    @apply inline-flex items-center justify-center gap-2 border border-rose-200 bg-rose-50/90 text-rose-600 hover:bg-rose-100 hover:border-rose-300 font-semibold rounded-xl px-4 py-2 text-sm transition-colors active:scale-[0.98] disabled:opacity-50 whitespace-nowrap;
   }
 
   .input-field {
-    @apply w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#F05A22] focus:ring-2 focus:ring-[#F05A22]/15 transition-all;
+    @apply w-full bg-slate-50/80 border border-slate-200/90 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#1d63ff] focus:ring-2 focus:ring-blue-500/15 transition-all;
   }
 }
 

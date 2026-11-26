@@ -1328,6 +1328,32 @@ export default function TournamentsPage() {
     setDeleteT(null);
   };
 
+  const buildTournamentTrend = (pred: (t: Tournament) => boolean): number[] => {
+    const now = new Date();
+    const counts = [0, 0, 0, 0, 0, 0];
+    tournaments.forEach(t => {
+      if (!pred(t)) return;
+      const raw = (t as any).createdAt || t.startDate;
+      if (!raw) return;
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) return;
+      const diff = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+      if (diff >= 0 && diff < 6) {
+        counts[5 - diff] += 1;
+      }
+    });
+    return counts;
+  };
+
+  const SPORT_BADGES: Record<string, string> = {
+    Cricket: 'bg-orange-50 text-orange-600 border-orange-200',
+    Football: 'bg-blue-50 text-blue-600 border-blue-200',
+    Badminton: 'bg-sky-50 text-sky-600 border-sky-200',
+    Tennis: 'bg-purple-50 text-purple-600 border-purple-200',
+    Swimming: 'bg-cyan-50 text-cyan-600 border-cyan-200',
+    Basketball: 'bg-amber-50 text-amber-600 border-amber-200',
+  };
+
   const stats = {
     total: tournaments.length,
     draft: tournaments.filter(t => matchesTournamentStatus(t, 'Draft')).length,
@@ -1338,10 +1364,10 @@ export default function TournamentsPage() {
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total"     value={String(stats.total)}     icon={<Trophy className="h-4 w-4 text-[#F05A22]" />}    iconBg="bg-[#F05A22]/10" />
-        <StatCard label="Draft"     value={String(stats.draft)}     icon={<CalendarDays className="h-4 w-4 text-blue-400" />} iconBg="bg-blue-400/10" />
-        <StatCard label="Published" value={String(stats.published)} icon={<Medal className="h-4 w-4 text-emerald-400" />}    iconBg="bg-emerald-400/10" />
-        <StatCard label="Completed" value={String(stats.completed)} icon={<Trophy className="h-4 w-4 text-amber-400" />}     iconBg="bg-amber-400/10" />
+        <StatCard label="Total"     value={String(stats.total)}     icon={<Trophy className="h-4 w-4 text-blue-600" />}       iconBg="bg-blue-100/80"    tone="blue"    sparklineData={buildTournamentTrend(() => true)} onClick={() => setFilter('All')} active={filter === 'All'} />
+        <StatCard label="Draft"     value={String(stats.draft)}     icon={<CalendarDays className="h-4 w-4 text-[#F05A22]" />} iconBg="bg-orange-100/80"  tone="orange"  sparklineData={buildTournamentTrend(t => matchesTournamentStatus(t, 'Draft'))} onClick={() => setFilter('Draft')} active={filter === 'Draft'} />
+        <StatCard label="Published" value={String(stats.published)} icon={<Medal className="h-4 w-4 text-emerald-600" />}     iconBg="bg-emerald-100/80" tone="emerald" sparklineData={buildTournamentTrend(t => matchesTournamentStatus(t, 'Published'))} onClick={() => setFilter('Published')} active={filter === 'Published'} />
+        <StatCard label="Completed" value={String(stats.completed)} icon={<Trophy className="h-4 w-4 text-amber-600" />}      iconBg="bg-amber-100/80"   tone="amber"   sparklineData={buildTournamentTrend(t => matchesTournamentStatus(t, 'Completed'))} onClick={() => setFilter('Completed')} active={filter === 'Completed'} />
       </div>
 
       <Card>
@@ -1349,7 +1375,7 @@ export default function TournamentsPage() {
           <CardTitle>Tournaments ({filtered.length})</CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
             <SearchBar value={search} onChange={setSearch} placeholder="Search tournaments..." />
-            <div className="flex gap-1 flex-wrap">{FILTERS.map(f => <FilterPill key={f} label={f} active={filter === f} onClick={() => setFilter(f)} />)}</div>
+            <div className="flex gap-1.5 flex-wrap">{FILTERS.map(f => <FilterPill key={f} label={f} active={filter === f} onClick={() => setFilter(f)} accent="orange" />)}</div>
             {can('sports_write') && <Button variant="primary" className="h-8 gap-1.5" onClick={() => { setEditT(null); setFormOpen(true); }}><Plus className="h-3.5 w-3.5" />Create</Button>}
           </div>
         </CardHeader>
@@ -1366,20 +1392,20 @@ export default function TournamentsPage() {
                     const displayStatus = getEffectiveTournamentStatus(t);
                     return (
                       <Tr key={t._id || t.id}>
-                        <Td><div className="flex items-center gap-2 min-w-0"><span className="flex-shrink-0">{SPORT_ICONS[t.sport] || '🏆'}</span><span className="text-sm font-medium text-slate-900 truncate max-w-[170px]" title={t.title}>{t.title}</span></div></Td>
-                        <Td><Badge className="badge-blue">{t.sport}</Badge></Td>
+                        <Td><div className="flex items-center gap-2.5 min-w-0"><span className="h-8 w-8 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center flex-shrink-0 text-sm">{SPORT_ICONS[t.sport] || '🏆'}</span><span className="text-sm font-semibold text-slate-900 truncate max-w-[170px]" title={t.title}>{t.title}</span></div></Td>
+                        <Td><Badge className={SPORT_BADGES[t.sport] || 'badge-blue'}>{t.sport}</Badge></Td>
                         <Td className="capitalize text-xs text-slate-500">{t.categories && t.categories.length ? Array.from(new Set(t.categories.map(c => c.registrationType))).join(', ') : '—'}</Td>
                         <Td className="text-xs text-slate-500 whitespace-nowrap">{startDateStr}</Td>
                         <Td className="text-xs text-slate-500 whitespace-nowrap">Ends: {regEndStr}</Td>
                         <Td><Badge className={STATUS_MAP[displayStatus] || 'badge-gray'}>{displayStatus}</Badge></Td>
                         <Td>
                           <div className="flex items-center gap-1.5 whitespace-nowrap">
-                            <button onClick={() => setViewT(t)} title="View Details" className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"><Eye className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => setRegsT(t)} title="View Registrations" className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"><Users className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => setViewT(t)} title="View Details" className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-colors"><Eye className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => setRegsT(t)} title="View Registrations" className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-colors"><Users className="h-3.5 w-3.5" /></button>
                             {can('sports_write') && (
                               <>
-                                <button onClick={() => { setEditT(t); setFormOpen(true); }} title="Edit" className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"><Pencil className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => setDeleteT(t)} title="Delete" className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => { setEditT(t); setFormOpen(true); }} title="Edit" className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => setDeleteT(t)} title="Delete" className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 cursor-pointer transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
                               </>
                             )}
                             {can('sports_write') && t.status?.toUpperCase() === 'DRAFT' && (

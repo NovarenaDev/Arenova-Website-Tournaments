@@ -2,7 +2,25 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Bell, Download, Calendar, Menu, Trash2, CheckSquare } from 'lucide-react';
 import { getMyNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification } from '../../api';
+import { useAuth } from '../../contexts/AuthContext';
 import { clsx } from 'clsx';
+import dashboardHeaderBg from '../images/headers/dashboard-header.jpg';
+import customersHeaderBg from '../images/headers/customers-header.jpg';
+import coachesHeaderBg from '../images/headers/coaches-header.jpg';
+import tournamentsHeaderBg from '../images/headers/tournaments-header.jpg';
+import bookingsHeaderBg from '../images/headers/bookings-header.jpg';
+import paymentsHeaderBg from '../images/headers/payments-header.jpg';
+import settlementsHeaderBg from '../images/headers/settlements-header.jpg';
+import ratingsHeaderBg from '../images/headers/ratings-header.jpg';
+import sportsHeaderBg from '../images/headers/sports-header.jpg';
+import venuesHeaderBg from '../images/headers/venues-header.jpg';
+import communityHeaderBg from '../images/headers/community-header.jpg';
+import bannersHeaderBg from '../images/headers/banners-header.jpg';
+import notificationsHeaderBg from '../images/headers/notifications-header.jpg';
+import adminsHeaderBg from '../images/headers/admins-header.jpg';
+import auditHeaderBg from '../images/headers/audit-header.jpg';
+import enquiriesHeaderBg from '../images/headers/enquiries-header.jpg';
+import settingsHeaderBg from '../images/headers/settings-header.jpg';
 
 const TITLES: Record<string, string> = {
   '/dashboard':   'Dashboard',
@@ -21,16 +39,69 @@ const TITLES: Record<string, string> = {
   '/venues':      'Venues',
   '/banners':       'App Banners Management',
   '/notifications': 'Push Notifications & Broadcasts',
-  '/admins':        'Admin Management',
+  '/admins':        'Manage Admins',
   '/audit-logs':  'Admin Activity / Audit Logs',
   '/enquiries':   'Customer Enquiries',
   '/settings':    'Settings',
 };
 
+const SUBTITLES: Record<string, string> = {
+  '/dashboard':     "Welcome back! Here's what's happening on Arenova.",
+  '/customers':     'Manage all players, parents and community members on Arenova.',
+  '/coaches':       'Manage coaches, verify KYC, track performance and grow your coaching community.',
+  '/bookings':      'Track coaching sessions, schedules and booking statuses.',
+  '/payments':      'Monitor transactions, payouts and platform revenue.',
+  '/settlements':   'Review coach settlements and payout batches.',
+  '/disputes':      'Resolve booking and payment disputes fairly.',
+  '/withdrawals':   'Review and process coach withdrawal requests.',
+  '/refunds':       'Manage customer refund requests and statuses.',
+  '/ratings':       'Monitor player ratings, reviews and feedback.',
+  '/sports':        'Configure supported sports and platform categories.',
+  '/tournaments':   'Create, manage and track all tournaments across different sports on Arenova.',
+  '/community':     'Manage community centers and local hubs.',
+  '/venues':        'Manage partner sports venues and facilities.',
+  '/banners':       'Manage promotional banners across the Arenova app.',
+  '/notifications': 'Send push notifications and broadcasts to users.',
+  '/admins':        'Invite, manage and configure permissions for admin accounts.',
+  '/audit-logs':    'Inspect administrative actions and security logs.',
+  '/enquiries':     'Respond to customer support enquiries and requests.',
+  '/settings':      'Configure platform and account preferences.',
+};
+
+const HEADER_BGS: Record<string, string> = {
+  '/dashboard':     dashboardHeaderBg,
+  '/customers':     customersHeaderBg,
+  '/coaches':       coachesHeaderBg,
+  '/tournaments':   tournamentsHeaderBg,
+  '/bookings':      bookingsHeaderBg,
+  '/payments':      paymentsHeaderBg,
+  '/settlements':   settlementsHeaderBg,
+  '/withdrawals':   settlementsHeaderBg,
+  '/refunds':       settlementsHeaderBg,
+  '/disputes':      settlementsHeaderBg,
+  '/ratings':       ratingsHeaderBg,
+  '/sports':        sportsHeaderBg,
+  '/venues':        venuesHeaderBg,
+  '/community':     communityHeaderBg,
+  '/banners':       bannersHeaderBg,
+  '/notifications': notificationsHeaderBg,
+  '/admins':        adminsHeaderBg,
+  '/audit-logs':    auditHeaderBg,
+  '/enquiries':     enquiriesHeaderBg,
+  '/settings':      settingsHeaderBg,
+};
+
 export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const location = useLocation();
+  const { admin } = useAuth();
   const key = Object.keys(TITLES).find(k => location.pathname.startsWith(k)) || '/dashboard';
   const title = TITLES[key] || 'Dashboard';
+  const subtitle = SUBTITLES[key] || '';
+  const headerBg = HEADER_BGS[key] || dashboardHeaderBg;
+  const adminInitials = admin?.name
+    ? admin.name.trim().split(/\s+/).map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+    : 'SA';
+  const roleLabel = admin?.role === 'super_admin' ? 'Super Admin' : 'Admin';
 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -60,7 +131,22 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
     }
   };
 
-  const loadNotifications = async () => {
+  const lastNotifFetchRef = useRef<number>(0);
+  const rateLimitUntilRef = useRef<number>(0);
+
+  useEffect(() => {
+    const onRateLimit = () => {
+      rateLimitUntilRef.current = Date.now() + 90_000;
+    };
+    window.addEventListener('api:ratelimit', onRateLimit);
+    return () => window.removeEventListener('api:ratelimit', onRateLimit);
+  }, []);
+
+  const loadNotifications = async (force = false) => {
+    const now = Date.now();
+    if (!force && now < rateLimitUntilRef.current) return;
+    if (!force && now - lastNotifFetchRef.current < 45_000) return;
+    lastNotifFetchRef.current = now;
     try {
       const res = await getMyNotifications();
       const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
@@ -124,12 +210,12 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   };
 
   useEffect(() => {
-    loadNotifications();
+    loadNotifications(true);
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         loadNotifications();
       }
-    }, 30000);
+    }, 120_000);
     const onFocus = () => loadNotifications();
     window.addEventListener('focus', onFocus);
     return () => {
@@ -211,41 +297,55 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <header className="flex h-[56px] flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
-      <div className="flex items-center gap-2.5 min-w-0 mr-2">
+    <header className="relative flex min-h-[88px] sm:min-h-[100px] flex-shrink-0 items-center justify-between bg-[#eef3fa] px-4 sm:px-6 py-3 overflow-visible">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <img
+          src={headerBg}
+          alt=""
+          className="h-full w-full object-cover object-center opacity-80"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#eef4fb]/75 via-[#eef4fb]/20 via-25% to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-4 bg-gradient-to-b from-transparent to-[#eef2f7]/80" />
+      </div>
+
+      <div className="relative z-10 flex items-center gap-3 min-w-0 mr-3">
         <button
           type="button"
           onClick={onMenuClick}
-          className="mr-1 rounded-xl p-1.5 hover:bg-slate-100 md:hidden cursor-pointer flex items-center justify-center border border-slate-200 flex-shrink-0"
+          className="rounded-xl p-2 hover:bg-white/80 md:hidden cursor-pointer flex items-center justify-center border border-slate-200/80 bg-white/90 flex-shrink-0 shadow-xs"
         >
-          <Menu className="h-4 w-4 text-slate-600" />
+          <Menu className="h-4 w-4 text-slate-700" />
         </button>
-        <span className="h-4 w-1 rounded-full bg-[#F05A22] inline-block hidden md:inline-block flex-shrink-0" />
-        <h1 className="text-sm font-bold text-slate-900 truncate">{title}</h1>
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight text-[#0f172a] truncate">{title}</h1>
+          {subtitle && (
+            <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate mt-0.5">{subtitle}</p>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="relative z-20 flex items-center gap-2 flex-shrink-0">
         <button
           type="button"
           onClick={handleToggleToday}
           title={todayOnly ? 'Showing today only (click to reset)' : 'Filter records for today'}
           className={clsx(
-            'hidden sm:flex h-8 items-center gap-1.5 rounded-xl border px-3 text-[11px] font-medium transition-colors cursor-pointer',
+            'hidden sm:flex h-9 items-center gap-1.5 rounded-xl border px-3.5 text-xs font-medium transition-all cursor-pointer shadow-xs backdrop-blur-sm',
             todayOnly
-              ? 'border-[#F05A22] bg-orange-50 text-[#F05A22] font-semibold'
-              : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              ? 'border-[#fdba74] bg-gradient-to-r from-[#fff6f0] to-[#ffe6d5] text-[#c2410c] font-semibold'
+              : 'border-white/90 bg-white/90 text-slate-700 hover:bg-white hover:text-slate-900'
           )}
         >
-          <Calendar className={clsx('h-3 w-3', todayOnly ? 'text-[#F05A22]' : 'text-slate-400')} />
+          <Calendar className={clsx('h-3.5 w-3.5', todayOnly ? 'text-[#c2410c]' : 'text-slate-400')} />
           {todayOnly ? 'Today (Active)' : 'Today'}
         </button>
         <button
           type="button"
           onClick={handleExportClick}
           title="Export current view to CSV"
-          className="hidden sm:flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+          className="hidden sm:flex h-9 items-center gap-1.5 rounded-xl border border-white/90 bg-white/90 backdrop-blur-sm px-3.5 text-xs font-medium text-slate-700 hover:bg-white hover:text-slate-900 transition-all cursor-pointer shadow-xs"
         >
-          <Download className="h-3 w-3 text-slate-400" />Export
+          <Download className="h-3.5 w-3.5 text-slate-400" />Export
         </button>
 
         <div className="relative" ref={dropdownRef}>
@@ -255,13 +355,13 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             onClick={() => {
               const next = !showNotifications;
               setShowNotifications(next);
-              if (next) loadNotifications();
+              if (next) loadNotifications(true);
             }}
-            className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+            className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/90 bg-white/90 backdrop-blur-sm text-slate-600 hover:bg-white hover:text-slate-900 transition-all cursor-pointer shadow-xs"
           >
-            <Bell className="h-3.5 w-3.5" />
+            <Bell className="h-4 w-4" />
             {unreadCount > 0 && (
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#F05A22] ring-2 ring-white" />
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#F05A22] ring-2 ring-white" />
             )}
           </button>
 
@@ -318,6 +418,16 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
               </div>
             </div>
           )}
+        </div>
+
+        <div className="hidden lg:flex items-center gap-2.5 rounded-xl border border-white/90 bg-white/90 backdrop-blur-sm px-2.5 py-1 shadow-xs">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1d63ff] text-[11px] font-bold text-white flex-shrink-0">
+            {adminInitials}
+          </div>
+          <div className="min-w-0 leading-tight pr-1">
+            <p className="text-xs font-bold text-slate-900 truncate max-w-[110px]">{roleLabel}</p>
+            <p className="text-[10px] text-slate-500 truncate max-w-[130px]">{admin?.email || ''}</p>
+          </div>
         </div>
       </div>
     </header>

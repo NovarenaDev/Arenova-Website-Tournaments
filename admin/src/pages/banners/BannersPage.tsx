@@ -326,32 +326,44 @@ export default function BannersPage() {
           value={String(stats.total)}
           sub="All target platforms"
           subColor="text-slate-500"
-          icon={<Layers className="h-4 w-4 text-slate-700" />}
-          iconBg="bg-slate-100"
+          icon={<Layers className="h-4 w-4 text-blue-600" />}
+          iconBg="bg-blue-100/80"
+          tone="blue"
+          onClick={() => { setAudienceFilter('all'); setStatusFilter('all'); }}
+          active={audienceFilter === 'all' && statusFilter === 'all'}
         />
         <StatCard
           label="Active In Apps"
           value={String(stats.active)}
           sub="Visible to app users"
           subColor="text-emerald-600"
-          icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
-          iconBg="bg-emerald-50"
+          icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+          iconBg="bg-emerald-100/80"
+          tone="emerald"
+          onClick={() => setStatusFilter('active')}
+          active={statusFilter === 'active'}
         />
         <StatCard
           label="Player & Parent"
           value={String(stats.player)}
           sub="Users App Carousel"
-          subColor="text-blue-600"
-          icon={<Users className="h-4 w-4 text-blue-500" />}
-          iconBg="bg-blue-50"
+          subColor="text-amber-600"
+          icon={<Users className="h-4 w-4 text-amber-600" />}
+          iconBg="bg-amber-100/80"
+          tone="amber"
+          onClick={() => setAudienceFilter('player')}
+          active={audienceFilter === 'player'}
         />
         <StatCard
           label="Coach App"
           value={String(stats.coach)}
           sub="Coach Portal Carousel"
           subColor="text-purple-600"
-          icon={<UserCheck className="h-4 w-4 text-purple-500" />}
-          iconBg="bg-purple-50"
+          icon={<UserCheck className="h-4 w-4 text-purple-600" />}
+          iconBg="bg-purple-100/80"
+          tone="purple"
+          onClick={() => setAudienceFilter('coach')}
+          active={audienceFilter === 'coach'}
         />
       </div>
 

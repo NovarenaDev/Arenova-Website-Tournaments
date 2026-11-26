@@ -160,10 +160,10 @@ export default function VenuesPage() {
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Venues"  value={String(venues.length)}                                       icon={<Building2 className="h-4 w-4 text-[#F05A22]" />}     iconBg="bg-[#F05A22]/10" />
-        <StatCard label="Active"        value={String(venues.filter(v => v.status === 'active').length)}    icon={<CheckCircle className="h-4 w-4 text-emerald-400" />}  iconBg="bg-emerald-400/10" />
-        <StatCard label="Pending"       value={String(venues.filter(v => v.status === 'pending').length)}   icon={<MapPin className="h-4 w-4 text-amber-400" />}         iconBg="bg-amber-400/10" />
-        <StatCard label="Avg Rating"    value={venues.length ? (venues.reduce((s, v) => s + v.rating, 0) / venues.length).toFixed(1) + ' ★' : '—'} icon={<Star className="h-4 w-4 text-amber-400" />} iconBg="bg-amber-400/10" />
+        <StatCard label="Total Venues"  value={String(venues.length)}                                       icon={<Building2 className="h-4 w-4 text-blue-600" />}     iconBg="bg-blue-100/80"    tone="blue"    onClick={() => setFilter('All')} active={filter === 'All'} />
+        <StatCard label="Active"        value={String(venues.filter(v => v.status === 'active').length)}    icon={<CheckCircle className="h-4 w-4 text-emerald-600" />}  iconBg="bg-emerald-100/80" tone="emerald" onClick={() => setFilter('Active')} active={filter === 'Active'} />
+        <StatCard label="Pending"       value={String(venues.filter(v => v.status === 'pending').length)}   icon={<MapPin className="h-4 w-4 text-amber-600" />}         iconBg="bg-amber-100/80"   tone="amber"   onClick={() => setFilter('Pending')} active={filter === 'Pending'} />
+        <StatCard label="Avg Rating"    value={venues.length ? (venues.reduce((s, v) => s + v.rating, 0) / venues.length).toFixed(1) + ' ★' : '—'} icon={<Star className="h-4 w-4 text-purple-600" />} iconBg="bg-purple-100/80" tone="purple" />
       </div>
 
       <Card>

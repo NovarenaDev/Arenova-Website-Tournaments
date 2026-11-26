@@ -19,18 +19,82 @@ export function CardContent({ className, children }: { className?: string; child
   return <div className={clsx('px-4 sm:px-5 py-4 sm:py-5 min-w-0', className)}>{children}</div>;
 }
 
-interface StatCardProps { label: string; value: string; sub?: string; subColor?: string; icon: ReactNode; iconBg?: string; }
-export function StatCard({ label, value, sub, subColor = 'text-emerald-600', icon, iconBg = 'bg-emerald-50 text-emerald-600' }: StatCardProps) {
+const STAT_TONES: Record<string, { card: string; spark: string }> = {
+  blue:    { card: 'bg-gradient-to-br from-[#fafcff] via-[#f3f8ff] to-[#e7f0ff] border-blue-100/90',       spark: 'text-blue-500' },
+  emerald: { card: 'bg-gradient-to-br from-[#fafdfb] via-[#f1fcf6] to-[#e2f8ec] border-emerald-100/90',    spark: 'text-emerald-500' },
+  amber:   { card: 'bg-gradient-to-br from-[#fffdfb] via-[#fff9ed] to-[#fef0d4] border-amber-100/90',      spark: 'text-amber-500' },
+  rose:    { card: 'bg-gradient-to-br from-[#fffbfc] via-[#fff4f6] to-[#ffe5e9] border-rose-100/90',       spark: 'text-rose-500' },
+  purple:  { card: 'bg-gradient-to-br from-[#fcfaff] via-[#f7f2ff] to-[#ede4ff] border-purple-100/90',     spark: 'text-purple-500' },
+  orange:  { card: 'bg-gradient-to-br from-[#fffcfb] via-[#fff6f0] to-[#ffe9db] border-orange-100/90',     spark: 'text-[#F05A22]' },
+};
+
+function buildSparklinePath(data: number[]): { line: string; area: string } | null {
+  if (!data || data.length < 2) return null;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const w = 64;
+  const h = 24;
+  const padY = 3;
+  const points = data.map((val, idx) => {
+    const x = (idx / (data.length - 1)) * w;
+    const norm = max === min ? 0.5 : (val - min) / (max - min);
+    const y = max === 0 ? h - padY : h - padY - norm * (h - padY * 2);
+    return { x, y };
+  });
+  const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const area = `${line} L${w} ${h} L0 ${h} Z`;
+  return { line, area };
+}
+
+interface StatCardProps {
+  label: string;
+  value: string;
+  sub?: string;
+  subColor?: string;
+  icon: ReactNode;
+  iconBg?: string;
+  tone?: 'blue' | 'emerald' | 'amber' | 'rose' | 'purple' | 'orange';
+  sparklineData?: number[];
+  onClick?: () => void;
+  active?: boolean;
+}
+export function StatCard({
+  label,
+  value,
+  sub,
+  subColor = 'text-emerald-600',
+  icon,
+  iconBg = 'bg-emerald-50 text-emerald-600',
+  tone = 'blue',
+  sparklineData,
+  onClick,
+  active = false,
+}: StatCardProps) {
+  const toneStyle = STAT_TONES[tone] || STAT_TONES.blue;
+  const spark = sparklineData ? buildSparklinePath(sparklineData) : null;
   return (
-    <div className="stat-card min-w-0 w-full overflow-hidden">
-      <div className="flex items-start justify-between gap-2 min-w-0">
+    <div
+      onClick={onClick}
+      className={clsx(
+        'stat-card min-w-0 w-full overflow-hidden relative transition-transform',
+        toneStyle.card,
+        onClick && 'cursor-pointer hover:scale-[1.01]'
+      )}
+    >
+      <div className="flex items-center gap-3.5 min-w-0 relative z-10">
+        <div className={clsx('h-11 w-11 rounded-2xl flex items-center justify-center flex-shrink-0 border border-white/90 shadow-xs', iconBg)}>{icon}</div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">{label}</p>
-          <p className="mt-1 text-xl sm:text-2xl font-bold tracking-tight text-slate-900 truncate">{value}</p>
-          {sub && <p className={clsx('mt-1 text-xs truncate font-medium', subColor)}>{sub}</p>}
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 truncate">{label}</p>
+          <p className="mt-0.5 text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 truncate">{value}</p>
+          {sub && <p className={clsx('mt-0.5 text-[11px] truncate font-medium', subColor)}>{sub}</p>}
         </div>
-        <div className={clsx('rounded-xl p-2.5 flex-shrink-0 border border-slate-100', iconBg)}>{icon}</div>
       </div>
+      {spark && (
+        <svg className={clsx('pointer-events-none absolute right-3 bottom-2 w-16 h-6 opacity-60', toneStyle.spark)} viewBox="0 0 64 24" fill="none">
+          <path d={spark.area} fill="currentColor" fillOpacity="0.14" />
+          <path d={spark.line} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
     </div>
   );
 }
@@ -42,7 +106,7 @@ export function Table({ children, className }: { children: ReactNode; className?
     </div>
   );
 }
-export function Thead({ children }: { children: ReactNode }) { return <thead className="bg-slate-50/75 border-b border-slate-200/80">{children}</thead>; }
+export function Thead({ children }: { children: ReactNode }) { return <thead className="bg-slate-100/80 border-b border-slate-200/80">{children}</thead>; }
 export function Tbody({ children }: { children: ReactNode }) { return <tbody>{children}</tbody>; }
 export function Th({ children, className, title }: { children?: ReactNode; className?: string; title?: string }) {
   return <th title={title} className={clsx('px-3 sm:px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap', className)}>{children}</th>;
@@ -101,7 +165,7 @@ export function Input({ label, className, id, name, ...props }: InputProps) {
   const fieldId = id || autoId;
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <label htmlFor={fieldId} className="text-xs font-semibold text-slate-700">{label}</label>}
+      {label && <label htmlFor={fieldId} className="text-[11px] font-bold uppercase tracking-wider text-slate-600">{label}</label>}
       <input id={fieldId} name={name || fieldId} className={clsx('input-field', className)} {...props} />
     </div>
   );
@@ -113,7 +177,7 @@ export function Textarea({ label, className, id, name, ...props }: TextareaProps
   const fieldId = id || autoId;
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <label htmlFor={fieldId} className="text-xs font-semibold text-slate-700">{label}</label>}
+      {label && <label htmlFor={fieldId} className="text-[11px] font-bold uppercase tracking-wider text-slate-600">{label}</label>}
       <textarea id={fieldId} name={name || fieldId} className={clsx('input-field resize-none', className)} {...props} />
     </div>
   );
@@ -125,7 +189,7 @@ export function Select({ label, options, className, id, name, ...props }: Select
   const fieldId = id || autoId;
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <label htmlFor={fieldId} className="text-xs font-semibold text-slate-700">{label}</label>}
+      {label && <label htmlFor={fieldId} className="text-[11px] font-bold uppercase tracking-wider text-slate-600">{label}</label>}
       <select id={fieldId} name={name || fieldId} className={clsx('input-field', className)} {...props}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
@@ -143,16 +207,16 @@ export function Modal({ open, onClose, title, children, size = 'md', closeOnBack
   const widths = { sm:'max-w-md', md:'max-w-lg', lg:'max-w-2xl', xl:'max-w-4xl' };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={closeOnBackdropClick ? onClose : undefined}>
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
-      <div className={clsx('relative w-full max-w-[calc(100vw-1rem)] bg-white border border-slate-200 rounded-3xl shadow-2xl max-h-[92vh] flex flex-col', widths[size])}
+      <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-sm" />
+      <div className={clsx('relative w-full max-w-[calc(100vw-1rem)] bg-[#fafbfd] border border-slate-200/90 rounded-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden', widths[size])}
         onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-100 flex-shrink-0">
-          <h2 className="text-base font-bold text-slate-900 truncate min-w-0 pr-2">{title}</h2>
-          <button onClick={onClose} className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 bg-gradient-to-r from-[#f2f6fc] to-white border-b border-slate-200/80 flex-shrink-0">
+          <h2 className="text-base font-extrabold tracking-tight text-slate-900 truncate min-w-0 pr-2">{title}</h2>
+          <button onClick={onClose} className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer shadow-2xs">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 px-5 sm:px-6 py-5 min-w-0">{children}</div>
+        <div className="overflow-y-auto flex-1 px-5 sm:px-6 py-5 min-w-0 bg-white/70">{children}</div>
       </div>
     </div>
   );
@@ -163,8 +227,8 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm bg-white border border-slate-200 rounded-3xl shadow-2xl p-5 sm:p-6">
+      <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-[#fafbfd] border border-slate-200/90 rounded-3xl shadow-2xl p-5 sm:p-6">
         <div className="flex items-start gap-3 mb-4">
           <div className={clsx('flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl', danger ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-amber-50 text-amber-600 border border-amber-100')}>
             <AlertTriangle className="h-5 w-5" />
@@ -194,11 +258,48 @@ export function SearchBar({ value, onChange, placeholder = 'Search...', classNam
   );
 }
 
-export function FilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+export function FilterPill({
+  label,
+  active,
+  onClick,
+  dotColor,
+  count,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  accent?: 'blue' | 'orange';
+  dotColor?: string;
+  count?: number | string;
+}) {
+  const activeClass =
+    'bg-gradient-to-r from-[#fff6f0] via-[#ffecdf] to-[#ffe1cc] text-[#c2410c] border-[#fdba74]/85 shadow-[0_2px_8px_rgba(240,90,34,0.12)]';
   return (
-    <button onClick={onClick} className={clsx('text-[11px] font-semibold px-3 py-1.5 rounded-xl border transition-all cursor-pointer',
-      active ? 'bg-[#F05A22] text-white border-[#F05A22] shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900')}>
-      {label}
+    <button
+      onClick={onClick}
+      className={clsx(
+        'inline-flex items-center gap-1.5 text-[11px] font-semibold px-3.5 py-1.5 rounded-full border transition-all cursor-pointer whitespace-nowrap',
+        active
+          ? activeClass
+          : 'border-slate-200/90 bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
+      )}
+    >
+      {dotColor && (
+        <span className={clsx('h-2 w-2 rounded-full flex-shrink-0', active ? 'bg-[#F05A22]' : dotColor)} />
+      )}
+      <span>{label}</span>
+      {count !== undefined && (
+        <span
+          className={clsx(
+            'rounded-full px-1.5 py-0.2 text-[10px] font-bold',
+            active
+              ? 'bg-white/90 text-[#c2410c] border border-orange-200/80'
+              : 'bg-white text-slate-600'
+          )}
+        >
+          {count}
+        </span>
+      )}
     </button>
   );
 }

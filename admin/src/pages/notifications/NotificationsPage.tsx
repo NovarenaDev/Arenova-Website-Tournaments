@@ -326,30 +326,34 @@ export default function NotificationsPage() {
           label="Admin Alerts"
           value={String(notifications.length)}
           sub="Unique alerts in inbox"
-          icon={<Bell className="h-4 w-4 text-[#F05A22]" />}
-          iconBg="bg-orange-50"
+          icon={<Bell className="h-4 w-4 text-orange-600" />}
+          iconBg="bg-orange-100/80"
+          tone="orange"
         />
         <StatCard
           label="Unread Alerts"
           value={String(unreadCount)}
           sub={unreadCount > 0 ? 'Requires attention' : 'All caught up'}
           subColor={unreadCount > 0 ? 'text-amber-600' : 'text-emerald-600'}
-          icon={<AlertCircle className="h-4 w-4 text-amber-500" />}
-          iconBg="bg-amber-50"
+          icon={<AlertCircle className="h-4 w-4 text-amber-600" />}
+          iconBg="bg-amber-100/80"
+          tone="amber"
         />
         <StatCard
           label="Session Broadcasts"
           value={String(recentBroadcasts.length)}
           sub="Sent in this session"
           icon={<Megaphone className="h-4 w-4 text-blue-600" />}
-          iconBg="bg-blue-50"
+          iconBg="bg-blue-100/80"
+          tone="blue"
         />
         <StatCard
           label="Target Channels"
           value="3"
           sub="All · Players · Coaches"
           icon={<Smartphone className="h-4 w-4 text-purple-600" />}
-          iconBg="bg-purple-50"
+          iconBg="bg-purple-100/80"
+          tone="purple"
         />
       </div>
 

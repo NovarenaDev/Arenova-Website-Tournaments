@@ -185,10 +185,10 @@ export default function BookingsPage() {
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
 
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard label="Total Bookings"  value={String(stats.total)}     sub="All recorded sessions"  icon={<CalendarDays className="h-4 w-4 text-[#F05A22]" />}  iconBg="bg-[#F05A22]/10" subColor="text-slate-600" />
-        <StatCard label="Pending Action"  value={String(stats.pending)}   sub="Requested & accepted"   icon={<Clock        className="h-4 w-4 text-amber-500" />}  iconBg="bg-amber-50"     subColor="text-amber-600" />
-        <StatCard label="Completed"       value={String(stats.completed)} sub="Delivered sessions"     icon={<CheckCircle  className="h-4 w-4 text-emerald-500" />}iconBg="bg-emerald-50"   subColor="text-emerald-600" />
-        <StatCard label="Cancelled"       value={String(stats.cancelled)} sub="Refunds & cancellations" icon={<XCircle      className="h-4 w-4 text-rose-500" />}   iconBg="bg-rose-50"      subColor="text-rose-600" />
+        <StatCard label="Total Bookings"  value={String(stats.total)}     sub="All recorded sessions"  icon={<CalendarDays className="h-4 w-4 text-blue-600" />}    iconBg="bg-blue-100/80"    tone="blue"    subColor="text-slate-600" onClick={() => setFilter('All')} active={filter === 'All'} />
+        <StatCard label="Pending Action"  value={String(stats.pending)}   sub="Requested & accepted"   icon={<Clock        className="h-4 w-4 text-amber-600" />}   iconBg="bg-amber-100/80"   tone="amber"   subColor="text-amber-600" onClick={() => setFilter('requested')} active={filter === 'requested'} />
+        <StatCard label="Completed"       value={String(stats.completed)} sub="Delivered sessions"     icon={<CheckCircle  className="h-4 w-4 text-emerald-600" />} iconBg="bg-emerald-100/80" tone="emerald" subColor="text-emerald-600" onClick={() => setFilter('completed')} active={filter === 'completed'} />
+        <StatCard label="Cancelled"       value={String(stats.cancelled)} sub="Refunds & cancellations" icon={<XCircle      className="h-4 w-4 text-rose-600" />}   iconBg="bg-rose-100/80"    tone="rose"    subColor="text-rose-600" onClick={() => setFilter('cancelled')} active={filter === 'cancelled'} />
       </div>
 
       <Card>

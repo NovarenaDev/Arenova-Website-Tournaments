@@ -979,24 +979,41 @@ export default function CoachesPage() {
     rejected:      coaches.filter(c => c.kyc === 'rejected').length,
   };
 
+  const buildCoachTrend = (pred: (c: any) => boolean): number[] => {
+    const now = new Date();
+    const counts = [0, 0, 0, 0, 0, 0];
+    coaches.forEach((c: any) => {
+      if (!pred(c)) return;
+      const raw = c.createdAt || c.joinedAt || c.updatedAt;
+      if (!raw) return;
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) return;
+      const diff = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+      if (diff >= 0 && diff < 6) {
+        counts[5 - diff] += 1;
+      }
+    });
+    return counts;
+  };
+
   return (
     <div className="flex flex-col gap-4 sm:gap-6 p-3 sm:p-5 lg:p-6 min-w-0 max-w-full">
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <div className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setFilter('All')}>
-          <StatCard label="Total Coaches"   value={String(stats.total)}    icon={<Award className="h-4 w-4 text-[#F05A22]"/>}        iconBg="bg-[#FFF0E6]" />
+          <StatCard label="Total Coaches"   value={String(stats.total)}    icon={<Award className="h-4 w-4 text-blue-600"/>}         iconBg="bg-blue-100/80"    tone="blue"    sparklineData={buildCoachTrend(() => true)} />
         </div>
         <div className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setFilter('Active')}>
-          <StatCard label="Active Coaches"  value={String(stats.active)}   icon={<CheckCircle className="h-4 w-4 text-emerald-600"/>} iconBg="bg-emerald-50" />
+          <StatCard label="Active Coaches"  value={String(stats.active)}   icon={<CheckCircle className="h-4 w-4 text-emerald-600"/>} iconBg="bg-emerald-100/80" tone="emerald" sparklineData={buildCoachTrend(c => c.status === 'active' || c.kycStatus === 'approved')} />
         </div>
         <div className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setFilter('Pending Review')}>
-          <StatCard label="Pending KYC"     value={String(stats.pending)}  icon={<Clock className="h-4 w-4 text-amber-600"/>}          iconBg="bg-amber-50" />
+          <StatCard label="Pending KYC"     value={String(stats.pending)}  icon={<Clock className="h-4 w-4 text-amber-600"/>}         iconBg="bg-amber-100/80"   tone="amber"   sparklineData={buildCoachTrend(c => c.kycStatus === 'pending' || c.kycStatus === 'under_review')} />
         </div>
         <div className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setFilter('Banned')}>
-          <StatCard label="Banned/Inactive" value={String(stats.banned)}   icon={<Ban className="h-4 w-4 text-red-600"/>}             iconBg="bg-red-50" />
+          <StatCard label="Banned/Inactive" value={String(stats.banned)}   icon={<Ban className="h-4 w-4 text-rose-600"/>}            iconBg="bg-rose-100/80"    tone="rose"    sparklineData={buildCoachTrend(c => c.status === 'banned' || c.isActive === false)} />
         </div>
         <div className="cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setFilter('Rejected')}>
-          <StatCard label="Rejected KYC"    value={String(stats.rejected)} icon={<XCircle className="h-4 w-4 text-rose-600"/>}         iconBg="bg-rose-50" />
+          <StatCard label="Rejected KYC"    value={String(stats.rejected)} icon={<XCircle className="h-4 w-4 text-purple-600"/>}      iconBg="bg-purple-100/80"  tone="purple"  sparklineData={buildCoachTrend(c => c.kycStatus === 'rejected')} />
         </div>
       </div>
 
@@ -1123,13 +1140,30 @@ export default function CoachesPage() {
         </Card>
       )}
 
-      <Card className="bg-white border border-gray-200 shadow-sm">
+      <Card>
         <CardHeader className="py-4">
-          <CardTitle className="text-base font-bold text-gray-900">All Coaches ({filtered.length})</CardTitle>
+          <CardTitle className="text-base font-bold text-slate-900">All Coaches ({filtered.length})</CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
             <SearchBar value={search} onChange={setSearch} placeholder="Search by name, email, phone, sport..." />
-            <div className="flex gap-1 flex-wrap">
-              {FILTERS.map(f => <FilterPill key={f} label={f} active={filter === f} onClick={() => setFilter(f)} />)}
+            <div className="flex gap-1.5 flex-wrap">
+              {FILTERS.map(f => {
+                const dotMap: Record<string, string> = {
+                  Active: 'bg-emerald-500',
+                  'Pending Review': 'bg-amber-500',
+                  Banned: 'bg-rose-500',
+                  Rejected: 'bg-purple-500',
+                };
+                const countMap: Record<string, number> = {
+                  All: stats.total,
+                  Active: stats.active,
+                  'Pending Review': stats.pending,
+                  Banned: stats.banned,
+                  Rejected: stats.rejected,
+                };
+                return (
+                  <FilterPill key={f} label={f} active={filter === f} onClick={() => setFilter(f)} dotColor={dotMap[f]} count={countMap[f]} />
+                );
+              })}
             </div>
           </div>
         </CardHeader>

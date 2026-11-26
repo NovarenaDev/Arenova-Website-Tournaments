@@ -889,7 +889,7 @@ export default function CommunityPage() {
   }, [communities, searchQuery]);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 max-w-7xl mx-auto p-3 sm:p-5 lg:p-6 pb-16">
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
@@ -935,25 +935,33 @@ export default function CommunityPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
-          icon={<Building2 className="h-5 w-5 text-[#F05A22]" />}
+          icon={<Building2 className="h-5 w-5 text-orange-600" />}
+          iconBg="bg-orange-100/80"
+          tone="orange"
           label="Active Academies"
           value={String(communities.filter(c => c.status === 'active').length)}
           sub={`${communities.length} total across ${new Set(communities.map(c => c.city)).size} cities`}
         />
         <StatCard
           icon={<Trophy className="h-5 w-5 text-blue-600" />}
+          iconBg="bg-blue-100/80"
+          tone="blue"
           label="Total Programs"
           value={String(allCommunityPrograms.length)}
           sub={`${allCommunityPrograms.filter(p => p.status !== 'inactive').length} active schedules`}
         />
         <StatCard
           icon={<Users className="h-5 w-5 text-emerald-600" />}
+          iconBg="bg-emerald-100/80"
+          tone="emerald"
           label="Subscribers"
           value={String(communities.reduce((acc, c) => acc + (c.subscriberCount || 0), 0))}
           sub="Platform player enrollments"
         />
         <StatCard
           icon={<DollarSign className="h-5 w-5 text-purple-600" />}
+          iconBg="bg-purple-100/80"
+          tone="purple"
           label="Monthly Coach Contracts"
           value={`₹${allCommunityPrograms.reduce((acc, p) => acc + (Number(p.salary) || 0), 0).toLocaleString('en-IN')}`}
           sub="Platform-funded salaries"

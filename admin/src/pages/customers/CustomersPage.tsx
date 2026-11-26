@@ -228,6 +228,23 @@ export default function CustomersPage() {
     }
   };
 
+  const buildCustomerTrend = (pred: (c: Customer) => boolean): number[] => {
+    const now = new Date();
+    const counts = [0, 0, 0, 0, 0, 0];
+    customers.forEach(c => {
+      if (!pred(c)) return;
+      const raw = (c as any).createdAt || c.joined;
+      if (!raw) return;
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) return;
+      const diff = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+      if (diff >= 0 && diff < 6) {
+        counts[5 - diff] += 1;
+      }
+    });
+    return counts;
+  };
+
   const stats = {
     total:     customers.length,
     active:    customers.filter(c => c.status === 'active').length,
@@ -236,15 +253,36 @@ export default function CustomersPage() {
     parents:   customers.filter(c => c.role === 'parent').length,
   };
 
+  const customerFilterDots: Record<string, string> = {
+    Active: 'bg-emerald-500',
+    Flagged: 'bg-amber-500',
+    Suspended: 'bg-rose-500',
+  };
+  const customerFilterCounts: Record<string, number> = {
+    All: stats.total,
+    Active: stats.active,
+    Flagged: stats.flagged,
+    Suspended: stats.suspended,
+  };
+  const roleFilterDots: Record<string, string> = {
+    Parents: 'bg-purple-500',
+    Individual: 'bg-slate-500',
+  };
+  const roleFilterCounts: Record<string, number> = {
+    'All Users': stats.total,
+    Parents: stats.parents,
+    Individual: stats.total - stats.parents,
+  };
+
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatCard label="Total Users"  value={String(stats.total)}     icon={<Users className="h-4 w-4 text-blue-500"/>}         iconBg="bg-blue-50" />
-        <StatCard label="Active"       value={String(stats.active)}    icon={<Users className="h-4 w-4 text-emerald-500"/>}      iconBg="bg-emerald-50" />
-        <StatCard label="Flagged"      value={String(stats.flagged)}   icon={<AlertTriangle className="h-4 w-4 text-amber-500"/>}iconBg="bg-amber-50" />
-        <StatCard label="Suspended"    value={String(stats.suspended)} icon={<Ban className="h-4 w-4 text-rose-500"/>}          iconBg="bg-rose-50" />
-        <StatCard label="Parents"      value={String(stats.parents)}   icon={<Baby className="h-4 w-4 text-purple-500"/>}        iconBg="bg-purple-50" />
+        <StatCard label="Total Users"  value={String(stats.total)}     icon={<Users className="h-4 w-4 text-blue-600"/>}         iconBg="bg-blue-100/80"    tone="blue"    sparklineData={buildCustomerTrend(() => true)} onClick={() => { setFilter('All'); setRoleFilter('All Users'); }} active={filter === 'All' && roleFilter === 'All Users'} />
+        <StatCard label="Active"       value={String(stats.active)}    icon={<Users className="h-4 w-4 text-emerald-600"/>}      iconBg="bg-emerald-100/80" tone="emerald" sparklineData={buildCustomerTrend(c => c.status === 'active')} onClick={() => setFilter('Active')} active={filter === 'Active'} />
+        <StatCard label="Flagged"      value={String(stats.flagged)}   icon={<AlertTriangle className="h-4 w-4 text-amber-600"/>}iconBg="bg-amber-100/80"   tone="amber"   sparklineData={buildCustomerTrend(c => c.status === 'flagged')} onClick={() => setFilter('Flagged')} active={filter === 'Flagged'} />
+        <StatCard label="Suspended"    value={String(stats.suspended)} icon={<Ban className="h-4 w-4 text-rose-600"/>}           iconBg="bg-rose-100/80"    tone="rose"    sparklineData={buildCustomerTrend(c => c.status === 'suspended')} onClick={() => setFilter('Suspended')} active={filter === 'Suspended'} />
+        <StatCard label="Parents"      value={String(stats.parents)}   icon={<Baby className="h-4 w-4 text-purple-600"/>}        iconBg="bg-purple-100/80"  tone="purple"  sparklineData={buildCustomerTrend(c => c.role === 'parent')} onClick={() => { setFilter('All'); setRoleFilter('Parents'); }} active={roleFilter === 'Parents'} />
       </div>
 
       <Card>
@@ -252,14 +290,14 @@ export default function CustomersPage() {
           <CardTitle>All Customers ({filtered.length})</CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
             <SearchBar value={search} onChange={setSearch} placeholder="Search customers..." />
-            <div className="flex gap-1 flex-wrap">
+            <div className="flex gap-1.5 flex-wrap">
               {FILTERS.map(f => (
-                <FilterPill key={f} label={f} active={filter === f} onClick={() => setFilter(f)} />
+                <FilterPill key={f} label={f} active={filter === f} onClick={() => setFilter(f)} dotColor={customerFilterDots[f]} count={customerFilterCounts[f]} />
               ))}
             </div>
-            <div className="flex gap-1 flex-wrap">
+            <div className="flex gap-1.5 flex-wrap">
               {ROLE_FILTERS.map(r => (
-                <FilterPill key={r} label={r} active={roleFilter === r} onClick={() => setRoleFilter(r)} />
+                <FilterPill key={r} label={r} active={roleFilter === r} onClick={() => setRoleFilter(r)} dotColor={roleFilterDots[r]} count={roleFilterCounts[r]} />
               ))}
             </div>
           </div>
