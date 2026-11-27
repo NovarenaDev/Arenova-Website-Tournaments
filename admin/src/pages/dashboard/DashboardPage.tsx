@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { TrendingUp, Users, UserCheck, CalendarDays, Wallet, Star, Medal, CheckCircle, Clock, AlertTriangle, MessageSquare } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { StatCard, Card, CardHeader, CardTitle, CardContent, ProgressBar, Badge, Button, Avatar } from '../../components/ui';
+import { StatCard, Card, CardHeader, CardTitle, CardContent, ProgressBar, Badge, Button, Avatar, DashboardSkeleton } from '../../components/ui';
 import { getDashboard, getAdminReviews, getAdminWithdrawals, getAdminBookings, getEnquiryStats, extractDataList } from '../../api';
 
 const statusMap: Record<string, string> = {
@@ -172,11 +172,7 @@ export default function DashboardPage() {
   })).sort((a, b) => monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month)) : defaultMonths();
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (

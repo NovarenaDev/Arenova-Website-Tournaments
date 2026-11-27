@@ -7,7 +7,8 @@ import {
 import {
   Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button,
   SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr,
-  EmptyState, Modal, ConfirmDialog, Input, Select, DetailRow
+  EmptyState, Modal, ConfirmDialog, Input, Select, DetailRow,
+  Pagination, usePagination, TableSkeleton
 } from '../../components/ui';
 import { getCustomers, updateCustomerStatus, updateCustomer, deleteCustomer, uploadImage, getMediaSignedUrl, withAdminDocToken, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -133,6 +134,8 @@ export default function CustomersPage() {
 
     return matchSearch && matchStatus && matchRole && matchToday;
   });
+
+  const { page, setPage, pageSize, setPageSize, totalItems, totalPages, paginatedItems, startIdx, endIdx } = usePagination(filtered, 10);
 
   const exportCustomersCsv = useCallback(() => {
     if (filtered.length === 0) {
@@ -305,14 +308,13 @@ export default function CustomersPage() {
 
         <CardContent className="px-0 pb-0">
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
-            </div>
+            <TableSkeleton rows={6} cols={7} />
           ) : filtered.length === 0 ? (
             <div className="py-12">
               <EmptyState icon={<Users className="h-8 w-8 text-slate-300" />} title="No customers found" />
             </div>
           ) : (
+            <>
             <Table>
               <Thead>
                 <Tr>
@@ -327,7 +329,7 @@ export default function CustomersPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {filtered.map(c => {
+                {paginatedItems.map(c => {
                   const initials = `${c.firstName?.[0] || ''}${c.lastName?.[0] || ''}` || 'U';
                   const days     = inactiveDays(c.lastActive);
                   const isExpanded = expanded === c.id;
@@ -395,6 +397,18 @@ export default function CustomersPage() {
                 })}
               </Tbody>
             </Table>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              startIdx={startIdx}
+              endIdx={endIdx}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              noun="customers"
+            />
+            </>
           )}
         </CardContent>
       </Card>

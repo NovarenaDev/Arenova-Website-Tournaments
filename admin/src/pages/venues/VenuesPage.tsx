@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Building2, Star, Plus, CheckCircle, Pencil, Trash2, Eye } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Input, Textarea, DetailRow } from '../../components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Input, Textarea, DetailRow, Pagination, usePagination, TableSkeleton } from '../../components/ui';
 import { getAdminVenues, getVenues, getVenue, createVenue, updateVenue, deleteVenue, uploadImage, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -134,6 +134,8 @@ export default function VenuesPage() {
     return ms && mf;
   });
 
+  const { page, setPage, pageSize, setPageSize, totalItems, totalPages, paginatedItems, startIdx, endIdx } = usePagination(filtered, 10);
+
   const handleSave = async (form: any) => {
     try {
       if (editV) {
@@ -175,14 +177,15 @@ export default function VenuesPage() {
             {can('sports_write') && <Button variant="primary" className="h-8 gap-1.5" onClick={() => { setEditV(null); setFormOpen(true); }}><Plus className="h-3.5 w-3.5" />Add Venue</Button>}
           </div>
         </CardHeader>
-        <CardContent>
-          {loading ? <div className="flex justify-center py-12"><div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" /></div>
+        <CardContent className="px-0 pb-0">
+          {loading ? <TableSkeleton rows={6} cols={7} />
             : filtered.length === 0 ? <EmptyState icon={<MapPin className="h-8 w-8" />} title="No venues found" />
             : (
+              <>
               <Table>
                 <Thead><Tr><Th>Venue</Th><Th>City</Th><Th>Sports</Th><Th>Rating</Th><Th>Price/Hr</Th><Th>Status</Th><Th>Verified</Th>{can('sports_write') && <Th>Actions</Th>}</Tr></Thead>
                 <Tbody>
-                  {filtered.map(v => (
+                  {paginatedItems.map(v => (
                     <Tr key={v._id || v.id}>
                       <Td><span className="text-sm font-medium text-slate-900 truncate max-w-[160px] block" title={v.name}>{v.name}</span></Td>
                       <Td><span className="text-xs text-slate-500 truncate max-w-[120px] block" title={v.city || v.location}>{v.city || v.location}</span></Td>
@@ -204,6 +207,18 @@ export default function VenuesPage() {
                   ))}
                 </Tbody>
               </Table>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                startIdx={startIdx}
+                endIdx={endIdx}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                noun="venues"
+              />
+              </>
             )}
         </CardContent>
       </Card>

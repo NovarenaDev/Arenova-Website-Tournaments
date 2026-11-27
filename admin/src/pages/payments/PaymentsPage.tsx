@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, ArrowDownToLine, Wallet, AlertTriangle } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button, SearchBar, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, FilterPill } from '../../components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button, SearchBar, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, FilterPill, Pagination, usePagination, TableSkeleton } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAdminWithdrawals, getAdminTransactions, approveWithdrawal, rejectWithdrawal, getAdminCoaches, getCustomers, extractDataList } from '../../api';
 
@@ -185,6 +185,9 @@ export default function PaymentsPage() {
     return matchSearch && matchFilter;
   });
 
+  const txnPager = usePagination(filteredTxns, 10);
+  const payoutPager = usePagination(filteredPayouts, 10);
+
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -215,14 +218,15 @@ export default function PaymentsPage() {
             <SearchBar value={search} onChange={setSearch} placeholder="Search transactions..." />
           </CardHeader>
           <CardContent className="px-0 pb-0">
+            {loading ? (
+              <TableSkeleton rows={6} cols={8} />
+            ) : (
             <div className="overflow-x-auto">
               <Table>
                 <Thead><Tr className="hover:bg-transparent"><Th>ID</Th><Th>User / Customer</Th><Th>Type</Th><Th className="text-right">Credits</Th><Th className="text-right">Amount</Th><Th>Method</Th><Th>Status</Th><Th>Date</Th></Tr></Thead>
                 <Tbody>
-                  {loading ? (
-                    <tr><td colSpan={8} className="text-center py-8"><div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin inline-block" /></td></tr>
-                  ) : filteredTxns.length === 0 ? <tr><td colSpan={8}><EmptyState icon={<Wallet className="h-8 w-8 text-slate-300" />} title="No transactions found" /></td></tr>
-                    : filteredTxns.map(t => (
+                  {filteredTxns.length === 0 ? <tr><td colSpan={8}><EmptyState icon={<Wallet className="h-8 w-8 text-slate-300" />} title="No transactions found" /></td></tr>
+                    : txnPager.paginatedItems.map(t => (
                       <Tr key={t.id}>
                         <Td className="text-slate-500 font-mono text-[11px] font-medium">#{t.id ? String(t.id).slice(-8).toUpperCase() : '—'}</Td>
                         <Td>
@@ -241,7 +245,19 @@ export default function PaymentsPage() {
                     ))}
                 </Tbody>
               </Table>
+              <Pagination
+                page={txnPager.page}
+                totalPages={txnPager.totalPages}
+                totalItems={txnPager.totalItems}
+                pageSize={txnPager.pageSize}
+                startIdx={txnPager.startIdx}
+                endIdx={txnPager.endIdx}
+                onPageChange={txnPager.setPage}
+                onPageSizeChange={txnPager.setPageSize}
+                noun="transactions"
+              />
             </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -260,15 +276,16 @@ export default function PaymentsPage() {
             </div>
           </CardHeader>
           <CardContent className="px-0 pb-0">
+            {loading ? (
+              <TableSkeleton rows={6} cols={6} />
+            ) : (
             <div className="overflow-x-auto">
               <Table>
                 <Thead><Tr className="hover:bg-transparent"><Th>Coach</Th><Th className="text-right">Amount</Th><Th>Method</Th><Th>Account / UPI</Th><Th>Status</Th><Th>Date</Th>{(can('withdrawals_write') || can('payments_write')) && <Th className="text-right">Actions</Th>}</Tr></Thead>
                 <Tbody>
-                  {loading ? (
-                    <tr><td colSpan={7} className="text-center py-6"><div className="h-5 w-5 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin inline-block" /></td></tr>
-                  ) : filteredPayouts.length === 0 ? (
+                  {filteredPayouts.length === 0 ? (
                     <tr><td colSpan={7}><EmptyState icon={<Wallet className="h-8 w-8 text-slate-300" />} title="No payouts found" /></td></tr>
-                  ) : filteredPayouts.map(p => (
+                  ) : payoutPager.paginatedItems.map(p => (
                     <Tr key={p.id}>
                       <Td>
                         <div className="flex items-center gap-2 min-w-0">
@@ -295,7 +312,19 @@ export default function PaymentsPage() {
                   ))}
                 </Tbody>
               </Table>
+              <Pagination
+                page={payoutPager.page}
+                totalPages={payoutPager.totalPages}
+                totalItems={payoutPager.totalItems}
+                pageSize={payoutPager.pageSize}
+                startIdx={payoutPager.startIdx}
+                endIdx={payoutPager.endIdx}
+                onPageChange={payoutPager.setPage}
+                onPageSizeChange={payoutPager.setPageSize}
+                noun="payouts"
+              />
             </div>
+            )}
           </CardContent>
         </Card>
       )}

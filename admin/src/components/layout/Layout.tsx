@@ -3,6 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Sidebar } from './Sidebar';
 import { Header }  from './Header';
+import { AppShellSkeleton } from '../ui';
 import type { Permission } from '../../types';
 
 export function Layout() {
@@ -20,7 +21,7 @@ export function Layout() {
     return () => window.removeEventListener('api:ratelimit', handler);
   }, []);
 
-  if (loading) return <div className="flex h-screen items-center justify-center bg-slate-50"><div className="h-8 w-8 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" /></div>;
+  if (loading) return <AppShellSkeleton />;
   if (!admin)  return <Navigate to="/login" replace />;
 
   return (

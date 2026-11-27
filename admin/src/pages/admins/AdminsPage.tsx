@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { UserPlus, Shield, Pencil, Eye, Mail, Ban, RotateCcw, KeyRound, RefreshCw, Clock } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button, SearchBar, Modal, Input, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, ConfirmDialog, DetailRow } from '../../components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button, SearchBar, Modal, Input, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, ConfirmDialog, DetailRow, Pagination, usePagination, TableSkeleton } from '../../components/ui';
 import {
   getAdmins,
   createAdmin,
@@ -322,6 +322,8 @@ export default function AdminsPage() {
     search === '' || `${a.firstName} ${a.lastName} ${a.email} ${a.role}`.toLowerCase().includes(search.toLowerCase())
   );
 
+  const { page, setPage, pageSize, setPageSize, totalItems, totalPages, paginatedItems, startIdx, endIdx } = usePagination(filtered, 10);
+
   const handleSave = async (form: { firstName: string; lastName: string; email: string }) => {
     if (submitting) return;
     setSubmitting(true);
@@ -449,14 +451,13 @@ export default function AdminsPage() {
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0 pb-0">
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
-            </div>
+            <TableSkeleton rows={5} cols={5} />
           ) : filtered.length === 0 ? (
             <EmptyState icon={<Shield className="h-8 w-8" />} title="No admins found" />
           ) : (
+            <>
             <Table>
               <Thead>
                 <Tr>
@@ -468,7 +469,7 @@ export default function AdminsPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {filtered.map(a => {
+                {paginatedItems.map(a => {
                   const statusInfo = getAccountStatusInfo(a);
                   const deliveryInfo = getDeliveryText(a.setupDelivery);
                   const isRegularAdmin = String(a.role || '').toLowerCase() === 'admin';
@@ -593,6 +594,18 @@ export default function AdminsPage() {
                 })}
               </Tbody>
             </Table>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              startIdx={startIdx}
+              endIdx={endIdx}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              noun="admins"
+            />
+            </>
           )}
         </CardContent>
       </Card>

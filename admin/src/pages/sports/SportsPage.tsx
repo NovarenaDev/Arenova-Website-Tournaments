@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Medal, Plus, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Input } from '../../components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Input, Pagination, usePagination, TableSkeleton } from '../../components/ui';
 import { getAdminSports, createSport, updateSport, deleteSport, uploadImage, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Sport } from '../../types';
@@ -93,6 +93,8 @@ export default function SportsPage() {
     search === '' || s.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const { page, setPage, pageSize, setPageSize, totalItems, totalPages, paginatedItems, startIdx, endIdx } = usePagination(filtered, 10);
+
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -114,12 +116,11 @@ export default function SportsPage() {
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0 pb-0">
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
-            </div>
+            <TableSkeleton rows={5} cols={6} />
           ) : (
+            <>
             <Table>
               <Thead>
                 <Tr>
@@ -133,7 +134,7 @@ export default function SportsPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {filtered.map(s => (
+                {paginatedItems.map(s => (
                   <Tr key={s.id}>
                     <Td>
                       <div className="flex items-center gap-2">
@@ -171,6 +172,18 @@ export default function SportsPage() {
                 ))}
               </Tbody>
             </Table>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              startIdx={startIdx}
+              endIdx={endIdx}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              noun="sports"
+            />
+            </>
           )}
         </CardContent>
       </Card>

@@ -15,7 +15,8 @@ import {
 import { DisputeItem, SettlementDetail, RefundItem } from '../../types';
 import {
   Card, CardHeader, CardTitle, CardContent, Badge, Button,
-  StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog
+  StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog,
+  Pagination, usePagination, TableSkeleton
 } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
 import { clsx } from 'clsx';
@@ -261,6 +262,10 @@ export default function SettlementsPage() {
     return bId.includes(q) || cust.includes(q) || coach.includes(q) || sp.includes(q);
   });
 
+  const disputePager = usePagination(filteredDisputes, 10);
+  const withdrawalPager = usePagination(withdrawals, 10);
+  const refundPager = usePagination(refunds, 10);
+
   return (
     <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto">
 
@@ -421,6 +426,10 @@ export default function SettlementsPage() {
           </div>
 
           <Card>
+            {loadingDisputes ? (
+              <TableSkeleton rows={6} cols={8} />
+            ) : (
+            <>
             <Table>
               <Thead>
                 <tr>
@@ -436,14 +445,7 @@ export default function SettlementsPage() {
                 </tr>
               </Thead>
               <Tbody>
-                {loadingDisputes ? (
-                  <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400 text-xs">
-                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-[#F05A22]" />
-                      Loading dispute queue...
-                    </td>
-                  </tr>
-                ) : filteredDisputes.length === 0 ? (
+                {filteredDisputes.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-12 text-center text-slate-400 text-xs">
                       <Shield className="h-8 w-8 mx-auto mb-2 text-slate-300" />
@@ -451,7 +453,7 @@ export default function SettlementsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredDisputes.map(d => {
+                  disputePager.paginatedItems.map(d => {
                     const bId = d.bookingId || d.id || d._id;
                     const custName = d.customer?.name || (d.customer && typeof d.customer === 'string' && userMap[d.customer]) || (d.customer?.firstName ? `${d.customer.firstName} ${d.customer.lastName || ''}`.trim() : '') || (userMap[String(d.booking?.userId || '')]) || 'Customer';
                     const coachName = d.coach?.name || (d.coach && typeof d.coach === 'string' && coachMap[d.coach]) || (d as any).coachName || (coachMap[String(d.booking?.coachId || '')]) || 'Coach';
@@ -521,6 +523,19 @@ export default function SettlementsPage() {
                 )}
               </Tbody>
             </Table>
+            <Pagination
+              page={disputePager.page}
+              totalPages={disputePager.totalPages}
+              totalItems={disputePager.totalItems}
+              pageSize={disputePager.pageSize}
+              startIdx={disputePager.startIdx}
+              endIdx={disputePager.endIdx}
+              onPageChange={disputePager.setPage}
+              onPageSizeChange={disputePager.setPageSize}
+              noun="disputes"
+            />
+            </>
+            )}
           </Card>
         </div>
       )}
@@ -575,6 +590,10 @@ export default function SettlementsPage() {
           </div>
 
           <Card>
+            {loadingWithdrawals ? (
+              <TableSkeleton rows={6} cols={7} />
+            ) : (
+            <>
             <Table>
               <Thead>
                 <tr>
@@ -588,14 +607,7 @@ export default function SettlementsPage() {
                 </tr>
               </Thead>
               <Tbody>
-                {loadingWithdrawals ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
-                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-[#F05A22]" />
-                      Loading coach withdrawals...
-                    </td>
-                  </tr>
-                ) : withdrawals.length === 0 ? (
+                {withdrawals.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
                       <CreditCard className="h-8 w-8 mx-auto mb-2 text-slate-300" />
@@ -603,7 +615,7 @@ export default function SettlementsPage() {
                     </td>
                   </tr>
                 ) : (
-                  withdrawals.map(w => {
+                  withdrawalPager.paginatedItems.map(w => {
                     const id = w.id || w._id;
                     const coachName = w.coach?.name || (w.coach && typeof w.coach === 'string' && coachMap[w.coach]) || w.coachName || (w.coachId && coachMap[w.coachId]) || 'Coach';
                     const isPending = w.status === 'pending';
@@ -682,6 +694,19 @@ export default function SettlementsPage() {
                 )}
               </Tbody>
             </Table>
+            <Pagination
+              page={withdrawalPager.page}
+              totalPages={withdrawalPager.totalPages}
+              totalItems={withdrawalPager.totalItems}
+              pageSize={withdrawalPager.pageSize}
+              startIdx={withdrawalPager.startIdx}
+              endIdx={withdrawalPager.endIdx}
+              onPageChange={withdrawalPager.setPage}
+              onPageSizeChange={withdrawalPager.setPageSize}
+              noun="withdrawals"
+            />
+            </>
+            )}
           </Card>
         </div>
       )}
@@ -736,6 +761,10 @@ export default function SettlementsPage() {
           </div>
 
           <Card>
+            {loadingRefunds ? (
+              <TableSkeleton rows={6} cols={7} />
+            ) : (
+            <>
             <Table>
               <Thead>
                 <tr>
@@ -749,14 +778,7 @@ export default function SettlementsPage() {
                 </tr>
               </Thead>
               <Tbody>
-                {loadingRefunds ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
-                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-[#F05A22]" />
-                      Loading session refunds...
-                    </td>
-                  </tr>
-                ) : refunds.length === 0 ? (
+                {refunds.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
                       <RotateCcw className="h-8 w-8 mx-auto mb-2 text-slate-300" />
@@ -764,7 +786,7 @@ export default function SettlementsPage() {
                     </td>
                   </tr>
                 ) : (
-                  refunds.map(r => {
+                  refundPager.paginatedItems.map(r => {
                     const id = String(r.id || r._id || '');
                     const userName = r.userName || (r.userId && userMap[r.userId]) || 'Customer';
                     const isPending = r.status === 'pending';
@@ -839,6 +861,19 @@ export default function SettlementsPage() {
                 )}
               </Tbody>
             </Table>
+            <Pagination
+              page={refundPager.page}
+              totalPages={refundPager.totalPages}
+              totalItems={refundPager.totalItems}
+              pageSize={refundPager.pageSize}
+              startIdx={refundPager.startIdx}
+              endIdx={refundPager.endIdx}
+              onPageChange={refundPager.setPage}
+              onPageSizeChange={refundPager.setPageSize}
+              noun="refunds"
+            />
+            </>
+            )}
           </Card>
         </div>
       )}

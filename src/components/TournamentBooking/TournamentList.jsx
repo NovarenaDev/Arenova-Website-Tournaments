@@ -204,9 +204,19 @@ export default function TournamentList({
       </div>
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
-          <div style={{ fontSize: '32px', marginBottom: '12px' }}>⏳</div>
-          <p>Loading live tournaments from Arenova network...</p>
+        <div className="skeleton-card-grid" aria-busy="true" aria-label="Loading tournaments">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div key={idx} className="skeleton-card">
+              <div className="skeleton-shimmer" style={{ height: '160px', width: '100%' }} />
+              <div className="skeleton-shimmer" style={{ height: '14px', width: '35%' }} />
+              <div className="skeleton-shimmer" style={{ height: '20px', width: '80%' }} />
+              <div className="skeleton-shimmer" style={{ height: '14px', width: '60%' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+                <div className="skeleton-shimmer" style={{ height: '28px', width: '90px' }} />
+                <div className="skeleton-shimmer" style={{ height: '32px', width: '110px' }} />
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

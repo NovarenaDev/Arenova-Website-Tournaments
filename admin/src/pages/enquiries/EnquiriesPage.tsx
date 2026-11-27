@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MessageSquare, Calendar, User, Mail, Phone, Trash2, Eye, ClipboardList } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Select, Textarea, DetailRow } from '../../components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Select, Textarea, DetailRow, Pagination, usePagination, TableSkeleton } from '../../components/ui';
 import { getEnquiryStats, getEnquiries, getEnquiry, updateEnquiryStatus, deleteEnquiry, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -185,6 +185,7 @@ export default function EnquiriesPage() {
   const [filter, setFilter] = useState('All');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deleteEnquiryItem, setDeleteEnquiryItem] = useState<Enquiry | null>(null);
+  const { page, setPage, pageSize, setPageSize, totalItems, totalPages, paginatedItems, startIdx, endIdx } = usePagination(enquiries, 10);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -308,14 +309,13 @@ export default function EnquiriesPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0 pb-0">
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
-            </div>
+            <TableSkeleton rows={6} cols={5} />
           ) : enquiries.length === 0 ? (
             <EmptyState icon={<MessageSquare className="h-8 w-8" />} title="No enquiries found" />
           ) : (
+            <>
             <Table>
               <Thead>
                 <Tr>
@@ -327,7 +327,7 @@ export default function EnquiriesPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {enquiries.map((e) => {
+                {paginatedItems.map((e) => {
                   const id = e._id || e.id;
                   return (
                     <Tr key={id}>
@@ -379,6 +379,18 @@ export default function EnquiriesPage() {
                 })}
               </Tbody>
             </Table>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              startIdx={startIdx}
+              endIdx={endIdx}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              noun="enquiries"
+            />
+            </>
           )}
         </CardContent>
       </Card>

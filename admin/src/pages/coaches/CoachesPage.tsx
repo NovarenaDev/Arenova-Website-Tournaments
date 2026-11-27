@@ -7,7 +7,7 @@ import {
 import {
   Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button,
   SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr,
-  EmptyState, ConfirmDialog, Modal, Input
+  EmptyState, ConfirmDialog, Modal, Input, Pagination, usePagination, TableSkeleton
 } from '../../components/ui';
 import {
   getAdminCoaches, getAdminCoach, approveKyc, updateCoachPricing,
@@ -710,6 +710,8 @@ export default function CoachesPage() {
     return matchSearch && matchFilter && matchToday;
   });
 
+  const { page, setPage, pageSize, setPageSize, totalItems, totalPages, paginatedItems, startIdx, endIdx } = usePagination(filtered, 10);
+
   const exportCoachesCsv = useCallback(() => {
     if (filtered.length === 0) {
       alert('No coach records match the current filters to export.');
@@ -1169,14 +1171,13 @@ export default function CoachesPage() {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
-            </div>
+            <TableSkeleton rows={6} cols={8} />
           ) : filtered.length === 0 ? (
             <div className="py-12">
               <EmptyState icon={<Award className="h-8 w-8 text-gray-400" />} title="No coaches found" />
             </div>
           ) : (
+            <>
             <Table>
               <Thead>
                 <Tr>
@@ -1193,7 +1194,7 @@ export default function CoachesPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {filtered.map(c => {
+                {paginatedItems.map(c => {
                   const isExp = expanded === c.id;
                   const indPrice = c.individualPrice ?? c.requestedIndividualPrice ?? 0;
                   const grpPrice = c.groupPricePerPerson ?? c.requestedGroupPricePerPerson ?? 0;
@@ -1381,6 +1382,18 @@ export default function CoachesPage() {
                 })}
               </Tbody>
             </Table>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              startIdx={startIdx}
+              endIdx={endIdx}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              noun="coaches"
+            />
+            </>
           )}
         </CardContent>
       </Card>

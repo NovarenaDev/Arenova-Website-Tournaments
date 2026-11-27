@@ -65,11 +65,11 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
       )}
     >
 
-      <div className="flex flex-col items-center justify-center gap-1.5 border-b border-white/10 px-4 py-3.5">
-        <div className="rounded-xl bg-white/95 px-3 py-1.5 shadow-sm ring-1 ring-white/25">
+      <div className="flex flex-col items-start gap-1.5 border-b border-white/10 px-4 py-3.5">
+        <div className="rounded-xl bg-white/95 px-2.5 py-1.5 shadow-sm ring-1 ring-white/25">
           <img src={logo} alt="Arenova Logo" className="h-6 w-auto object-contain" />
         </div>
-        <p className="text-[10px] text-slate-300/90 font-semibold tracking-wider uppercase">Admin Panel</p>
+        <p className="text-[10px] text-slate-300/90 font-semibold tracking-wider uppercase pl-0.5">Admin Panel</p>
       </div>
 
       {admin && (

@@ -420,8 +420,20 @@ export default function UserDashboard({
               )}
 
               {loading && (
-                <div style={{ textAlign: 'center', padding: '50px 0', color: 'var(--muted)' }}>
-                  Loading your tournament passes...
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '12px 0' }} aria-busy="true" aria-label="Loading passes">
+                  {Array.from({ length: 3 }).map((_, idx) => (
+                    <div key={idx} className="skeleton-card" style={{ padding: '20px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                        <div className="skeleton-shimmer" style={{ height: '20px', width: '55%' }} />
+                        <div className="skeleton-shimmer" style={{ height: '22px', width: '90px', borderRadius: '99px' }} />
+                      </div>
+                      <div className="skeleton-shimmer" style={{ height: '14px', width: '40%' }} />
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                        <div className="skeleton-shimmer" style={{ height: '34px', width: '120px' }} />
+                        <div className="skeleton-shimmer" style={{ height: '34px', width: '120px' }} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -746,8 +758,16 @@ export default function UserDashboard({
               )}
 
               {loadingInvoices && (
-                <div style={{ textAlign: 'center', padding: '50px 0', color: 'var(--muted)' }}>
-                  Loading payment invoices...
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '12px 0' }} aria-busy="true" aria-label="Loading invoices">
+                  {Array.from({ length: 4 }).map((_, idx) => (
+                    <div key={idx} className="skeleton-card" style={{ padding: '16px', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div className="skeleton-shimmer" style={{ height: '16px', width: '45%' }} />
+                        <div className="skeleton-shimmer" style={{ height: '12px', width: '30%' }} />
+                      </div>
+                      <div className="skeleton-shimmer" style={{ height: '32px', width: '100px' }} />
+                    </div>
+                  ))}
                 </div>
               )}
 

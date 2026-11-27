@@ -12,7 +12,7 @@ import {
 import { Banner, BannerTargetType } from '../../types';
 import {
   Card, CardHeader, CardTitle, CardContent, Badge, Button,
-  StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog
+  StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, CardGridSkeleton
 } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
 import { clsx } from 'clsx';
@@ -509,10 +509,7 @@ export default function BannersPage() {
       </div>
 
       {loading ? (
-        <div className="py-20 text-center">
-          <RefreshCw className="h-7 w-7 animate-spin mx-auto mb-2 text-[#F05A22]" />
-          <p className="text-xs font-medium text-slate-500">Loading banners...</p>
-        </div>
+        <CardGridSkeleton count={6} />
       ) : filteredBanners.length === 0 ? (
         <Card className="py-16 text-center">
           <EmptyState

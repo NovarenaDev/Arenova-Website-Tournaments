@@ -1,6 +1,6 @@
-import React, { ReactNode, useEffect, useId, useState } from 'react';
+import React, { ReactNode, useEffect, useId, useMemo, useState } from 'react';
 import { clsx } from 'clsx';
-import { X, AlertTriangle } from 'lucide-react';
+import { X, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export function Badge({ className, children }: { className?: string; children: ReactNode }) {
   return <span className={clsx('badge', className)}>{children}</span>;
@@ -102,17 +102,17 @@ export function StatCard({
 export function Table({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className="w-full overflow-x-auto min-w-0">
-      <table className={clsx('w-full border-collapse text-[12px] min-w-[550px]', className)}>{children}</table>
+      <table className={clsx('w-full border-collapse text-[12px] min-w-[640px] lg:min-w-full', className)}>{children}</table>
     </div>
   );
 }
 export function Thead({ children }: { children: ReactNode }) { return <thead className="bg-slate-100/80 border-b border-slate-200/80">{children}</thead>; }
 export function Tbody({ children }: { children: ReactNode }) { return <tbody>{children}</tbody>; }
 export function Th({ children, className, title }: { children?: ReactNode; className?: string; title?: string }) {
-  return <th title={title} className={clsx('px-3 sm:px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap', className)}>{children}</th>;
+  return <th title={title} className={clsx('px-3 sm:px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap', className)}>{children}</th>;
 }
 export function Td({ children, className, colSpan, onClick, title }: { children: ReactNode; className?: string; colSpan?: number; onClick?: (e: React.MouseEvent<HTMLTableCellElement>) => void; title?: string }) {
-  return <td title={title} colSpan={colSpan} onClick={onClick} className={clsx('px-3 sm:px-4 py-3.5 text-slate-800', className)}>{children}</td>;
+  return <td title={title} colSpan={colSpan} onClick={onClick} className={clsx('px-3 sm:px-4 py-2.5 text-slate-800', className)}>{children}</td>;
 }
 export function Tr({ children, className, onClick }: { children: ReactNode; className?: string; onClick?: (e: React.MouseEvent<HTMLTableRowElement>) => void }) {
   return <tr onClick={onClick} className={clsx('table-row last:border-0', className)}>{children}</tr>;
@@ -354,6 +354,278 @@ export function DetailRow({ label, value, className }: { label: string; value: R
     <div className={clsx('flex flex-col gap-0.5 min-w-0', className)}>
       <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 truncate">{label}</p>
       <div className="text-sm font-medium text-slate-800 break-words min-w-0">{value}</div>
+    </div>
+  );
+}
+
+export function usePagination<T>(items: T[], initialPageSize = 8) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize === 10 ? 8 : initialPageSize);
+  const totalItems = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  useEffect(() => {
+    if (page > totalPages) setPage(1);
+  }, [page, totalPages]);
+
+  const paginatedItems = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return items.slice(start, start + pageSize);
+  }, [items, page, pageSize]);
+
+  const startIdx = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endIdx = Math.min(page * pageSize, totalItems);
+
+  return { page, setPage, pageSize, setPageSize, totalItems, totalPages, paginatedItems, startIdx, endIdx };
+}
+
+export function Pagination({
+  page,
+  totalPages,
+  totalItems,
+  pageSize,
+  startIdx,
+  endIdx,
+  onPageChange,
+  onPageSizeChange,
+  noun = 'records',
+}: {
+  page: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  startIdx: number;
+  endIdx: number;
+  onPageChange: (p: number) => void;
+  onPageSizeChange: (size: number) => void;
+  noun?: string;
+}) {
+  if (totalItems === 0) return null;
+
+  const getPageNumbers = (): (number | '...')[] => {
+    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages: (number | '...')[] = [1];
+    if (page > 3) pages.push('...');
+    for (let p = Math.max(2, page - 1); p <= Math.min(totalPages - 1, page + 1); p++) {
+      pages.push(p);
+    }
+    if (page < totalPages - 2) pages.push('...');
+    pages.push(totalPages);
+    return pages;
+  };
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-5 py-3 border-t border-slate-200/70 bg-gradient-to-r from-slate-50/90 via-white/95 to-slate-50/90">
+      <div className="flex items-center gap-2.5 text-xs text-slate-500 flex-wrap justify-center sm:justify-start">
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 border border-slate-200/80 px-3 py-1 text-[11px] font-medium text-slate-600">
+          Showing <strong className="text-slate-900">{startIdx}–{endIdx}</strong> of <strong className="text-slate-900">{totalItems}</strong> {noun}
+        </span>
+        <label className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200/90 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 shadow-2xs">
+          <span>Per page</span>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              onPageSizeChange(Number(e.target.value));
+              onPageChange(1);
+            }}
+            className="bg-transparent py-0.5 text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+          >
+            {[8, 15, 25, 50].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="inline-flex items-center gap-1 rounded-2xl bg-slate-100/90 p-1 border border-slate-200/80 shadow-2xs">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => onPageChange(Math.max(1, page - 1))}
+          className="h-7 px-2.5 rounded-xl text-[11px] font-semibold text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-2xs disabled:opacity-35 disabled:cursor-not-allowed inline-flex items-center gap-1 cursor-pointer transition-all"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Prev</span>
+        </button>
+
+        {getPageNumbers().map((item, idx) =>
+          item === '...' ? (
+            <span key={`e-${idx}`} className="px-1.5 text-xs text-slate-400">...</span>
+          ) : (
+            <button
+              key={item}
+              type="button"
+              onClick={() => onPageChange(item)}
+              className={clsx(
+                'h-7 min-w-[28px] px-2 rounded-xl text-xs font-bold transition-all cursor-pointer',
+                page === item
+                  ? 'bg-gradient-to-r from-[#fff6f0] via-[#ffecdf] to-[#ffe1cc] text-[#c2410c] border border-[#fdba74]/90 shadow-sm'
+                  : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
+              )}
+            >
+              {item}
+            </button>
+          )
+        )}
+
+        <button
+          type="button"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+          className="h-7 px-2.5 rounded-xl text-[11px] font-semibold text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-2xs disabled:opacity-35 disabled:cursor-not-allowed inline-flex items-center gap-1 cursor-pointer transition-all"
+        >
+          <span className="hidden sm:inline">Next</span>
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={clsx('animate-pulse rounded-xl bg-gradient-to-r from-slate-200/80 via-slate-100/90 to-slate-200/80', className)} />;
+}
+
+export function PageSkeleton({ statCount = 4, cols = 6, rows = 6 }: { statCount?: number; cols?: number; rows?: number }) {
+  return (
+    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
+      <StatCardsSkeleton count={statCount} />
+      <div className="card overflow-hidden">
+        <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <Skeleton className="h-4 w-36" />
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-44 rounded-xl" />
+            <Skeleton className="h-8 w-24 rounded-full" />
+            <Skeleton className="h-8 w-20 rounded-full" />
+          </div>
+        </div>
+        <TableSkeleton rows={rows} cols={cols} />
+      </div>
+    </div>
+  );
+}
+
+export function StatCardsSkeleton({ count = 4 }: { count?: number }) {
+  const cols =
+    count === 5
+      ? 'grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5'
+      : 'grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4';
+  return (
+    <div className={clsx('grid', cols)}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="stat-card bg-white/80 border-slate-200/80">
+          <div className="flex items-center gap-3.5">
+            <Skeleton className="h-11 w-11 rounded-2xl flex-shrink-0" />
+            <div className="flex-1 space-y-2 min-w-0">
+              <Skeleton className="h-2.5 w-20" />
+              <Skeleton className="h-6 w-14" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function TableSkeleton({ rows = 6, cols = 6 }: { rows?: number; cols?: number }) {
+  return (
+    <div className="w-full overflow-hidden">
+      <div className="bg-slate-100/80 border-y border-slate-200/80 px-4 py-3 flex items-center gap-4">
+        {Array.from({ length: cols }).map((_, i) => (
+          <Skeleton key={i} className="h-3 flex-1 max-w-[120px]" />
+        ))}
+      </div>
+      <div className="divide-y divide-slate-100">
+        {Array.from({ length: rows }).map((_, r) => (
+          <div key={r} className="px-4 py-3.5 flex items-center gap-4">
+            <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
+            <div className="flex-1 space-y-1.5 min-w-0 max-w-[200px]">
+              <Skeleton className="h-3.5 w-3/4" />
+              <Skeleton className="h-2.5 w-1/2" />
+            </div>
+            {Array.from({ length: Math.max(1, cols - 2) }).map((_, c) => (
+              <Skeleton key={c} className="h-5 flex-1 max-w-[96px] rounded-full hidden sm:block" />
+            ))}
+            <div className="ml-auto flex gap-1.5">
+              <Skeleton className="h-7 w-7 rounded-lg" />
+              <Skeleton className="h-7 w-7 rounded-lg" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function CardGridSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="card p-4 space-y-3">
+          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-3 w-1/2" />
+          <div className="flex gap-2 pt-1">
+            <Skeleton className="h-7 w-20 rounded-lg" />
+            <Skeleton className="h-7 w-16 rounded-lg" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function DashboardSkeleton() {
+  return (
+    <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
+      <StatCardsSkeleton count={4} />
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="h-3 w-32" />
+        </div>
+        <Skeleton className="h-64 w-full rounded-2xl" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="card p-5 space-y-3.5">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-8 w-full rounded-xl" />
+            <Skeleton className="h-8 w-full rounded-xl" />
+            <Skeleton className="h-8 w-full rounded-xl" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function AppShellSkeleton() {
+  return (
+    <div className="flex h-screen overflow-hidden bg-slate-50">
+      <div className="hidden md:flex w-[224px] flex-shrink-0 flex-col bg-[#0b1c3d] p-4 gap-3">
+        <Skeleton className="h-12 w-full bg-white/10 rounded-xl" />
+        <Skeleton className="h-6 w-24 bg-white/10 rounded-full" />
+        <div className="space-y-2 pt-3">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <Skeleton key={i} className="h-9 w-full bg-white/10 rounded-xl" />
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-1 flex-col min-w-0 bg-gradient-to-br from-[#eef2f7] via-[#f6f8fc] to-[#e7edf6]">
+        <div className="h-[96px] border-b border-slate-200/70 bg-white/70 px-6 flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-44" />
+            <Skeleton className="h-3 w-72" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-20 rounded-xl" />
+            <Skeleton className="h-9 w-20 rounded-xl" />
+            <Skeleton className="h-9 w-36 rounded-xl" />
+          </div>
+        </div>
+        <DashboardSkeleton />
+      </div>
     </div>
   );
 }

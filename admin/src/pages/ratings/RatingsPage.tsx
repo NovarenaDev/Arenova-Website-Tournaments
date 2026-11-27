@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ShieldAlert, Flag, Eye, Trash2 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button, SearchBar, FilterPill, StatCard, Stars, ProgressBar, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, DetailRow } from '../../components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar, Button, SearchBar, FilterPill, StatCard, Stars, ProgressBar, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, DetailRow, Pagination, usePagination, TableSkeleton } from '../../components/ui';
 import { getAdminReviews, flagReview, deleteReview, getAdminCoaches, getCustomers, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -150,6 +150,8 @@ export default function RatingsPage() {
     return matchSearch && matchFilter;
   });
 
+  const { page, setPage, pageSize, setPageSize, totalItems, totalPages, paginatedItems, startIdx, endIdx } = usePagination(filtered, 10);
+
   const handleFlag = async (id: string) => {
     try {
       await flagReview(id);
@@ -240,9 +242,7 @@ export default function RatingsPage() {
         </CardHeader>
         <CardContent className="px-0 pb-0">
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
-            </div>
+            <TableSkeleton rows={6} cols={7} />
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -261,7 +261,7 @@ export default function RatingsPage() {
                   {filtered.length === 0 ? (
                     <tr><td colSpan={7}><EmptyState icon={<ShieldAlert className="h-8 w-8 text-slate-300" />} title="No reviews found" /></td></tr>
                   ) : (
-                    filtered.map(r => (
+                    paginatedItems.map(r => (
                       <Tr key={r.id}>
                         <Td className="text-slate-500 font-mono text-[11px] font-medium">#{r.bookingId ? String(r.bookingId).slice(-6).toUpperCase() : 'N/A'}</Td>
                         <Td>
@@ -296,6 +296,17 @@ export default function RatingsPage() {
                   )}
                 </Tbody>
               </Table>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                startIdx={startIdx}
+                endIdx={endIdx}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                noun="reviews"
+              />
             </div>
           )}
         </CardContent>

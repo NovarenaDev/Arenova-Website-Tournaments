@@ -14,7 +14,7 @@ import {
 import {
   Card, CardHeader, CardTitle, CardContent,
   Badge, Button, StatCard, Table, Thead, Tbody, Th, Td, Tr,
-  EmptyState, Modal, DetailRow
+  EmptyState, Modal, DetailRow, TableSkeleton
 } from '../../components/ui';
 import { clsx } from 'clsx';
 
@@ -519,10 +519,7 @@ export default function AuditLogsPage() {
           )}
 
           {loadingLogs ? (
-            <div className="py-16 flex flex-col items-center justify-center">
-              <div className="h-7 w-7 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin mb-3" />
-              <p className="text-xs text-[#5c6370]">Retrieving verified audit records...</p>
-            </div>
+            <TableSkeleton rows={8} cols={7} />
           ) : logs.length === 0 ? (
             <EmptyState
               icon={<History className="h-8 w-8 text-[#5c6370]" />}

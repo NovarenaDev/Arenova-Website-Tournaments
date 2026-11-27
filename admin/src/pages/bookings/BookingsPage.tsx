@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CalendarDays, CheckCircle, Clock, XCircle, AlertTriangle } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState } from '../../components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Pagination, usePagination, TableSkeleton } from '../../components/ui';
 import { getAdminBookings, updateBookingStatus, getAdminCoaches, getCustomers, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Booking, BookingStatus } from '../../types';
@@ -181,6 +181,8 @@ export default function BookingsPage() {
     noShow:    bookings.filter(b => b.status === 'no_show').length,
   };
 
+  const { page, setPage, pageSize, setPageSize, totalItems, totalPages, paginatedItems, startIdx, endIdx } = usePagination(filtered, 10);
+
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
 
@@ -204,14 +206,13 @@ export default function BookingsPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0 pb-0">
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" />
-            </div>
+            <TableSkeleton rows={6} cols={8} />
           ) : filtered.length === 0 ? (
             <EmptyState icon={<CalendarDays className="h-8 w-8 text-slate-300" />} title="No bookings found" />
           ) : (
+            <>
             <Table>
               <Thead>
                 <Tr>
@@ -227,7 +228,7 @@ export default function BookingsPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {filtered.map(b => {
+                {paginatedItems.map(b => {
                   const bId = getBookingId(b);
                   const userName = getBookingUserName(b, userMap);
                   const coachName = getBookingCoachName(b, coachMap);
@@ -281,6 +282,18 @@ export default function BookingsPage() {
                 })}
               </Tbody>
             </Table>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              startIdx={startIdx}
+              endIdx={endIdx}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              noun="bookings"
+            />
+            </>
           )}
         </CardContent>
       </Card>

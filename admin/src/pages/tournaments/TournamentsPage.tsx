@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useId } from 'react';
 import { Medal, Users, CalendarDays, Trophy, Plus, MapPin, Clock, Pencil, Trash2, Eye } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Input, Select, Textarea, DetailRow } from '../../components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Button, SearchBar, FilterPill, StatCard, Table, Thead, Tbody, Th, Td, Tr, EmptyState, Modal, ConfirmDialog, Input, Select, Textarea, DetailRow, Pagination, usePagination, TableSkeleton } from '../../components/ui';
 import { getAdminTournaments, getPublicTournaments, createTournament, updateTournament, deleteTournament, getTournamentOptions, updateTournamentStatus, getTournamentRegistrations, exportTournamentRegistrations, extractDataList } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -1361,6 +1361,8 @@ export default function TournamentsPage() {
     completed: tournaments.filter(t => matchesTournamentStatus(t, 'Completed')).length
   };
 
+  const { page, setPage, pageSize, setPageSize, totalItems, totalPages, paginatedItems, startIdx, endIdx } = usePagination(filtered, 10);
+
   return (
     <div className="flex flex-col gap-4 sm:gap-5 p-3 sm:p-5 min-w-0 max-w-full">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1379,14 +1381,15 @@ export default function TournamentsPage() {
             {can('sports_write') && <Button variant="primary" className="h-8 gap-1.5" onClick={() => { setEditT(null); setFormOpen(true); }}><Plus className="h-3.5 w-3.5" />Create</Button>}
           </div>
         </CardHeader>
-        <CardContent>
-          {loading ? <div className="flex justify-center py-12"><div className="h-6 w-6 rounded-full border-2 border-[#F05A22] border-t-transparent animate-spin" /></div>
+        <CardContent className="px-0 pb-0">
+          {loading ? <TableSkeleton rows={6} cols={7} />
             : filtered.length === 0 ? <EmptyState icon={<Trophy className="h-8 w-8" />} title="No tournaments found" />
             : (
+              <>
               <Table>
                 <Thead><Tr><Th>Tournament</Th><Th>Sport</Th><Th>Registration Type</Th><Th>Tournament Dates</Th><Th>Reg Dates</Th><Th>Status</Th><Th>Actions</Th></Tr></Thead>
                 <Tbody>
-                  {filtered.map(t => {
+                  {paginatedItems.map(t => {
                     const startDateStr = formatDateTime(t.startDate);
                     const regEndStr = formatDateTime(t.registrationEndDate);
                     const displayStatus = getEffectiveTournamentStatus(t);
@@ -1425,6 +1428,18 @@ export default function TournamentsPage() {
                   })}
                 </Tbody>
               </Table>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                startIdx={startIdx}
+                endIdx={endIdx}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                noun="tournaments"
+              />
+              </>
             )}
         </CardContent>
       </Card>
